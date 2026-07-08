@@ -35,6 +35,24 @@ Autónomos y pymes españolas que gestionan compras/ventas y facturación con ob
   Admin: admin@nexopro.com / Admin1234!. Licencia demo: NEXO-DEMO-0001 (frontend/.env REACT_APP_LICENSE_KEY).
 
 ## Estado / Bloqueos
+- TALLER — HOJA DE ENTRADA + BUSCADOR DE ARTÍCULOS + CONFIRMAR CITA (2026-07-08):
+  · Hoja de entrada/recepción de vehículo (lib/taller_print.js imprimirHojaEntrada): A4 con DOS
+    ejemplares (TALLER + CLIENTE) en la misma hoja, con datos taller/cliente/vehículo (matrícula,
+    marca/modelo, bastidor, color, km, combustible), fecha/hora, trabajos solicitados, CROQUIS del
+    coche (SVG) para marcar daños, objetos de valor, presupuesto máx., aviso legal RGPD + retención
+    art.1600 CC, y firmas. Botón "hoja-entrada" (icono ClipboardText) en cada fila de Órdenes de
+    trabajo. Sin campos nuevos en BD (usa datos existentes + líneas en blanco para rellenar a mano).
+    Verificado por render de captura (2 ejemplares OK).
+  · Buscador de artículos en LineasEditor.jsx: botón "Buscar artículo" + lupa por línea que abren
+    diálogo con búsqueda en tiempo real (referencia/nombre/cód. barras/cód. proveedor) y selección
+    con un clic que rellena la línea. Sustituye al antiguo desplegable "+ Desde artículo". Aplica a
+    presupuestos, pedidos, albaranes, facturas y órdenes. Verificado por captura.
+  · Enlace CONFIRMAR/CANCELAR cita en recordatorios: cada cita tiene token; email/whatsapp incluyen
+    {enlace} = {app_url}/cita/{token}. Página pública ConfirmarCita.jsx (ruta /cita/:token fuera del
+    gate) muestra la cita y botones Confirmar/Cancelar. Backend: GET /api/public/cita/{token} y
+    POST /api/public/cita/{token}/responder (accion=confirmar|cancelar → estado confirmada/cancelada).
+    app_url se guarda en ajustes (lo envía el frontend en save + al enviar recordatorio) para que el
+    scheduler construya el enlace. Verificado E2E por captura (estado pasa a 'confirmada').
 - TALLER — CORTESÍAS VENCIDAS EN ROJO + RECORDATORIOS DE CITAS (2026-07-08):
   · UI: coches de cortesía vencidos (fecha_devolucion_prevista < hoy y no devueltos) se resaltan en ROJO
     con badge "Vencida" en TallerDashboard.jsx y en la lista de Cortesia.jsx. Verificado por screenshot.

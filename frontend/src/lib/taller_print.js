@@ -100,6 +100,107 @@ export function imprimirParteOrden({ empresa = {}, orden = {}, vehiculo = {} }) 
   open(shell(`Parte ${orden.numero || ""}`, body));
 }
 
+const CAR_SVG = `<svg viewBox="0 0 320 150" width="100%" height="130" preserveAspectRatio="xMidYMid meet" style="max-width:340px">
+  <rect x="46" y="6" width="40" height="15" rx="6" fill="#e4e4e7"/>
+  <rect x="234" y="6" width="40" height="15" rx="6" fill="#e4e4e7"/>
+  <rect x="46" y="129" width="40" height="15" rx="6" fill="#e4e4e7"/>
+  <rect x="234" y="129" width="40" height="15" rx="6" fill="#e4e4e7"/>
+  <rect x="34" y="18" width="252" height="114" rx="46" fill="none" stroke="#71717a" stroke-width="1.6"/>
+  <path d="M96 30 q64 -8 128 0 l-16 30 q-48 -6 -96 0 Z" fill="none" stroke="#a1a1aa" stroke-width="1.2"/>
+  <path d="M96 120 q64 8 128 0 l-16 -30 q-48 6 -96 0 Z" fill="none" stroke="#a1a1aa" stroke-width="1.2"/>
+  <rect x="112" y="64" width="96" height="22" rx="4" fill="none" stroke="#d4d4d8" stroke-width="1"/>
+  <line x1="34" y1="75" x2="70" y2="75" stroke="#d4d4d8" stroke-width="1"/>
+  <line x1="250" y1="75" x2="286" y2="75" stroke="#d4d4d8" stroke-width="1"/>
+</svg>`;
+
+function linea(label, valor, ancho = "1fr") {
+  return `<div style="min-width:0">
+    <span style="font-size:8.5px;text-transform:uppercase;letter-spacing:.08em;color:#a1a1aa">${esc(label)}</span>
+    <div style="border-bottom:1px solid #d4d4d8;min-height:16px;font-size:12px;font-weight:600;padding:1px 0">${esc(valor || "")}</div>
+  </div>`;
+}
+
+export function imprimirHojaEntrada({ empresa = {}, orden = {}, vehiculo = {}, cliente = {} }) {
+  const trabajos = (orden.tipos_trabajo || []).map((t) => TIPOS[t] || t).join(", ");
+  const fentrada = orden.fecha_entrada || new Date().toISOString().slice(0, 10);
+  const marcaModelo = [vehiculo.marca, vehiculo.modelo].filter(Boolean).join(" ");
+  const km = vehiculo.kilometros != null ? `${vehiculo.kilometros} km` : "";
+
+  const copia = (destinatario) => `
+  <div style="border:1px solid #e4e4e7;border-radius:10px;padding:14px 16px">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid ${ACCENT};padding-bottom:8px;margin-bottom:10px">
+      ${empresaHeader(empresa)}
+      <div style="text-align:right">
+        <div style="font-size:17px;font-weight:800;letter-spacing:-.02em">Hoja de entrada</div>
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:#3f3f46;margin-top:2px">${esc(orden.numero || "—")}</div>
+        <div style="display:inline-block;margin-top:4px;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#fff;background:${ACCENT};border-radius:4px;padding:2px 7px">Ejemplar para el ${esc(destinatario)}</div>
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1.4fr 1fr 1fr;gap:10px;margin-bottom:8px">
+      ${linea("Cliente", cliente.nombre || orden.cliente_nombre)}
+      ${linea("NIF / CIF", cliente.nif)}
+      ${linea("Teléfono", cliente.telefono)}
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:8px">
+      ${linea("Matrícula", orden.vehiculo_matricula || vehiculo.matricula)}
+      ${linea("Marca / Modelo", marcaModelo)}
+      ${linea("Bastidor / VIN", vehiculo.bastidor)}
+      ${linea("Color", vehiculo.color)}
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:10px">
+      ${linea("Km de entrada", km)}
+      ${linea("Combustible", vehiculo.combustible)}
+      ${linea("Fecha de entrada", fentrada)}
+      ${linea("Hora", "")}
+    </div>
+
+    <div style="margin-bottom:10px">
+      <span style="font-size:8.5px;text-transform:uppercase;letter-spacing:.08em;color:#a1a1aa">Trabajos solicitados / motivo</span>
+      <div style="border-bottom:1px solid #d4d4d8;min-height:16px;font-size:12px;padding:1px 0">${esc([trabajos, orden.descripcion].filter(Boolean).join(" · "))}</div>
+      <div style="border-bottom:1px solid #d4d4d8;min-height:16px"></div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1.15fr 1fr;gap:16px;margin-bottom:10px">
+      <div>
+        <div style="font-size:9px;font-weight:700;color:${ACCENT};text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px">Estado y daños observados</div>
+        <div style="text-align:center;border:1px dashed #d4d4d8;border-radius:8px;padding:6px">${CAR_SVG}
+          <div style="font-size:8px;color:#a1a1aa;margin-top:2px">Marque los golpes, arañazos y daños existentes</div>
+        </div>
+      </div>
+      <div>
+        <div style="font-size:9px;font-weight:700;color:${ACCENT};text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px">Objetos de valor en el vehículo</div>
+        <div style="border-bottom:1px solid #d4d4d8;min-height:16px;margin-bottom:6px"></div>
+        <div style="border-bottom:1px solid #d4d4d8;min-height:16px;margin-bottom:6px"></div>
+        <div style="border-bottom:1px solid #d4d4d8;min-height:16px;margin-bottom:10px"></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          ${linea("Presupuesto máx. autorizado", "")}
+          ${linea("Fecha entrega estimada", orden.fecha_entrega_estimada)}
+        </div>
+      </div>
+    </div>
+
+    <div style="font-size:7.5px;color:#71717a;line-height:1.5;background:#fafafa;border:1px solid #f1f1f4;border-radius:6px;padding:7px 9px;margin-bottom:8px">
+      El cliente autoriza la reparación del vehículo por los trabajos indicados y hasta el importe máximo señalado. El taller no se
+      responsabiliza de los objetos de valor no declarados. Transcurrido el plazo de recogida, podrán aplicarse gastos de custodia
+      y estacionamiento. El vehículo podrá ser retenido hasta el pago total de la reparación (derecho de retención, art. 1.600 CC).
+      Datos tratados por ${esc(empresa.nombre || "el taller")} con la finalidad de gestionar la reparación (RGPD UE 2016/679);
+      puede ejercer sus derechos de acceso, rectificación y supresión dirigiéndose al taller.
+    </div>
+
+    <div style="display:flex;justify-content:space-between;gap:30px;margin-top:14px">
+      <div style="flex:1;border-top:1px solid #d4d4d8;padding-top:5px;font-size:10px;color:#71717a">Firma y sello del taller</div>
+      <div style="flex:1;border-top:1px solid #d4d4d8;padding-top:5px;font-size:10px;color:#71717a">Firma del cliente (conforme)</div>
+    </div>
+  </div>`;
+
+  const body = `
+    ${copia("TALLER")}
+    <div style="text-align:center;color:#a1a1aa;font-size:9px;letter-spacing:.3em;margin:8px 0">✂ - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -</div>
+    ${copia("CLIENTE")}`;
+  open(shell(`Hoja de entrada ${orden.numero || ""}`, body));
+}
+
 export function imprimirInformePeritaje({ empresa = {}, peritaje = {}, vehiculo = {} }) {
   const filas = (peritaje.danios || []).map((d) =>
     `<tr><td style="padding:7px 8px;border-bottom:1px solid #f1f1f4">${esc(d.descripcion)}</td>

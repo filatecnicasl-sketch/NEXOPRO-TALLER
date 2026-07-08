@@ -17,6 +17,7 @@ import TallerDashboard from "@/pages/TallerDashboard";
 import Citas from "@/pages/Citas";
 import Cortesia from "@/pages/Cortesia";
 import SubirFotos from "@/pages/SubirFotos";
+import ConfirmarCita from "@/pages/ConfirmarCita";
 import AdminLogin from "@/pages/AdminLogin";
 import AdminPanel from "@/pages/AdminPanel";
 
@@ -31,6 +32,9 @@ function App() {
 
           {/* Subida de fotos desde el móvil (pública, vía QR) — fuera del gate */}
           <Route path="/subir/:token" element={<SubirFotos />} />
+
+          {/* Confirmar/cancelar cita desde el recordatorio (pública) — fuera del gate */}
+          <Route path="/cita/:token" element={<ConfirmarCita />} />
 
           {/* Aplicación cliente — protegida por licencia */}
           <Route

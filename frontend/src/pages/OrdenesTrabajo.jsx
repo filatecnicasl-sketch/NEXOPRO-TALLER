@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
-import { Plus, PencilSimple, Trash, MagnifyingGlass, Wrench, Printer } from "@phosphor-icons/react";
+import { Plus, PencilSimple, Trash, MagnifyingGlass, Wrench, Printer, ClipboardText } from "@phosphor-icons/react";
 import { toast } from "sonner";
 import {
   getOrdenes, createOrden, updateOrden, deleteOrden, estadoOrden,
   getVehiculos, getContactos, getArticulos, createVehiculo, createContacto, getAjustes, eur,
 } from "@/lib/api";
-import { imprimirParteOrden } from "@/lib/taller_print";
+import { imprimirParteOrden, imprimirHojaEntrada } from "@/lib/taller_print";
 import PageHeader from "@/components/PageHeader";
 import LineasEditor from "@/components/LineasEditor";
 import { Button } from "@/components/ui/button";
@@ -60,6 +60,12 @@ export default function OrdenesTrabajo() {
   const imprimir = (o) => {
     const veh = vehiculos.find((v) => v.id === o.vehiculo_id) || {};
     imprimirParteOrden({ empresa, orden: o, vehiculo: veh });
+  };
+
+  const imprimirEntrada = (o) => {
+    const veh = vehiculos.find((v) => v.id === o.vehiculo_id) || {};
+    const cli = clientes.find((c) => c.id === (o.cliente_id || veh.cliente_id)) || { nombre: o.cliente_nombre || "" };
+    imprimirHojaEntrada({ empresa, orden: o, vehiculo: veh, cliente: cli });
   };
 
   const openNew = () => { setForm(EMPTY); setLineas([]); setEditId(null); setOpen(true); };
@@ -160,6 +166,7 @@ export default function OrdenesTrabajo() {
                 </TableCell>
                 <TableCell className="text-right tabular-nums font-medium text-zinc-900">{eur(o.total)}</TableCell>
                 <TableCell className="text-right">
+                  <button data-testid={`hoja-entrada-${o.id}`} onClick={() => imprimirEntrada(o)} className="text-zinc-400 hover:text-primary p-1.5" title="Imprimir hoja de entrada"><ClipboardText size={16} /></button>
                   <button data-testid={`imprimir-orden-${o.id}`} onClick={() => imprimir(o)} className="text-zinc-400 hover:text-primary p-1.5" title="Imprimir parte"><Printer size={16} /></button>
                   <button data-testid={`editar-orden-${o.id}`} onClick={() => openEdit(o)} className="text-zinc-400 hover:text-primary p-1.5"><PencilSimple size={16} /></button>
                   <button data-testid={`eliminar-orden-${o.id}`} onClick={() => setDelId(o.id)} className="text-zinc-400 hover:text-red-500 p-1.5"><Trash size={16} /></button>
