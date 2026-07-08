@@ -1,6 +1,6 @@
 import { NavLink, Outlet, Link } from "react-router-dom";
 import {
-  UsersThree, Truck, Package, ClipboardText, FileText, Receipt, FileArrowDown, ShieldCheck,
+  UsersThree, Truck, Package, ClipboardText, FileText, Receipt, FileArrowDown, ShieldCheck, Gear,
 } from "@phosphor-icons/react";
 
 const LOGO = "https://customer-assets.emergentagent.com/job_invoice-hub-861/artifacts/7wiurgv7_favicom.png";
@@ -26,6 +26,12 @@ const GROUPS = [
     label: "Catálogo",
     items: [
       { to: "/articulos", label: "Artículos", icon: Package, testid: "nav-articulos" },
+    ],
+  },
+  {
+    label: "Sistema",
+    items: [
+      { to: "/ajustes", label: "Ajustes", icon: Gear, testid: "nav-ajustes" },
     ],
   },
 ];

@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="5" time="1.319" timestamp="2026-07-08T13:17:59.362190+00:00" hostname="agent-env-ab20570c-75e4-4c28-911d-5a2fbf47c1b3"><testcase classname="tests.test_ajustes.TestAjustes" name="test_get_ajustes_shape" time="0.214" /><testcase classname="tests.test_ajustes.TestNumeracionPorSerie" name="test_factura_usa_contador_serie" time="0.538" /><testcase classname="tests.test_ajustes.TestAjustes" name="test_put_ajustes_persists" time="0.139"><failure message="AssertionError: assert 'Mi Empresa SL' == 'TEST_Empresa SL'&#10;  &#10;  - TEST_Empresa SL&#10;  + Mi Empresa SL">backend/tests/test_ajustes.py:65: in test_put_ajustes_persists
+    assert d2["empresa"]["nombre"] == "TEST_Empresa SL"
+E   AssertionError: assert 'Mi Empresa SL' == 'TEST_Empresa SL'
+E     
+E     - TEST_Empresa SL
+E     + Mi Empresa SL</failure></testcase><testcase classname="tests.test_ajustes.TestAjustes" name="test_add_and_delete_serie" time="0.217" /><testcase classname="tests.test_ajustes.TestNumeracionPorSerie" name="test_pedido_venta_y_compra_serie" time="0.432" /></testsuite></testsuites>

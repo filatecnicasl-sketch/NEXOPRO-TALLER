@@ -9,6 +9,7 @@ import Articulos from "@/pages/Articulos";
 import Documentos from "@/pages/Documentos";
 import FacturasEmitidas from "@/pages/FacturasEmitidas";
 import FacturasRecibidas from "@/pages/FacturasRecibidas";
+import Ajustes from "@/pages/Ajustes";
 import AdminLogin from "@/pages/AdminLogin";
 import AdminPanel from "@/pages/AdminPanel";
 
@@ -37,6 +38,7 @@ function App() {
             <Route path="/albaranes" element={<Documentos entidad="albaranes" key="albaranes" />} />
             <Route path="/facturas-emitidas" element={<FacturasEmitidas />} />
             <Route path="/facturas-recibidas" element={<FacturasRecibidas />} />
+            <Route path="/ajustes" element={<Ajustes />} />
           </Route>
         </Routes>
       </BrowserRouter>

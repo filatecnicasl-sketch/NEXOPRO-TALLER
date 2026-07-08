@@ -54,6 +54,10 @@ export const extraerPdf = (file) => {
   return client.post("/extraccion/pdf", fd, { headers: { "Content-Type": "multipart/form-data" } }).then((r) => r.data);
 };
 
+// Ajustes (series de documentos + datos de empresa)
+export const getAjustes = () => client.get("/ajustes").then((r) => r.data);
+export const updateAjustes = (data) => client.put("/ajustes", data).then((r) => r.data);
+
 // Dashboard
 export const getResumen = () => client.get("/dashboard/resumen").then((r) => r.data);
 

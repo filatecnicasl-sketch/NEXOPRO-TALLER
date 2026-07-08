@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Plus, PencilSimple, Trash, Sparkle, FileText } from "@phosphor-icons/react";
 import { toast } from "sonner";
 import {
-  getDocumentos, createDocumento, updateDocumento, deleteDocumento, getContactos, getArticulos, eur,
+  getDocumentos, createDocumento, updateDocumento, deleteDocumento, getContactos, getArticulos, getAjustes, eur,
 } from "@/lib/api";
 import PageHeader from "@/components/PageHeader";
 import Initials from "@/components/Initials";
@@ -50,6 +50,8 @@ export default function Documentos({ entidad }) {
   const [loading, setLoading] = useState(true);
   const [contactos, setContactos] = useState([]);
   const [articulos, setArticulos] = useState([]);
+  const [seriesVenta, setSeriesVenta] = useState([]);
+  const [seriesCompra, setSeriesCompra] = useState([]);
   const [open, setOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [form, setForm] = useState(emptyForm("compra"));
@@ -57,13 +59,19 @@ export default function Documentos({ entidad }) {
   const [delId, setDelId] = useState(null);
 
   const load = () => { setLoading(true); getDocumentos(entidad).then((d) => { setItems(d); setLoading(false); }); };
-  useEffect(() => { load(); getContactos().then(setContactos); getArticulos().then(setArticulos); }, [entidad]);
+  useEffect(() => { load(); getContactos().then(setContactos); getArticulos().then(setArticulos); getAjustes().then((a) => { setSeriesVenta(a.series_venta || []); setSeriesCompra(a.series_compra || []); }); }, [entidad]);
 
   const visibles = items.filter((d) => d.tipo_operacion === tab);
   const esRecibido = tab === "compra";
   const contactosForm = contactos.filter((c) => (form.tipo_operacion === "venta" ? c.tipo === "cliente" : c.tipo === "proveedor"));
+  const seriesForm = form.tipo_operacion === "venta" ? seriesVenta : seriesCompra;
 
-  const openNew = () => { setForm(emptyForm(tab)); setEditId(null); setOpen(true); };
+  const openNew = () => {
+    const lista = tab === "venta" ? seriesVenta : seriesCompra;
+    const def = lista.find((s) => s.por_defecto) || lista[0];
+    setForm({ ...emptyForm(tab), serie: def?.nombre || "" });
+    setEditId(null); setOpen(true);
+  };
   const openEdit = (d) => { setForm({ ...d, lineas: d.lineas.map((l) => ({ ...l })) }); setEditId(d.id); setOpen(true); };
 
   const onContacto = (id) => {
@@ -194,14 +202,16 @@ export default function Documentos({ entidad }) {
                 {contactosForm.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
               </select>
             </div>
+            <div>
+              <Label className="text-xs">Serie</Label>
+              <select data-testid="input-serie-doc" value={form.serie} onChange={(e) => setForm({ ...form, serie: e.target.value })}
+                className="w-full h-10 mt-1 border border-input rounded-md bg-white px-2 text-sm font-mono-plex">
+                {seriesForm.length === 0 && <option value="">— sin serie —</option>}
+                {seriesForm.map((s) => <option key={s.id || s.nombre} value={s.nombre}>{s.nombre}</option>)}
+              </select>
+            </div>
             {form.tipo_operacion === "venta" && (
               <>
-                <div>
-                  <Label className="text-xs">Serie</Label>
-                  <Input data-testid="input-serie-doc" value={form.serie}
-                    onChange={(e) => setForm({ ...form, serie: e.target.value.toUpperCase() })}
-                    className="rounded-md mt-1 font-mono-plex" placeholder="Ej. A (opcional)" />
-                </div>
                 <div>
                   <Label className="text-xs">Nombre cliente</Label>
                   <Input data-testid="input-contacto-nombre" value={form.contacto_nombre}

@@ -496,16 +496,107 @@ async def ensure_cliente(nombre: str, nif: str = "") -> Optional[dict]:
     return doc
 
 
+# ---------------------------------------------------------------------------
+# AJUSTES (Series de documentos, contadores y datos de empresa)
+# ---------------------------------------------------------------------------
+DEFAULT_EMPRESA = {
+    "nombre": "", "nif": "", "direccion": "", "codigo_postal": "",
+    "ciudad": "", "telefono": "", "email": "", "iban": "",
+}
+
+
+async def _get_ajustes() -> dict:
+    cfg = await db.ajustes.find_one({"_id": "config"})
+    if not cfg:
+        count_a = await db.facturas_emitidas.count_documents({"serie": "A"})
+        cfg = {
+            "_id": "config",
+            "empresa": dict(DEFAULT_EMPRESA),
+            "series_venta": [{"id": new_id(), "nombre": "A", "por_defecto": True,
+                              "contadores": {"facturas": count_a + 1, "pedidos": 1, "albaranes": 1}}],
+            "series_compra": [{"id": new_id(), "nombre": "C", "por_defecto": True,
+                               "contadores": {"pedidos": 1, "albaranes": 1}}],
+            "created_at": now_iso(), "updated_at": now_iso(),
+        }
+        await db.ajustes.insert_one(dict(cfg))
+    return cfg
+
+
+async def _siguiente_contador(ambito: str, tipo_doc: str, serie: str):
+    """Próximo número de la serie; incrementa el contador. None si la serie no existe."""
+    await _get_ajustes()
+    key = "series_venta" if ambito == "venta" else "series_compra"
+    res = await db.ajustes.find_one_and_update(
+        {"_id": "config", f"{key}.nombre": serie},
+        {"$inc": {f"{key}.$.contadores.{tipo_doc}": 1}},
+        return_document=ReturnDocument.BEFORE,
+    )
+    if not res:
+        return None
+    for s in res.get(key, []):
+        if s.get("nombre") == serie:
+            return int((s.get("contadores") or {}).get(tipo_doc, 1) or 1)
+    return None
+
+
+class AjustesInput(BaseModel):
+    empresa: dict = {}
+    series_venta: List[dict] = []
+    series_compra: List[dict] = []
+
+
+def _norm_series(series: list, tipos: list) -> list:
+    out, vistos = [], set()
+    for s in series:
+        nombre = (s.get("nombre") or "").strip().upper()
+        if not nombre or nombre in vistos:
+            continue
+        vistos.add(nombre)
+        cont = s.get("contadores") or {}
+        out.append({
+            "id": s.get("id") or new_id(),
+            "nombre": nombre,
+            "por_defecto": bool(s.get("por_defecto")),
+            "contadores": {t: max(1, int(cont.get(t, 1) or 1)) for t in tipos},
+        })
+    if out and not any(s["por_defecto"] for s in out):
+        out[0]["por_defecto"] = True
+    return out
+
+
+@api_router.get("/ajustes")
+async def obtener_ajustes():
+    return clean(dict(await _get_ajustes()))
+
+
+@api_router.put("/ajustes")
+async def guardar_ajustes(data: AjustesInput):
+    await _get_ajustes()
+    empresa = {**DEFAULT_EMPRESA, **(data.empresa or {})}
+    sv = _norm_series(data.series_venta, ["facturas", "pedidos", "albaranes"])
+    sc = _norm_series(data.series_compra, ["pedidos", "albaranes"])
+    if not sv:
+        sv = [{"id": new_id(), "nombre": "A", "por_defecto": True,
+               "contadores": {"facturas": 1, "pedidos": 1, "albaranes": 1}}]
+    if not sc:
+        sc = [{"id": new_id(), "nombre": "C", "por_defecto": True,
+               "contadores": {"pedidos": 1, "albaranes": 1}}]
+    await db.ajustes.update_one({"_id": "config"}, {"$set": {
+        "empresa": empresa, "series_venta": sv, "series_compra": sc, "updated_at": now_iso(),
+    }}, upsert=True)
+    return clean(dict(await _get_ajustes()))
+
 
 # ---------------------------------------------------------------------------
 # DOCUMENTOS genéricos (Pedidos / Albaranes)
 # ---------------------------------------------------------------------------
-async def _next_numero(coleccion: str, prefijo: str, serie: str = "") -> str:
+async def _numero_documento(ambito: str, tipo_doc: str, prefijo: str, serie: str = "") -> str:
     year = datetime.now().year
     if serie:
-        n = await _next_seq(f"num_{coleccion}_{serie}")
-        return f"{serie}-{year}-{n:04d}"
-    n = await _next_seq(f"num_{coleccion}")
+        n = await _siguiente_contador(ambito, tipo_doc, serie)
+        if n is not None:
+            return f"{serie}-{year}-{n:04d}"
+    n = await _next_seq(f"num_{tipo_doc}")
     return f"{prefijo}-{year}-{n:04d}"
 
 
@@ -533,9 +624,8 @@ def _build_documento(data: DocumentoInput, numero: str):
 def _make_documento_routes(entidad: str, coleccion: str, prefijo: str, registrar_entrada=False):
     @api_router.post(f"/{entidad}")
     async def crear(data: DocumentoInput):
-        # las series solo aplican a documentos emitidos (venta)
-        serie = data.serie if data.tipo_operacion == "venta" else ""
-        numero = await _next_numero(coleccion, prefijo, serie)
+        serie = (data.serie or "").strip().upper()
+        numero = await _numero_documento(data.tipo_operacion, coleccion, prefijo, serie)
         doc = _build_documento(data, numero)
         if doc["tipo_operacion"] == "venta" and doc["contacto_nombre"] and not doc["contacto_id"]:
             cli = await ensure_cliente(doc["contacto_nombre"], doc.get("contacto_nif", ""))
@@ -614,8 +704,10 @@ async def _generar_verifactu(serie: str, numero: str, fecha: str, nif: str, tota
 async def _emitir_factura(serie, cliente_id, cliente_nombre, cliente_nif, fecha, lineas, base, iva, total,
                           estado, forma_pago, notas, tipo_factura="ordinaria", rectifica_a=""):
     year = datetime.now().year
-    count = await db.facturas_emitidas.count_documents({"serie": serie}) + 1
-    numero = f"{count:04d}"
+    n = await _siguiente_contador("venta", "facturas", serie)
+    if n is None:
+        n = await db.facturas_emitidas.count_documents({"serie": serie}) + 1
+    numero = f"{n:04d}"
     numero_completo = f"{serie}{year}-{numero}"
     verifactu = await _generar_verifactu(serie, numero_completo, fecha, cliente_nif or "B00000000", total)
     doc = {

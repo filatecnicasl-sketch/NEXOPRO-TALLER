@@ -1,0 +1,44 @@
+{
+  "summary": "Validated new Ajustes page + series-driven numbering end-to-end. Backend: 5/5 pytest for /api/ajustes GET/PUT and series counter increments for facturas, pedidos de venta y de compra. Frontend: Ajustes page renders empresa form, both SeriesEditor tables (venta 3 counters, compra 2 counters), add/delete/mark-default work, Guardar cambios persists across reload. FacturasEmitidas dialog input-serie is a SELECT populated from series_venta ['A','B'] with default 'A'. Documentos (Pedidos/Albaranes) dialog input-serie-doc is a SELECT populated from series_venta on 'De venta' tab (['A','B']) and series_compra on 'De compra' tab (['C']), with the default preselected. Dashboard, Clientes, Facturas Recibidas, Pedidos, Albaranes render with the indigo/zinc redesign and no console errors.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "DELETE /api/facturas-emitidas/{id}", "issue": "Returns 405 Method Not Allowed — no way to remove test/erroneous facturas emitidas. Test data accumulates (~20 TEST_ rows). If deletion is intentionally disabled for Verifactu compliance, consider an explicit rectificativa-only flow; if not, add DELETE handler."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "Ajustes/EMPRESA_FIELDS", "issue": "data-testid mismatch vs review-request spec: renders 'empresa-codigo_postal' + 'empresa-iban', missing 'empresa-cp', 'empresa-provincia', 'empresa-pais'. Not a functional bug but the Ajustes form omits Provincia and País fields that the request assumed exist.", "selector": "[data-testid=empresa-cp|empresa-provincia|empresa-pais]", "priority": "LOW"}
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Ajustes / Series tables", "issues": ["Header cell 'PRÓX. FACTURA / PEDIDO / ALBARÁN' visible OK. Alignment fine. Star (default) and trash buttons render with good hover states — no issues."]},
+      {"screen": "Dashboard", "issues": ["Single-month bar chart is fine but tall for one bar — cosmetic only."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_ajustes.py",
+    "/app/test_reports/pytest/ajustes.xml"
+  ],
+  "action_items": [
+    "Decide whether to add Provincia / País (and rename codigo_postal→cp) in Ajustes, or update the spec/testids to match current implementation.",
+    "Consider allowing DELETE /api/facturas-emitidas for TEST_ / error records (currently 405).",
+    "(Optional) In Ajustes save(), skip empty-nombre series silently instead of blocking save; today adding a serie and immediately clicking Guardar triggers 'Todas las series de venta necesitan un nombre'."
+  ],
+  "critical_code_review_comments": [
+    "server.py _get_ajustes correctly seeds a singleton {series_venta:[A default], series_compra:[C default]}. _siguiente_contador uses find_one_and_update with $inc — atomic and race-safe. Good.",
+    "_numero_documento formats 'A-2026-0005' / 'C-2026-0005' for pedidos+albaranes and _emitir_factura uses serie+YEAR+padded counter (A2026-0026). Verified counters increment: TSTF facturas 500→501, TSTPV pedidos 200→201, TSTPC pedidos 300→301.",
+    "Ajustes.jsx save() validation is strict (blocks save if any serie has empty nombre). This is a UX foot-gun right after clicking 'Añadir serie'.",
+    "FacturasEmitidas.jsx and Documentos.jsx: input-serie / input-serie-doc render as native <select>, correctly repopulate when switching venta/compra tabs.",
+    "Layout.jsx nav-ajustes correctly listed under SISTEMA section."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_ajustes.py (new)"
+  ],
+  "success_rate": {"backend": "100% (5/5 pytest)", "frontend": "100% for tested flows"},
+  "test_credentials": "License-key gate only, REACT_APP_LICENSE_KEY=NEXO-DEMO-0001 already in frontend/.env",
+  "seed_data_creation": "Created + cleaned ephemeral series TSTV/TSTF/TSTPV/TSTPC and reverted empresa.nombre to 'Mi Empresa SL' with counters A.facturas=27, C.pedidos=6. ~20 pre-existing TEST_ facturas emitidas could not be deleted (endpoint returns 405) but are historical and don't affect current features.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "GET/PUT /api/ajustes verified. Series-driven numbering verified for facturas emitidas, pedidos de venta y de compra. Delete facturas-emitidas is 405 by design(?). Ajustes UI omits Provincia/País; keys used are codigo_postal + iban."
+}

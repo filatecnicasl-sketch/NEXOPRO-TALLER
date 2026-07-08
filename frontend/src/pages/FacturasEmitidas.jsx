@@ -3,7 +3,7 @@ import { QRCodeSVG } from "qrcode.react";
 import { Plus, ArrowUUpLeft, Eye, Receipt, ShieldCheck, CheckCircle } from "@phosphor-icons/react";
 import { toast } from "sonner";
 import {
-  getFacturasEmitidas, createFacturaEmitida, rectificarFacturaEmitida, estadoFacturaEmitida, getContactos, getArticulos, eur,
+  getFacturasEmitidas, createFacturaEmitida, rectificarFacturaEmitida, estadoFacturaEmitida, getContactos, getArticulos, getAjustes, eur,
 } from "@/lib/api";
 import PageHeader from "@/components/PageHeader";
 import Initials from "@/components/Initials";
@@ -31,15 +31,20 @@ export default function FacturasEmitidas() {
   const [loading, setLoading] = useState(true);
   const [clientes, setClientes] = useState([]);
   const [articulos, setArticulos] = useState([]);
+  const [series, setSeries] = useState([]);
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState(emptyForm());
   const [detalle, setDetalle] = useState(null);
   const [rectId, setRectId] = useState(null);
 
   const load = () => { setLoading(true); getFacturasEmitidas().then((d) => { setItems(d); setLoading(false); }); };
-  useEffect(() => { load(); getContactos("cliente").then(setClientes); getArticulos().then(setArticulos); }, []);
+  useEffect(() => { load(); getContactos("cliente").then(setClientes); getArticulos().then(setArticulos); getAjustes().then((a) => setSeries(a.series_venta || [])); }, []);
 
-  const openNew = () => { setForm(emptyForm()); setOpen(true); };
+  const openNew = () => {
+    const def = series.find((s) => s.por_defecto) || series[0];
+    setForm({ ...emptyForm(), serie: def?.nombre || "A" });
+    setOpen(true);
+  };
   const onCliente = (id) => {
     const c = clientes.find((x) => x.id === id);
     setForm({ ...form, cliente_id: id, cliente_nombre: c?.nombre || "", cliente_nif: c?.nif || "" });
@@ -165,7 +170,11 @@ export default function FacturasEmitidas() {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 py-2">
             <div>
               <Label className="text-xs">Serie</Label>
-              <Input data-testid="input-serie" value={form.serie} onChange={(e) => setForm({ ...form, serie: e.target.value.toUpperCase() })} className="rounded-md mt-1 font-mono-plex" />
+              <select data-testid="input-serie" value={form.serie} onChange={(e) => setForm({ ...form, serie: e.target.value })}
+                className="w-full h-10 mt-1 border border-input rounded-md bg-white px-2 text-sm font-mono-plex">
+                {series.length === 0 && <option value={form.serie}>{form.serie}</option>}
+                {series.map((s) => <option key={s.id || s.nombre} value={s.nombre}>{s.nombre}</option>)}
+              </select>
             </div>
             <div className="col-span-2">
               <Label className="text-xs">Cliente existente (opcional)</Label>
