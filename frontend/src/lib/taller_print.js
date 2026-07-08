@@ -34,9 +34,21 @@ function shell(title, body) {
 }
 
 function open(html) {
-  const w = window.open("", "_blank", "width=900,height=1000");
-  if (!w) { alert("Permite las ventanas emergentes para imprimir."); return; }
-  w.document.open(); w.document.write(html); w.document.close();
+  const iframe = document.createElement("iframe");
+  iframe.setAttribute("aria-hidden", "true");
+  iframe.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden";
+  document.body.appendChild(iframe);
+  try {
+    const doc = iframe.contentWindow.document;
+    doc.open();
+    doc.write(html);
+    doc.close();
+    setTimeout(() => { try { iframe.remove(); } catch (e) {} }, 60000);
+  } catch (e) {
+    const w = window.open("", "_blank", "width=1000,height=760");
+    if (!w) { alert("Permite las ventanas emergentes para imprimir."); return; }
+    w.document.open(); w.document.write(html); w.document.close();
+  }
 }
 
 function cabecera(empresa, titulo, ref, fecha) {

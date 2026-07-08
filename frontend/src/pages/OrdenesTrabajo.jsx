@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Plus, PencilSimple, Trash, MagnifyingGlass, Wrench, Printer, ClipboardText, Lightning } from "@phosphor-icons/react";
+import { Plus, PencilSimple, Trash, MagnifyingGlass, Wrench, Printer, ClipboardText, Lightning, CaretDown, FileText } from "@phosphor-icons/react";
 import { toast } from "sonner";
 import {
   getOrdenes, createOrden, updateOrden, deleteOrden, estadoOrden,
@@ -12,6 +12,7 @@ import LineasEditor from "@/components/LineasEditor";
 import FotosGaleria from "@/components/FotosGaleria";
 import SignaturePad from "@/components/SignaturePad";
 import RecepcionRapida from "@/components/RecepcionRapida";
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -194,8 +195,21 @@ export default function OrdenesTrabajo() {
                 </TableCell>
                 <TableCell className="text-right tabular-nums font-medium text-zinc-900">{eur(o.total)}</TableCell>
                 <TableCell className="text-right">
-                  <button data-testid={`hoja-entrada-${o.id}`} onClick={() => imprimirEntrada(o)} className="text-zinc-400 hover:text-primary p-1.5" title="Imprimir hoja de entrada"><ClipboardText size={16} /></button>
-                  <button data-testid={`imprimir-orden-${o.id}`} onClick={() => imprimir(o)} className="text-zinc-400 hover:text-primary p-1.5" title="Imprimir parte"><Printer size={16} /></button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button data-testid={`imprimir-menu-${o.id}`} className="inline-flex items-center gap-1 text-zinc-500 hover:text-primary px-2 py-1 rounded-md hover:bg-zinc-100 text-sm" title="Imprimir">
+                        <Printer size={16} /> <CaretDown size={12} />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-56">
+                      <DropdownMenuItem data-testid={`hoja-entrada-${o.id}`} onClick={() => imprimirEntrada(o)}>
+                        <ClipboardText size={16} className="mr-2 text-indigo-500" /> Hoja de entrada (A4 horizontal)
+                      </DropdownMenuItem>
+                      <DropdownMenuItem data-testid={`imprimir-orden-${o.id}`} onClick={() => imprimir(o)}>
+                        <FileText size={16} className="mr-2 text-zinc-500" /> Parte de trabajo
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                   <button data-testid={`editar-orden-${o.id}`} onClick={() => openEdit(o)} className="text-zinc-400 hover:text-primary p-1.5"><PencilSimple size={16} /></button>
                   <button data-testid={`eliminar-orden-${o.id}`} onClick={() => setDelId(o.id)} className="text-zinc-400 hover:text-red-500 p-1.5"><Trash size={16} /></button>
                 </TableCell>
