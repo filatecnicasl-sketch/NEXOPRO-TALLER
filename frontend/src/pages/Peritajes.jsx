@@ -3,7 +3,7 @@ import { Plus, PencilSimple, Trash, MagnifyingGlass, ShieldCheck, Camera, Gear }
 import { toast } from "sonner";
 import {
   getPeritajes, createPeritaje, updatePeritaje, deletePeritaje, estadoPeritaje, getPeritaje,
-  getVehiculos, getContactos, getCompanias, createCompania, deleteCompania, eur,
+  getVehiculos, getContactos, getCompanias, createCompania, deleteCompania, createVehiculo, createContacto, eur,
 } from "@/lib/api";
 import PageHeader from "@/components/PageHeader";
 import FotosGaleria from "@/components/FotosGaleria";
@@ -50,6 +50,10 @@ export default function Peritajes() {
   const [delId, setDelId] = useState(null);
   const [compOpen, setCompOpen] = useState(false);
   const [nuevaComp, setNuevaComp] = useState("");
+  const [vehOpen, setVehOpen] = useState(false);
+  const [vehForm, setVehForm] = useState({ matricula: "", marca: "", modelo: "", cliente_id: "", tipo: "cliente" });
+  const [cliOpen, setCliOpen] = useState(false);
+  const [cliForm, setCliForm] = useState({ nombre: "", nif: "", telefono: "", email: "" });
 
   const load = () => { setLoading(true); getPeritajes().then((d) => { setItems(d); setLoading(false); }); };
   useEffect(load, []);
@@ -102,6 +106,28 @@ export default function Peritajes() {
     catch { toast.error("Error al añadir compañía"); }
   };
   const rmCompania = async (id) => { await deleteCompania(id); setCompanias(companias.filter((c) => c.id !== id)); };
+
+  const guardarVehiculoRapido = async () => {
+    if (!vehForm.matricula.trim() && !vehForm.marca.trim()) return toast.error("Indica al menos la matrícula");
+    try {
+      const v = await createVehiculo({ ...vehForm, matricula: vehForm.matricula.toUpperCase() });
+      setVehiculos(await getVehiculos());
+      setForm((f) => ({ ...f, vehiculo_id: v.id }));
+      setVehOpen(false); setVehForm({ matricula: "", marca: "", modelo: "", cliente_id: "", tipo: "cliente" });
+      toast.success("Vehículo dado de alta");
+    } catch { toast.error("Error al crear el vehículo"); }
+  };
+
+  const guardarClienteRapido = async () => {
+    if (!cliForm.nombre.trim()) return toast.error("El nombre es obligatorio");
+    try {
+      const c = await createContacto({ ...cliForm, tipo: "cliente" });
+      setClientes(await getContactos("cliente"));
+      setVehForm((f) => ({ ...f, cliente_id: c.id }));
+      setCliOpen(false); setCliForm({ nombre: "", nif: "", telefono: "", email: "" });
+      toast.success("Cliente dado de alta");
+    } catch { toast.error("Error al crear el cliente"); }
+  };
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
@@ -170,10 +196,13 @@ export default function Peritajes() {
           <DialogHeader><DialogTitle className="font-heading">{editId ? `Peritaje ${form.numero || ""}` : "Nuevo peritaje"}</DialogTitle></DialogHeader>
           <div className="grid grid-cols-2 gap-4 py-2">
             <div>
-              <Label className="text-xs">Vehículo *</Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">Vehículo *</Label>
+                <button type="button" data-testid="peritaje-nuevo-vehiculo" onClick={() => setVehOpen(true)} className="text-[11px] text-primary hover:underline inline-flex items-center gap-0.5"><Plus size={12} /> Nuevo</button>
+              </div>
               <select data-testid="peritaje-vehiculo" value={form.vehiculo_id} onChange={(e) => setForm({ ...form, vehiculo_id: e.target.value })} className={selectCls}>
                 <option value="">— Selecciona vehículo —</option>
-                {vehiculos.map((v) => <option key={v.id} value={v.id}>{v.matricula} · {[v.marca, v.modelo].filter(Boolean).join(" ")}</option>)}
+                {vehiculos.map((v) => <option key={v.id} value={v.id}>{`${v.matricula} · ${[v.marca, v.modelo].filter(Boolean).join(" ")}`}</option>)}
               </select>
             </div>
             <div>
@@ -261,6 +290,77 @@ export default function Peritajes() {
               </div>
             ))}
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Alta rápida de vehículo */}
+      <Dialog open={vehOpen} onOpenChange={setVehOpen}>
+        <DialogContent className="sm:max-w-md rounded-sm" data-testid="peritaje-vehiculo-dialog">
+          <DialogHeader><DialogTitle className="font-heading">Nuevo vehículo</DialogTitle></DialogHeader>
+          <div className="grid grid-cols-2 gap-4 py-2">
+            <div>
+              <Label className="text-xs">Matrícula</Label>
+              <Input data-testid="pveh-matricula" value={vehForm.matricula} onChange={(e) => setVehForm({ ...vehForm, matricula: e.target.value.toUpperCase() })} className="rounded-sm mt-1 font-mono-plex" />
+            </div>
+            <div>
+              <Label className="text-xs">Tipo</Label>
+              <select value={vehForm.tipo} onChange={(e) => setVehForm({ ...vehForm, tipo: e.target.value })} className={selectCls}>
+                <option value="cliente">Del cliente</option>
+                <option value="cortesia">De cortesía</option>
+              </select>
+            </div>
+            <div>
+              <Label className="text-xs">Marca</Label>
+              <Input value={vehForm.marca} onChange={(e) => setVehForm({ ...vehForm, marca: e.target.value })} className="rounded-sm mt-1" />
+            </div>
+            <div>
+              <Label className="text-xs">Modelo</Label>
+              <Input value={vehForm.modelo} onChange={(e) => setVehForm({ ...vehForm, modelo: e.target.value })} className="rounded-sm mt-1" />
+            </div>
+            <div className="col-span-2">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">Cliente</Label>
+                <button type="button" data-testid="pveh-nuevo-cliente" onClick={() => setCliOpen(true)} className="text-[11px] text-primary hover:underline inline-flex items-center gap-0.5"><Plus size={12} /> Nuevo</button>
+              </div>
+              <select value={vehForm.cliente_id} onChange={(e) => setVehForm({ ...vehForm, cliente_id: e.target.value })} className={selectCls}>
+                <option value="">— Sin asignar —</option>
+                {clientes.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+              </select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setVehOpen(false)} className="rounded-sm">Cancelar</Button>
+            <Button data-testid="guardar-pveh" onClick={guardarVehiculoRapido} className="rounded-sm bg-primary">Dar de alta</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Alta rápida de cliente */}
+      <Dialog open={cliOpen} onOpenChange={setCliOpen}>
+        <DialogContent className="sm:max-w-md rounded-sm" data-testid="peritaje-cliente-dialog">
+          <DialogHeader><DialogTitle className="font-heading">Nuevo cliente</DialogTitle></DialogHeader>
+          <div className="grid grid-cols-2 gap-4 py-2">
+            <div className="col-span-2">
+              <Label className="text-xs">Nombre / Razón social *</Label>
+              <Input data-testid="pcli-nombre" value={cliForm.nombre} onChange={(e) => setCliForm({ ...cliForm, nombre: e.target.value })} className="rounded-sm mt-1" />
+            </div>
+            <div>
+              <Label className="text-xs">NIF / CIF</Label>
+              <Input value={cliForm.nif} onChange={(e) => setCliForm({ ...cliForm, nif: e.target.value })} className="rounded-sm mt-1 font-mono-plex" />
+            </div>
+            <div>
+              <Label className="text-xs">Teléfono</Label>
+              <Input value={cliForm.telefono} onChange={(e) => setCliForm({ ...cliForm, telefono: e.target.value })} className="rounded-sm mt-1" />
+            </div>
+            <div className="col-span-2">
+              <Label className="text-xs">Email</Label>
+              <Input value={cliForm.email} onChange={(e) => setCliForm({ ...cliForm, email: e.target.value })} className="rounded-sm mt-1" />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCliOpen(false)} className="rounded-sm">Cancelar</Button>
+            <Button data-testid="guardar-pcli" onClick={guardarClienteRapido} className="rounded-sm bg-primary">Dar de alta</Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
