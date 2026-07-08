@@ -87,8 +87,11 @@ Autónomos y pymes españolas que gestionan compras/ventas y facturación con ob
   genera un PDF real A4 horizontal vía WeasyPrint: GET /api/taller/ordenes/{oid}/hoja-entrada.pdf
   (@page size A4 landscape, dos ejemplares). Frontend: helper api.js hojaEntradaUrl(id); los botones
   de OrdenesTrabajo.jsx (dropdown data-testid hoja-entrada-{id}) y RecepcionRapida.jsx (rr-imprimir-
-  finalizar) hacen window.open(hojaEntradaUrl, "_blank") → visor PDF nativo del navegador. Verificado
-  end-to-end por testing_agent (iteration_17: backend 3/3, frontend 2/2, 100%).
+  finalizar) descargan el PDF con descargarPdf() (fetch→blob→anchor[download]), sin ventanas
+  emergentes, fiable en todos los navegadores. ADEMÁS el "Parte de trabajo" también se generó como
+  PDF servidor (GET /api/taller/ordenes/{oid}/parte-trabajo.pdf, A4 vertical, con fotos) y se descarga
+  igual; se eliminó la impresión HTML en navegador (imprimirParteOrden/imprimirHojaEntrada ya no se
+  usan). Verificado end-to-end por testing_agent (iteration_18: backend 4/4, frontend 3/3, 100%).
 
 - TALLER — HOJA DE ENTRADA + BUSCADOR DE ARTÍCULOS + CONFIRMAR CITA (2026-07-08):
   · Hoja de entrada/recepción de vehículo (lib/taller_print.js imprimirHojaEntrada): A4 con DOS
