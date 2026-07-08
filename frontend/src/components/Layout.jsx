@@ -1,31 +1,36 @@
 import { NavLink, Outlet, Link } from "react-router-dom";
 import {
-  UsersThree, Truck, Package, ClipboardText, FileText, Receipt, FileArrowDown, ShieldCheck, Gear,
+  UsersThree, Truck, Package, ClipboardText, FileText, Receipt, FileArrowDown,
+  ShieldCheck, Gear, FileDashed, House,
 } from "@phosphor-icons/react";
 
 const LOGO = "https://customer-assets.emergentagent.com/job_invoice-hub-861/artifacts/7wiurgv7_favicom.png";
 
 const GROUPS = [
   {
+    label: null,
+    items: [
+      { to: "/", label: "Panel", icon: House, testid: "nav-dashboard", end: true },
+      { to: "/articulos", label: "Artículos", icon: Package, testid: "nav-articulos" },
+    ],
+  },
+  {
     label: "Ventas",
     items: [
       { to: "/clientes", label: "Clientes", icon: UsersThree, testid: "nav-clientes" },
-      { to: "/pedidos", label: "Pedidos", icon: ClipboardText, testid: "nav-pedidos" },
-      { to: "/albaranes", label: "Albaranes", icon: FileText, testid: "nav-albaranes" },
-      { to: "/facturas-emitidas", label: "Facturas Emitidas", icon: Receipt, testid: "nav-facturas-emitidas" },
+      { to: "/ventas/presupuestos", label: "Presupuestos", icon: FileDashed, testid: "nav-presupuestos" },
+      { to: "/ventas/pedidos", label: "Pedidos", icon: ClipboardText, testid: "nav-pedidos-venta" },
+      { to: "/ventas/albaranes", label: "Albaranes", icon: FileText, testid: "nav-albaranes-venta" },
+      { to: "/facturas-emitidas", label: "Facturas", icon: Receipt, testid: "nav-facturas-emitidas" },
     ],
   },
   {
     label: "Compras",
     items: [
       { to: "/proveedores", label: "Proveedores", icon: Truck, testid: "nav-proveedores" },
-      { to: "/facturas-recibidas", label: "Facturas Recibidas", icon: FileArrowDown, testid: "nav-facturas-recibidas" },
-    ],
-  },
-  {
-    label: "Catálogo",
-    items: [
-      { to: "/articulos", label: "Artículos", icon: Package, testid: "nav-articulos" },
+      { to: "/compras/pedidos", label: "Pedidos", icon: ClipboardText, testid: "nav-pedidos-compra" },
+      { to: "/compras/albaranes", label: "Albaranes", icon: FileText, testid: "nav-albaranes-compra" },
+      { to: "/facturas-recibidas", label: "Facturas", icon: FileArrowDown, testid: "nav-facturas-recibidas" },
     ],
   },
   {
@@ -49,9 +54,9 @@ export default function Layout() {
         </Link>
 
         <nav className="flex-1 overflow-y-auto py-5 px-3 space-y-6">
-          {GROUPS.map((g) => (
-            <div key={g.label}>
-              <div className="px-3 mb-1.5 text-[10px] font-semibold uppercase tracking-widest text-zinc-400">{g.label}</div>
+          {GROUPS.map((g, gi) => (
+            <div key={g.label || `g-${gi}`}>
+              {g.label && <div className="px-3 mb-1.5 text-[10px] font-semibold uppercase tracking-widest text-zinc-400">{g.label}</div>}
               <div className="space-y-0.5">
                 {g.items.map((item) => {
                   const Icon = item.icon;
@@ -59,6 +64,7 @@ export default function Layout() {
                     <NavLink
                       key={item.to}
                       to={item.to}
+                      end={item.end}
                       data-testid={item.testid}
                       className={({ isActive }) =>
                         `group flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors duration-150 ${

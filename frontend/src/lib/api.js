@@ -51,6 +51,8 @@ export const deleteFacturaRecibida = (id) => client.delete(`/facturas-recibidas/
 export const extraerPdf = (file) => {
   const fd = new FormData();
   fd.append("file", file);
+  const lic = localStorage.getItem("nexopro_license") || process.env.REACT_APP_LICENSE_KEY || "";
+  fd.append("licencia", lic);
   return client.post("/extraccion/pdf", fd, { headers: { "Content-Type": "multipart/form-data" } }).then((r) => r.data);
 };
 
@@ -84,6 +86,7 @@ export const estadoLicencia = (id, estado) => {
 };
 export const registrarPago = (id) => client.post(`/admin/licencias/${id}/pago`, {}, { headers: authHeader() }).then((r) => r.data);
 export const deleteLicencia = (id) => client.delete(`/admin/licencias/${id}`, { headers: authHeader() }).then((r) => r.data);
+export const getAdminConsumoIA = () => client.get("/admin/consumos-ia", { headers: authHeader() }).then((r) => r.data);
 
 // ---- Licencia (público, gate del cliente) ----
 export const verificarLicencia = (key) => client.get(`/licencia/verificar/${key}`).then((r) => r.data);

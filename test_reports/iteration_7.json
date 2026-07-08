@@ -1,0 +1,41 @@
+{
+  "summary": "Iteration 7 covers the nav reorg (Ventas/Compras groups with Articulos at top), new Presupuestos (sales-only) document type, and moving the Consumo IA widget from Facturas Recibidas into the central Admin panel. Backend pytest: 7/7 passed for /api/presupuestos CRUD + numeración desde series_venta['presupuestos'], /api/admin/consumos-ia shape+auth, licencias CRUD, purchase pedidos numeración. Frontend Playwright: sidebar groups (unlabeled top with Panel+Artículos, Ventas: Clientes/Presupuestos/Pedidos/Albaranes/Facturas, Compras: Proveedores/Pedidos/Albaranes/Facturas, Sistema: Ajustes) all render with expected data-testids. /ventas/presupuestos renders presupuestos-venta-page, dialog serie dropdown populated from live series_venta (['A 2026','T 2026','P 2026']), creating a presupuesto with lines saves, appears in the list, no Importar IA button on presupuestos venta. Ventas Pedidos uses venta series; Compras Pedidos/Albaranes use series_compra (['C']) and show importar-ia-button. Facturas Recibidas no longer shows the consumo-ia-resumen widget; manual+IA buttons still render. Ajustes shows 4 counter cols in Series de venta (PRÓX. PRESUP./PEDIDO/ALBARÁN/FACTURA) and 2 in Series de compra. Admin: /admin/login authenticates admin@nexopro.com/Admin1234!, /admin renders admin-panel-page, licences table + new 'Consumo de IA' section with 3 KPI cards (ia-total-lecturas=2, tokens=2723, 0,0039 €) and per-client rows (consumo-cliente-row-0). Licencias CRUD verified end-to-end (create → delete).",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "PATCH /api/admin/licencias/{id}/estado", "issue": "Accepts estado ONLY as multipart/form field (Form(...)) instead of JSON body. Frontend uses api.js which apparently sends form-data OK, but any generic JSON PATCH returns 422. Consider accepting JSON for API consistency."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Radix Dialog (documento-dialog, licencia-dialog)", "issues": ["Console warning: 'Missing Description or aria-describedby={undefined} for DialogContent'. Non-blocking a11y warning; add <DialogDescription/> or aria-describedby to silence."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_presupuestos_admin.py",
+    "/app/test_reports/pytest/iter7.xml"
+  ],
+  "action_items": [
+    "(Optional) Add DialogDescription to Dialog components to remove Radix a11y warnings.",
+    "(Optional) Accept JSON body on PATCH /api/admin/licencias/{id}/estado in addition to Form for API consistency."
+  ],
+  "critical_code_review_comments": [
+    "server.py _make_documento_routes now covers presupuestos with prefix PRE and uses series_venta.contadores.presupuestos correctly. Verified counter increments 3→4 after create.",
+    "GET /api/admin/consumos-ia aggregates by license_key and joins with licencias for empresa name; returns {num_lecturas,total_tokens,coste_total_eur,clientes[]}. Handles __sin_licencia__ bucket for consumos without license_key (shows 'Sin identificar'). Solid.",
+    "AdminPanel.jsx: uses getAdminConsumoIA + eurCoste; handles empty clientes list; per-client rows use license_key as key. Good.",
+    "Documentos.jsx uses props entidad+operacion (no tabs), single page per route — clean. permiteIA = esCompra && entidad!=='presupuestos' correctly hides IA for presupuestos even if hypothetically /compras/presupuestos existed.",
+    "Ajustes.jsx now silently drops empty-nombre series (sv/sc filter) before save — fixes prior UX foot-gun. Verified.",
+    "FacturasRecibidas.jsx: consumo-ia-resumen and its container fully removed; imports pruned. Nothing left behind."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_presupuestos_admin.py (new)"
+  ],
+  "success_rate": {"backend": "100% (7/7 pytest)", "frontend": "100% for tested flows"},
+  "test_credentials": "Admin: admin@nexopro.com / Admin1234!. Client license: REACT_APP_LICENSE_KEY=NEXO-DEMO-0001 (auto).",
+  "seed_data_creation": "Created + cleaned ephemeral presupuesto (TEST_Presu_Cliente/TEST_UI_Presu_Cliente), pedido de compra (TEST_Prov_Ped), licencia (TEST_LicX/TEST_UI_LicZ). Also cleaned a stale TEST_LicX from a previous half-failed run.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Live series in Ajustes are 'A 2026', 'T 2026', 'P 2026' (venta) and 'C' (compra). Presupuesto numeración follows serie 'contadores.presupuestos'; A 2026 next presup was 3 → became 4 after test. /api/admin/consumos-ia returns 2 lecturas / 2723 tokens / 0.0039 € aggregated under 'Sin identificar' (existing consumos_ia rows have no license_key — new POST /extraccion/pdf now stores licencia). Admin PATCH estado uses Form field, not JSON."
+}

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Plus, PencilSimple, Trash, Sparkle, FileText } from "@phosphor-icons/react";
+import { Plus, PencilSimple, Trash, Sparkle, FileText, FileDashed, ClipboardText } from "@phosphor-icons/react";
 import { toast } from "sonner";
 import {
   getDocumentos, createDocumento, updateDocumento, deleteDocumento, getContactos, getArticulos, getAjustes, eur,
@@ -20,58 +20,51 @@ import {
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 const CFG = {
-  pedidos: {
-    label: "Pedido", plural: "Pedidos", sub: "Gestiona pedidos de compra y de venta",
-    tabs: [{ key: "compra", label: "De compra" }, { key: "venta", label: "De venta" }],
-  },
-  albaranes: {
-    label: "Albarán", plural: "Albaranes", sub: "Albaranes recibidos (entrada) y emitidos (salida)",
-    tabs: [{ key: "compra", label: "Recibidos" }, { key: "venta", label: "Emitidos" }],
-  },
+  presupuestos: { label: "Presupuesto", plural: "Presupuestos", icon: FileDashed,
+    venta: { sub: "Presupuestos y ofertas enviados a clientes" } },
+  pedidos: { label: "Pedido", plural: "Pedidos", icon: ClipboardText,
+    venta: { sub: "Pedidos de tus clientes" }, compra: { sub: "Pedidos que haces a proveedores" } },
+  albaranes: { label: "Albarán", plural: "Albaranes", icon: FileText,
+    venta: { sub: "Albaranes de salida (entregas a clientes)" }, compra: { sub: "Albaranes recibidos de proveedores" } },
 };
 
 const ESTADOS = ["borrador", "confirmado", "entregado", "facturado"];
 const estadoTone = (e) => ({
-  borrador: "neutral",
-  confirmado: "info",
-  entregado: "success",
-  facturado: "violet",
+  borrador: "neutral", confirmado: "info", entregado: "success", facturado: "violet",
 }[e] || "neutral");
 
-const emptyForm = (tipo) => ({
-  tipo_operacion: tipo, serie: "", contacto_id: "", contacto_nombre: "", contacto_nif: "",
+const emptyForm = (op) => ({
+  tipo_operacion: op, serie: "", contacto_id: "", contacto_nombre: "", contacto_nif: "",
   fecha: new Date().toISOString().slice(0, 10), estado: "borrador", lineas: [], notas: "",
 });
 
-export default function Documentos({ entidad }) {
+export default function Documentos({ entidad, operacion }) {
   const cfg = CFG[entidad];
-  const [tab, setTab] = useState("compra");
+  const esCompra = operacion === "compra";
+  const permiteIA = esCompra && entidad !== "presupuestos";
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [contactos, setContactos] = useState([]);
   const [articulos, setArticulos] = useState([]);
-  const [seriesVenta, setSeriesVenta] = useState([]);
-  const [seriesCompra, setSeriesCompra] = useState([]);
+  const [series, setSeries] = useState([]);
   const [open, setOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
-  const [form, setForm] = useState(emptyForm("compra"));
+  const [form, setForm] = useState(emptyForm(operacion));
   const [editId, setEditId] = useState(null);
   const [delId, setDelId] = useState(null);
 
   const load = () => { setLoading(true); getDocumentos(entidad).then((d) => { setItems(d); setLoading(false); }); };
-  useEffect(() => { load(); getContactos().then(setContactos); getArticulos().then(setArticulos); getAjustes().then((a) => { setSeriesVenta(a.series_venta || []); setSeriesCompra(a.series_compra || []); }); }, [entidad]);
+  useEffect(() => {
+    load();
+    getContactos(esCompra ? "proveedor" : "cliente").then(setContactos);
+    getArticulos().then(setArticulos);
+    getAjustes().then((a) => setSeries((esCompra ? a.series_compra : a.series_venta) || []));
+  }, [entidad, operacion]);
 
-  const visibles = items.filter((d) => d.tipo_operacion === tab);
-  const esRecibido = tab === "compra";
-  const contactosForm = contactos.filter((c) => (form.tipo_operacion === "venta" ? c.tipo === "cliente" : c.tipo === "proveedor"));
-  const seriesForm = form.tipo_operacion === "venta" ? seriesVenta : seriesCompra;
+  const visibles = items.filter((d) => d.tipo_operacion === operacion);
+  const defSerie = () => (series.find((s) => s.por_defecto) || series[0])?.nombre || "";
 
-  const openNew = () => {
-    const lista = tab === "venta" ? seriesVenta : seriesCompra;
-    const def = lista.find((s) => s.por_defecto) || lista[0];
-    setForm({ ...emptyForm(tab), serie: def?.nombre || "" });
-    setEditId(null); setOpen(true);
-  };
+  const openNew = () => { setForm({ ...emptyForm(operacion), serie: defSerie() }); setEditId(null); setOpen(true); };
   const openEdit = (d) => { setForm({ ...d, lineas: d.lineas.map((l) => ({ ...l })) }); setEditId(d.id); setOpen(true); };
 
   const onContacto = (id) => {
@@ -84,7 +77,7 @@ export default function Documentos({ entidad }) {
     try {
       if (editId) { await updateDocumento(entidad, editId, form); toast.success(`${cfg.label} actualizado`); }
       else { await createDocumento(entidad, form); toast.success(`${cfg.label} creado`); }
-      setOpen(false); load(); getContactos().then(setContactos);
+      setOpen(false); load(); getContactos(esCompra ? "proveedor" : "cliente").then(setContactos);
     } catch { toast.error("Error al guardar"); }
   };
 
@@ -92,10 +85,9 @@ export default function Documentos({ entidad }) {
 
   const onExtracted = (datos) => {
     const prov = datos.proveedor_existente;
-    const defCompra = seriesCompra.find((s) => s.por_defecto) || seriesCompra[0];
     setForm({
       tipo_operacion: "compra",
-      serie: defCompra?.nombre || "",
+      serie: defSerie(),
       contacto_id: prov?.id || "",
       contacto_nombre: prov?.nombre || datos.proveedor?.nombre || "",
       contacto_nif: prov?.nif || datos.proveedor?.nif || "",
@@ -112,11 +104,13 @@ export default function Documentos({ entidad }) {
   };
 
   const totales = calcTotales(form.lineas);
+  const Icon = cfg.icon;
+  const contactoLabel = esCompra ? "Proveedor" : "Cliente";
 
   return (
-    <div className="p-8 max-w-[1400px]" data-testid={`${entidad}-page`}>
-      <PageHeader title={cfg.plural} subtitle={cfg.sub} chip={`${visibles.length} ${esRecibido ? "de compra" : "de venta"}`}>
-        {esRecibido && (
+    <div className="p-8 max-w-[1400px]" data-testid={`${entidad}-${operacion}-page`}>
+      <PageHeader title={cfg.plural} subtitle={cfg[operacion]?.sub} chip={`${visibles.length} ${esCompra ? "de compra" : "de venta"}`}>
+        {permiteIA && (
           <Button data-testid="importar-ia-button" variant="outline" onClick={() => setImportOpen(true)} className="rounded-md">
             <Sparkle size={16} className="mr-1.5 text-primary" /> Importar PDF (IA)
           </Button>
@@ -126,25 +120,12 @@ export default function Documentos({ entidad }) {
         </Button>
       </PageHeader>
 
-      <div className="inline-flex border border-zinc-200 rounded-lg bg-white p-1 mb-4 shadow-sm">
-        {cfg.tabs.map((t) => (
-          <button
-            key={t.key}
-            data-testid={`tab-${t.key}`}
-            onClick={() => setTab(t.key)}
-            className={`px-4 py-1.5 text-sm rounded-md transition-colors ${tab === t.key ? "bg-primary text-white font-medium" : "text-zinc-600 hover:bg-zinc-50"}`}
-          >
-            {t.label}
-          </button>
-        ))}
-      </div>
-
       <div className="bg-white border border-zinc-200 rounded-lg shadow-sm overflow-hidden">
         <Table>
           <TableHeader>
             <TableRow className="bg-zinc-50 hover:bg-zinc-50 border-zinc-200 [&>th]:text-[11px] [&>th]:uppercase [&>th]:tracking-wider [&>th]:text-zinc-500 [&>th]:font-semibold">
               <TableHead>Número</TableHead>
-              <TableHead>{esRecibido ? "Proveedor" : "Cliente"}</TableHead>
+              <TableHead>{contactoLabel}</TableHead>
               <TableHead>Fecha</TableHead>
               <TableHead className="text-center">Estado</TableHead>
               <TableHead className="text-right">Total</TableHead>
@@ -156,10 +137,10 @@ export default function Documentos({ entidad }) {
             {!loading && visibles.length === 0 && (
               <TableRow><TableCell colSpan={6} className="py-16 text-center">
                 <div className="mx-auto h-14 w-14 rounded-full bg-zinc-100 flex items-center justify-center mb-3">
-                  <FileText size={26} className="text-zinc-400" />
+                  <Icon size={26} className="text-zinc-400" />
                 </div>
-                <p className="text-zinc-700 text-sm font-medium">No hay {cfg.plural.toLowerCase()} {esRecibido ? "recibidos" : "emitidos"} todavía</p>
-                {esRecibido && <Button variant="link" onClick={() => setImportOpen(true)} className="text-primary mt-1">Importar desde un PDF</Button>}
+                <p className="text-zinc-700 text-sm font-medium">No hay {cfg.plural.toLowerCase()} todavía</p>
+                {permiteIA && <Button variant="link" onClick={() => setImportOpen(true)} className="text-primary mt-1">Importar desde un PDF</Button>}
               </TableCell></TableRow>
             )}
             {visibles.map((d, i) => (
@@ -191,27 +172,27 @@ export default function Documentos({ entidad }) {
         <DialogContent className="sm:max-w-3xl rounded-lg max-h-[90vh] overflow-y-auto" data-testid="documento-dialog">
           <DialogHeader>
             <DialogTitle className="font-heading tracking-tight">
-              {editId ? `Editar ${cfg.label.toLowerCase()}` : `Nuevo ${cfg.label.toLowerCase()} ${form.tipo_operacion === "compra" ? "recibido" : "emitido"}`}
+              {editId ? `Editar ${cfg.label.toLowerCase()}` : `Nuevo ${cfg.label.toLowerCase()} ${esCompra ? "de compra" : "de venta"}`}
             </DialogTitle>
           </DialogHeader>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 py-2">
             <div className="col-span-2">
-              <Label className="text-xs">{form.tipo_operacion === "venta" ? "Cliente" : "Proveedor"}</Label>
+              <Label className="text-xs">{contactoLabel}</Label>
               <select data-testid="select-contacto" value={form.contacto_id} onChange={(e) => onContacto(e.target.value)}
                 className="w-full h-10 mt-1 border border-input rounded-md bg-white px-2 text-sm">
-                <option value="">{form.tipo_operacion === "venta" ? "— Nuevo cliente / escribir abajo —" : (form.contacto_nombre || "— Selecciona —")}</option>
-                {contactosForm.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+                <option value="">{esCompra ? (form.contacto_nombre || "— Selecciona —") : "— Nuevo cliente / escribir abajo —"}</option>
+                {contactos.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
               </select>
             </div>
             <div>
               <Label className="text-xs">Serie</Label>
               <select data-testid="input-serie-doc" value={form.serie} onChange={(e) => setForm({ ...form, serie: e.target.value })}
                 className="w-full h-10 mt-1 border border-input rounded-md bg-white px-2 text-sm font-mono-plex">
-                {seriesForm.length === 0 && <option value="">— sin serie —</option>}
-                {seriesForm.map((s) => <option key={s.id || s.nombre} value={s.nombre}>{s.nombre}</option>)}
+                {series.length === 0 && <option value="">— sin serie —</option>}
+                {series.map((s) => <option key={s.id || s.nombre} value={s.nombre}>{s.nombre}</option>)}
               </select>
             </div>
-            {form.tipo_operacion === "venta" && (
+            {!esCompra && (
               <>
                 <div>
                   <Label className="text-xs">Nombre cliente</Label>
@@ -248,8 +229,10 @@ export default function Documentos({ entidad }) {
         </DialogContent>
       </Dialog>
 
-      <ImportPdfDialog open={importOpen} onOpenChange={setImportOpen} onExtracted={onExtracted}
-        titulo={`Importar ${cfg.label.toLowerCase()} recibido con IA`} />
+      {permiteIA && (
+        <ImportPdfDialog open={importOpen} onOpenChange={setImportOpen} onExtracted={onExtracted}
+          titulo={`Importar ${cfg.label.toLowerCase()} recibido con IA`} />
+      )}
 
       <AlertDialog open={!!delId} onOpenChange={(o) => !o && setDelId(null)}>
         <AlertDialogContent className="rounded-lg">

@@ -513,7 +513,7 @@ async def _get_ajustes() -> dict:
             "_id": "config",
             "empresa": dict(DEFAULT_EMPRESA),
             "series_venta": [{"id": new_id(), "nombre": "A", "por_defecto": True,
-                              "contadores": {"facturas": count_a + 1, "pedidos": 1, "albaranes": 1}}],
+                              "contadores": {"presupuestos": 1, "facturas": count_a + 1, "pedidos": 1, "albaranes": 1}}],
             "series_compra": [{"id": new_id(), "nombre": "C", "por_defecto": True,
                                "contadores": {"pedidos": 1, "albaranes": 1}}],
             "created_at": now_iso(), "updated_at": now_iso(),
@@ -573,11 +573,11 @@ async def obtener_ajustes():
 async def guardar_ajustes(data: AjustesInput):
     await _get_ajustes()
     empresa = {**DEFAULT_EMPRESA, **(data.empresa or {})}
-    sv = _norm_series(data.series_venta, ["facturas", "pedidos", "albaranes"])
+    sv = _norm_series(data.series_venta, ["presupuestos", "facturas", "pedidos", "albaranes"])
     sc = _norm_series(data.series_compra, ["pedidos", "albaranes"])
     if not sv:
         sv = [{"id": new_id(), "nombre": "A", "por_defecto": True,
-               "contadores": {"facturas": 1, "pedidos": 1, "albaranes": 1}}]
+               "contadores": {"presupuestos": 1, "facturas": 1, "pedidos": 1, "albaranes": 1}}]
     if not sc:
         sc = [{"id": new_id(), "nombre": "C", "por_defecto": True,
                "contadores": {"pedidos": 1, "albaranes": 1}}]
@@ -671,6 +671,7 @@ def _make_documento_routes(entidad: str, coleccion: str, prefijo: str, registrar
         return {"ok": True}
 
 
+_make_documento_routes("presupuestos", "presupuestos", "PRE")
 _make_documento_routes("pedidos", "pedidos", "PED")
 _make_documento_routes("albaranes", "albaranes", "ALB", registrar_entrada=True)
 
@@ -926,7 +927,7 @@ def _parse_json(text: str) -> dict:
 
 
 @api_router.post("/extraccion/pdf")
-async def extraer_pdf(file: UploadFile = File(...)):
+async def extraer_pdf(file: UploadFile = File(...), licencia: str = Form("")):
     if not EMERGENT_LLM_KEY:
         raise HTTPException(500, "Falta EMERGENT_LLM_KEY")
     contenido = await file.read()
@@ -968,6 +969,7 @@ async def extraer_pdf(file: UploadFile = File(...)):
         consumo = {
             "id": new_id(),
             "tipo": "extraccion_pdf",
+            "license_key": licencia or "",
             "archivo": file.filename or "documento.pdf",
             "modelo": "gemini-2.5-flash",
             "input_tokens": input_tokens,
@@ -998,6 +1000,32 @@ async def consumos_ia_resumen():
         "total_tokens": total_tokens,
         "coste_total_eur": coste_total,
         "ultimas": docs[:10],
+    }
+
+
+@api_router.get("/admin/consumos-ia")
+async def admin_consumos_ia(admin: dict = Depends(get_current_admin)):
+    """Consumo de IA agregado por cliente/licencia (panel central)."""
+    docs = await db.consumos_ia.find({}, {"_id": 0}).sort("created_at", -1).to_list(20000)
+    licencias = await db.licencias.find({}, {"_id": 0, "license_key": 1, "empresa": 1}).to_list(5000)
+    empresa_por_clave = {l["license_key"]: l.get("empresa", "") for l in licencias}
+    por_cliente = {}
+    for d in docs:
+        key = d.get("license_key") or "__sin_licencia__"
+        agg = por_cliente.setdefault(key, {"license_key": d.get("license_key") or "",
+                                           "empresa": empresa_por_clave.get(d.get("license_key"), "Sin identificar"),
+                                           "num_lecturas": 0, "total_tokens": 0, "coste_total_eur": 0.0})
+        agg["num_lecturas"] += 1
+        agg["total_tokens"] += d.get("total_tokens", 0)
+        agg["coste_total_eur"] += d.get("coste_eur", 0)
+    clientes = sorted(por_cliente.values(), key=lambda x: x["coste_total_eur"], reverse=True)
+    for c in clientes:
+        c["coste_total_eur"] = round(c["coste_total_eur"], 4)
+    return {
+        "num_lecturas": len(docs),
+        "total_tokens": sum(d.get("total_tokens", 0) for d in docs),
+        "coste_total_eur": round(sum(d.get("coste_eur", 0) for d in docs), 4),
+        "clientes": clientes,
     }
 
 

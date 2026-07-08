@@ -34,8 +34,11 @@ function App() {
             <Route path="/clientes" element={<Contactos tipo="cliente" key="cliente" />} />
             <Route path="/proveedores" element={<Contactos tipo="proveedor" key="proveedor" />} />
             <Route path="/articulos" element={<Articulos />} />
-            <Route path="/pedidos" element={<Documentos entidad="pedidos" key="pedidos" />} />
-            <Route path="/albaranes" element={<Documentos entidad="albaranes" key="albaranes" />} />
+            <Route path="/ventas/presupuestos" element={<Documentos entidad="presupuestos" operacion="venta" key="presupuestos-venta" />} />
+            <Route path="/ventas/pedidos" element={<Documentos entidad="pedidos" operacion="venta" key="pedidos-venta" />} />
+            <Route path="/ventas/albaranes" element={<Documentos entidad="albaranes" operacion="venta" key="albaranes-venta" />} />
+            <Route path="/compras/pedidos" element={<Documentos entidad="pedidos" operacion="compra" key="pedidos-compra" />} />
+            <Route path="/compras/albaranes" element={<Documentos entidad="albaranes" operacion="compra" key="albaranes-compra" />} />
             <Route path="/facturas-emitidas" element={<FacturasEmitidas />} />
             <Route path="/facturas-recibidas" element={<FacturasRecibidas />} />
             <Route path="/ajustes" element={<Ajustes />} />

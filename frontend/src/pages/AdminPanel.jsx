@@ -2,10 +2,10 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import {
-  Plus, SignOut, Copy, CheckCircle, XCircle, CurrencyEur, Trash, ShieldCheck,
+  Plus, SignOut, Copy, CheckCircle, XCircle, CurrencyEur, Trash, ShieldCheck, Robot,
 } from "@phosphor-icons/react";
 import {
-  adminMe, getLicencias, createLicencia, estadoLicencia, registrarPago, deleteLicencia, eur,
+  adminMe, getLicencias, createLicencia, estadoLicencia, registrarPago, deleteLicencia, getAdminConsumoIA, eur, eurCoste,
 } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,8 +27,13 @@ export default function AdminPanel() {
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState(EMPTY);
   const [delId, setDelId] = useState(null);
+  const [consumo, setConsumo] = useState(null);
 
-  const load = () => { setLoading(true); getLicencias().then((d) => { setItems(d); setLoading(false); }); };
+  const load = () => {
+    setLoading(true);
+    getLicencias().then((d) => { setItems(d); setLoading(false); });
+    getAdminConsumoIA().then(setConsumo).catch(() => {});
+  };
 
   useEffect(() => {
     if (!localStorage.getItem("nexopro_admin_token")) { nav("/admin/login"); return; }
@@ -149,6 +154,60 @@ export default function AdminPanel() {
               ))}
             </TableBody>
           </Table>
+        </div>
+
+        {/* Consumo de IA por cliente */}
+        <div className="mt-10">
+          <div className="flex items-center gap-3 mb-4">
+            <span className="inline-flex h-9 w-9 items-center justify-center rounded-sm bg-slate-900 text-white"><Robot size={18} /></span>
+            <div>
+              <h2 className="font-heading text-xl font-bold text-slate-900">Consumo de IA</h2>
+              <p className="text-sm text-slate-500">Lecturas de PDF y coste estimado por cliente</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-3 gap-4 mb-6">
+            <div className="bg-white border border-slate-200 rounded-sm p-5">
+              <div className="text-[11px] uppercase tracking-widest text-slate-400">Lecturas totales</div>
+              <div className="font-heading text-2xl font-bold mt-2" data-testid="ia-total-lecturas">{consumo?.num_lecturas ?? 0}</div>
+            </div>
+            <div className="bg-white border border-slate-200 rounded-sm p-5">
+              <div className="text-[11px] uppercase tracking-widest text-slate-400">Tokens totales</div>
+              <div className="font-heading text-2xl font-bold mt-2 tabular-nums">{(consumo?.total_tokens ?? 0).toLocaleString("es-ES")}</div>
+            </div>
+            <div className="bg-white border border-slate-200 rounded-sm p-5">
+              <div className="text-[11px] uppercase tracking-widest text-slate-400">Coste IA estimado</div>
+              <div className="font-heading text-2xl font-bold mt-2 text-primary">{eurCoste(consumo?.coste_total_eur ?? 0)}</div>
+            </div>
+          </div>
+
+          <div className="bg-white border border-slate-200 rounded-sm">
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-slate-50 hover:bg-slate-50">
+                  <TableHead>Cliente</TableHead>
+                  <TableHead>Licencia</TableHead>
+                  <TableHead className="text-right">Lecturas</TableHead>
+                  <TableHead className="text-right">Tokens</TableHead>
+                  <TableHead className="text-right">Coste estimado</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {(!consumo || consumo.clientes.length === 0) && (
+                  <TableRow><TableCell colSpan={5} className="py-12 text-center text-slate-400 text-sm">Todavía no hay lecturas de IA registradas</TableCell></TableRow>
+                )}
+                {consumo?.clientes.map((c, i) => (
+                  <TableRow key={c.license_key || i} data-testid={`consumo-cliente-row-${i}`}>
+                    <TableCell className="font-medium text-slate-800">{c.empresa || "Sin identificar"}</TableCell>
+                    <TableCell className="font-mono-plex text-xs text-slate-500">{c.license_key || "—"}</TableCell>
+                    <TableCell className="text-right tabular-nums">{c.num_lecturas}</TableCell>
+                    <TableCell className="text-right tabular-nums text-slate-500">{c.total_tokens.toLocaleString("es-ES")}</TableCell>
+                    <TableCell className="text-right tabular-nums font-medium text-primary">{eurCoste(c.coste_total_eur)}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
         </div>
       </div>
 

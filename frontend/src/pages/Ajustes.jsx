@@ -147,9 +147,9 @@ export default function Ajustes() {
 
         <SeriesEditor
           titulo="Series de venta"
-          subtitulo="Numeración de facturas, pedidos y albaranes emitidos"
-          tipos={["facturas", "pedidos", "albaranes"]}
-          labels={{ facturas: "Factura", pedidos: "Pedido", albaranes: "Albarán" }}
+          subtitulo="Numeración de presupuestos, pedidos, albaranes y facturas emitidas"
+          tipos={["presupuestos", "pedidos", "albaranes", "facturas"]}
+          labels={{ presupuestos: "Presup.", pedidos: "Pedido", albaranes: "Albarán", facturas: "Factura" }}
           series={seriesVenta}
           setSeries={setSeriesVenta}
         />
