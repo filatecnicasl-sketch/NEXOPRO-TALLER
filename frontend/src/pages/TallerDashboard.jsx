@@ -38,6 +38,9 @@ export default function TallerDashboard() {
   );
 
   const pe = data.ordenes_por_estado || {};
+  const hoyISO = new Date().toISOString().slice(0, 10);
+  const esVencida = (p) => p.fecha_devolucion_prevista && p.fecha_devolucion_prevista < hoyISO;
+  const vencidas = (data.cortesias_activas || []).filter(esVencida).length;
 
   return (
     <div className="p-8 max-w-[1300px]" data-testid="taller-dashboard">
@@ -125,17 +128,23 @@ export default function TallerDashboard() {
       {(data.cortesias_activas || []).length > 0 && (
         <div className="bg-white border border-zinc-200 rounded-xl shadow-sm p-5 mt-6" data-testid="cortesias-card">
           <div className="flex items-center justify-between mb-3">
-            <h3 className="font-heading font-semibold text-zinc-900 text-sm flex items-center gap-2"><Car size={16} weight="duotone" className="text-emerald-600" /> Vehículos de cortesía prestados</h3>
+            <h3 className="font-heading font-semibold text-zinc-900 text-sm flex items-center gap-2"><Car size={16} weight="duotone" className="text-emerald-600" /> Vehículos de cortesía prestados
+              {vencidas > 0 && <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold bg-red-50 text-red-600 ring-1 ring-red-200">{vencidas} vencida{vencidas > 1 ? "s" : ""}</span>}
+            </h3>
             <button onClick={() => nav("/taller/cortesia")} className="text-xs text-primary hover:underline">Ver todos</button>
           </div>
           <div className="divide-y divide-zinc-100">
-            {data.cortesias_activas.map((p) => (
-              <div key={p.id} className="flex items-center gap-3 py-2 text-sm">
-                <span className="font-mono-plex text-zinc-800 font-medium">{p.vehiculo_matricula || "—"}</span>
-                <span className="text-zinc-500 flex-1 truncate">{p.cliente_nombre || "—"}</span>
-                <span className="text-zinc-400 text-xs">Devolución: {p.fecha_devolucion_prevista || "—"}</span>
-              </div>
-            ))}
+            {data.cortesias_activas.map((p) => {
+              const vencida = esVencida(p);
+              return (
+                <div key={p.id} className={`flex items-center gap-3 py-2 text-sm ${vencida ? "text-red-600" : ""}`} data-testid={`cortesia-item${vencida ? "-vencida" : ""}`}>
+                  <span className="font-mono-plex font-medium">{p.vehiculo_matricula || "—"}</span>
+                  <span className={`flex-1 truncate ${vencida ? "text-red-500" : "text-zinc-500"}`}>{p.cliente_nombre || "—"}</span>
+                  {vencida && <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold bg-red-50 text-red-600 ring-1 ring-red-200">Vencida</span>}
+                  <span className={`text-xs ${vencida ? "text-red-500 font-medium" : "text-zinc-400"}`}>Devolución: {p.fecha_devolucion_prevista || "—"}</span>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}

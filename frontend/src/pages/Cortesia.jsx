@@ -130,7 +130,9 @@ export default function Cortesia() {
                 <TableCell className="text-zinc-500 text-sm">{p.fecha_entrega || "—"}</TableCell>
                 <TableCell className="text-zinc-500 text-sm">{p.fecha_devolucion_prevista || "—"}</TableCell>
                 <TableCell>
-                  <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset ${p.estado === "devuelto" ? "bg-zinc-100 text-zinc-600 ring-zinc-200" : "bg-emerald-50 text-emerald-700 ring-emerald-200"}`}>{p.estado === "devuelto" ? "Devuelto" : "Activo"}</span>
+                  {p.estado !== "devuelto" && p.fecha_devolucion_prevista && p.fecha_devolucion_prevista < new Date().toISOString().slice(0, 10)
+                    ? <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset bg-red-50 text-red-600 ring-red-200" data-testid="prestamo-vencido">Vencido</span>
+                    : <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset ${p.estado === "devuelto" ? "bg-zinc-100 text-zinc-600 ring-zinc-200" : "bg-emerald-50 text-emerald-700 ring-emerald-200"}`}>{p.estado === "devuelto" ? "Devuelto" : "Activo"}</span>}
                 </TableCell>
                 <TableCell>
                   {p.contrato_path
