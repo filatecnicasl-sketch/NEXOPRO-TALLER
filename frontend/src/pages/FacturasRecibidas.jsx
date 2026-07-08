@@ -3,7 +3,7 @@ import { Plus, ArrowUUpLeft, Sparkle, FileArrowDown, Robot, Printer, CheckCircle
 import { toast } from "sonner";
 import {
   getFacturasRecibidas, createFacturaRecibida, rectificarFacturaRecibida, estadoFacturaRecibida,
-  getContactos, getArticulos, getAjustes, getAlbaranesCompraPendientes, uploadArchivo, eur,
+  getContactos, getArticulos, getAjustes, getAlbaranesCompraPendientes, uploadArchivo, archivoUrl, eur,
 } from "@/lib/api";
 import { imprimirDocumento, imprimirListado } from "@/lib/print";
 import PdfPreview from "@/components/PdfPreview";
@@ -43,6 +43,7 @@ export default function FacturasRecibidas() {
   const [rectId, setRectId] = useState(null);
   const [preview, setPreview] = useState(null);
   const [subiendo, setSubiendo] = useState(false);
+  const [cotejo, setCotejo] = useState(true);
 
   const load = () => { setLoading(true); getFacturasRecibidas().then((d) => { setItems(d); setLoading(false); }); };
   useEffect(() => {
@@ -246,13 +247,27 @@ export default function FacturasRecibidas() {
         titulo="Importar factura de proveedor con IA" />
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="sm:max-w-3xl rounded-lg max-h-[90vh] overflow-y-auto" data-testid="recibida-dialog">
+        <DialogContent className={`${form.pdf_path && cotejo ? "sm:max-w-6xl" : "sm:max-w-3xl"} rounded-lg max-h-[90vh] overflow-y-auto`} data-testid="recibida-dialog">
           <DialogHeader>
             <DialogTitle className="font-heading tracking-tight flex items-center gap-2">
               {form.origen === "ai_pdf" && <Sparkle size={18} weight="fill" className="text-primary" />}
               {form.origen === "ai_pdf" ? "Revisar factura extraída por IA" : "Nueva factura recibida"}
+              {form.pdf_path && (
+                <button type="button" data-testid="toggle-cotejo" onClick={() => setCotejo((v) => !v)}
+                  className="ml-auto mr-6 text-xs font-normal text-primary hover:underline inline-flex items-center gap-1">
+                  <FilePdf size={14} weight="fill" className="text-rose-500" /> {cotejo ? "Ocultar original" : "Cotejar con original"}
+                </button>
+              )}
             </DialogTitle>
           </DialogHeader>
+          <div className={form.pdf_path && cotejo ? "grid grid-cols-[1fr_1.15fr] gap-5 items-start" : ""}>
+            {form.pdf_path && cotejo && (
+              <div className="sticky top-0" data-testid="cotejo-panel">
+                <div className="text-[11px] uppercase tracking-wider text-zinc-500 font-semibold mb-1.5">Documento original</div>
+                <iframe title="Original" src={archivoUrl(form.pdf_path)} className="w-full h-[74vh] rounded-md border border-zinc-200 bg-zinc-50" data-testid="cotejo-frame" />
+              </div>
+            )}
+            <div className="min-w-0">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 py-2">
             <div className="col-span-2">
               <Label className="text-xs">Proveedor (de tu base)</Label>
@@ -335,6 +350,8 @@ export default function FacturasRecibidas() {
             <Button variant="outline" onClick={() => setOpen(false)} className="rounded-md">Cancelar</Button>
             <Button data-testid="guardar-recibida-button" onClick={save} className="rounded-md bg-primary hover:bg-indigo-700">Registrar</Button>
           </DialogFooter>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
 
