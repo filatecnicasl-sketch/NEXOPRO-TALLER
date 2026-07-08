@@ -3,7 +3,7 @@ import { Plus, ArrowUUpLeft, Sparkle, FileArrowDown, Robot, Printer, CheckCircle
 import { toast } from "sonner";
 import {
   getFacturasRecibidas, createFacturaRecibida, rectificarFacturaRecibida, estadoFacturaRecibida,
-  getContactos, getArticulos, getAjustes, getAlbaranesCompraPendientes, uploadArchivo, archivoUrl, eur,
+  getContactos, getArticulos, getAjustes, getAlbaranesCompraPendientes, uploadArchivo, archivoUrl, getVehiculos, eur,
 } from "@/lib/api";
 import { imprimirDocumento, imprimirListado } from "@/lib/print";
 import PdfPreview from "@/components/PdfPreview";
@@ -26,7 +26,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 const emptyForm = () => ({
   numero_proveedor: "", proveedor_id: "", proveedor_nombre: "", proveedor_nif: "",
   fecha: new Date().toISOString().slice(0, 10), estado: "pendiente", origen: "manual",
-  forma_pago: "Transferencia", lineas: [], albaranes_ids: [], pdf_path: "", pdf_filename: "", notas: "",
+  forma_pago: "Transferencia", lineas: [], albaranes_ids: [], pdf_path: "", pdf_filename: "", vehiculo_id: "", vehiculo_matricula: "", notas: "",
 });
 const FORMA_PAGO = ["Transferencia", "Efectivo", "Tarjeta", "Domiciliación", "Recibo", "Confirming", "Otro"];
 
@@ -44,6 +44,7 @@ export default function FacturasRecibidas() {
   const [preview, setPreview] = useState(null);
   const [subiendo, setSubiendo] = useState(false);
   const [cotejo, setCotejo] = useState(true);
+  const [vehiculos, setVehiculos] = useState([]);
 
   const load = () => { setLoading(true); getFacturasRecibidas().then((d) => { setItems(d); setLoading(false); }); };
   useEffect(() => {
@@ -51,6 +52,7 @@ export default function FacturasRecibidas() {
     getContactos("proveedor").then(setProveedores);
     getArticulos().then(setArticulos);
     getAjustes().then((a) => setEmpresa(a.empresa || {}));
+    getVehiculos().then(setVehiculos);
   }, []);
 
   const cargarAlbaranes = (prov) => {
@@ -298,6 +300,15 @@ export default function FacturasRecibidas() {
               <select data-testid="select-forma-pago" value={form.forma_pago} onChange={(e) => setForm({ ...form, forma_pago: e.target.value })}
                 className="w-full h-10 mt-1 border border-input rounded-md bg-white px-2 text-sm">
                 {FORMA_PAGO.map((f) => <option key={f} value={f}>{f}</option>)}
+              </select>
+            </div>
+            <div>
+              <Label className="text-xs">Vehículo (imputar coste)</Label>
+              <select data-testid="fr-vehiculo" value={form.vehiculo_id}
+                onChange={(e) => { const v = vehiculos.find((x) => x.id === e.target.value); setForm({ ...form, vehiculo_id: e.target.value, vehiculo_matricula: v?.matricula || "" }); }}
+                className="w-full h-10 mt-1 border border-input rounded-md bg-white px-2 text-sm">
+                <option value="">— Sin imputar —</option>
+                {vehiculos.map((v) => <option key={v.id} value={v.id}>{`${v.matricula} · ${[v.marca, v.modelo].filter(Boolean).join(" ")}`}</option>)}
               </select>
             </div>
           </div>

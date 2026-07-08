@@ -272,6 +272,28 @@ export default function Vehiculos() {
                     )}
               </div>
               <div className="border-t border-zinc-100 pt-4">
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="font-heading font-semibold text-zinc-900 text-sm">Compras imputadas</h4>
+                  {!ficha.loading && <span className="text-sm font-semibold text-primary tabular-nums" data-testid="coste-compras">Coste: {eur(ficha.coste_compras || 0)}</span>}
+                </div>
+                {ficha.loading ? <p className="text-sm text-zinc-400">Cargando...</p>
+                  : (ficha.compras || []).length === 0 ? <p className="text-sm text-zinc-400">Sin compras imputadas a este vehículo.</p>
+                    : (
+                      <div className="space-y-2">
+                        {ficha.compras.map((c) => (
+                          <div key={`${c.tipo}-${c.id}`} className="flex items-center justify-between border border-zinc-100 rounded-md px-3 py-2 text-sm">
+                            <div className="flex items-center gap-3 min-w-0">
+                              <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium bg-zinc-100 text-zinc-600 shrink-0">{c.tipo}</span>
+                              <span className="font-mono-plex text-xs text-zinc-500">{c.numero || "—"}</span>
+                              <span className="text-zinc-600 truncate">{c.proveedor || "—"}</span>
+                            </div>
+                            <span className="tabular-nums font-medium text-zinc-900">{eur(c.total)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+              </div>
+              <div className="border-t border-zinc-100 pt-4">
                 <FotosGaleria tipo="vehiculos" id={ficha.vehiculo.id} fotos={ficha.vehiculo.fotos || []} onChange={refreshFicha} titulo="Documentos y fotos (peritaciones, contratos…)" />
               </div>
             </>

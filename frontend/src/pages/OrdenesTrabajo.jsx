@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
-import { Plus, PencilSimple, Trash, MagnifyingGlass, Wrench } from "@phosphor-icons/react";
+import { Plus, PencilSimple, Trash, MagnifyingGlass, Wrench, Printer } from "@phosphor-icons/react";
 import { toast } from "sonner";
 import {
   getOrdenes, createOrden, updateOrden, deleteOrden, estadoOrden,
-  getVehiculos, getContactos, getArticulos, createVehiculo, createContacto, eur,
+  getVehiculos, getContactos, getArticulos, createVehiculo, createContacto, getAjustes, eur,
 } from "@/lib/api";
+import { imprimirParteOrden } from "@/lib/taller_print";
 import PageHeader from "@/components/PageHeader";
 import LineasEditor from "@/components/LineasEditor";
 import { Button } from "@/components/ui/button";
@@ -31,6 +32,7 @@ export default function OrdenesTrabajo() {
   const [vehiculos, setVehiculos] = useState([]);
   const [clientes, setClientes] = useState([]);
   const [articulos, setArticulos] = useState([]);
+  const [empresa, setEmpresa] = useState({});
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [open, setOpen] = useState(false);
@@ -52,7 +54,13 @@ export default function OrdenesTrabajo() {
     getVehiculos().then(setVehiculos);
     getContactos("cliente").then(setClientes);
     getArticulos().then(setArticulos).catch(() => setArticulos([]));
+    getAjustes().then((a) => setEmpresa(a.empresa || {})).catch(() => {});
   }, []);
+
+  const imprimir = (o) => {
+    const veh = vehiculos.find((v) => v.id === o.vehiculo_id) || {};
+    imprimirParteOrden({ empresa, orden: o, vehiculo: veh });
+  };
 
   const openNew = () => { setForm(EMPTY); setLineas([]); setEditId(null); setOpen(true); };
   const openEdit = (o) => { setForm({ ...EMPTY, ...o }); setLineas(o.lineas || []); setEditId(o.id); setOpen(true); };
@@ -152,6 +160,7 @@ export default function OrdenesTrabajo() {
                 </TableCell>
                 <TableCell className="text-right tabular-nums font-medium text-zinc-900">{eur(o.total)}</TableCell>
                 <TableCell className="text-right">
+                  <button data-testid={`imprimir-orden-${o.id}`} onClick={() => imprimir(o)} className="text-zinc-400 hover:text-primary p-1.5" title="Imprimir parte"><Printer size={16} /></button>
                   <button data-testid={`editar-orden-${o.id}`} onClick={() => openEdit(o)} className="text-zinc-400 hover:text-primary p-1.5"><PencilSimple size={16} /></button>
                   <button data-testid={`eliminar-orden-${o.id}`} onClick={() => setDelId(o.id)} className="text-zinc-400 hover:text-red-500 p-1.5"><Trash size={16} /></button>
                 </TableCell>

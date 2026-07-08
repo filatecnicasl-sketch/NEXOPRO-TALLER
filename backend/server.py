@@ -367,6 +367,8 @@ class DocumentoInput(BaseModel):
     lineas: List[LineaItem] = []
     pdf_path: str = ""
     pdf_filename: str = ""
+    vehiculo_id: str = ""
+    vehiculo_matricula: str = ""
     notas: str = ""
 
 
@@ -398,6 +400,8 @@ class FacturaRecibidaInput(BaseModel):
     pdf_path: str = ""
     pdf_filename: str = ""
     albaranes_ids: List[str] = []
+    vehiculo_id: str = ""
+    vehiculo_matricula: str = ""
     notas: str = ""
 
 
@@ -702,6 +706,8 @@ def _build_documento(data: DocumentoInput, numero: str):
         "total": total,
         "pdf_path": data.pdf_path,
         "pdf_filename": data.pdf_filename,
+        "vehiculo_id": data.vehiculo_id,
+        "vehiculo_matricula": data.vehiculo_matricula,
         "notas": data.notas,
         "created_at": now_iso(),
     }
@@ -1127,6 +1133,8 @@ async def crear_factura_recibida(data: FacturaRecibidaInput):
         "pdf_filename": data.pdf_filename,
         "albaranes_ids": data.albaranes_ids,
         "conciliacion": conciliacion,
+        "vehiculo_id": data.vehiculo_id,
+        "vehiculo_matricula": data.vehiculo_matricula,
         "notas": data.notas,
         "created_at": now_iso(),
     }
@@ -1578,7 +1586,21 @@ async def ficha_vehiculo(vid: str):
         raise HTTPException(404, "Vehículo no encontrado")
     ordenes = await db.ordenes_trabajo.find({"vehiculo_id": vid}, {"_id": 0}).sort("created_at", -1).to_list(500)
     peritajes = await db.peritajes.find({"vehiculo_id": vid}, {"_id": 0}).sort("created_at", -1).to_list(500)
-    return {"vehiculo": v, "ordenes": ordenes, "peritajes": peritajes}
+    compras = []
+    for col, etiqueta in [("pedidos", "Pedido"), ("albaranes", "Albarán"), ("facturas_recibidas", "Factura")]:
+        docs = await db[col].find({"vehiculo_id": vid}, {"_id": 0}).sort("created_at", -1).to_list(500)
+        for d in docs:
+            compras.append({
+                "tipo": etiqueta,
+                "id": d.get("id"),
+                "numero": d.get("numero") or d.get("numero_proveedor") or "",
+                "fecha": d.get("fecha", ""),
+                "proveedor": d.get("contacto_nombre") or d.get("proveedor_nombre") or "",
+                "total": d.get("total", 0),
+            })
+    coste_compras = round(sum(c["total"] for c in compras), 2)
+    return {"vehiculo": v, "ordenes": ordenes, "peritajes": peritajes,
+            "compras": compras, "coste_compras": coste_compras}
 
 
 @api_router.put("/taller/vehiculos/{vid}")

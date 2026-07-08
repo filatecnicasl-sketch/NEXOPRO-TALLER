@@ -6,7 +6,7 @@ import {
 import { toast } from "sonner";
 import {
   getDocumentos, createDocumento, updateDocumento, deleteDocumento, convertirDocumento,
-  getContactos, getArticulos, getAjustes, uploadArchivo, eur,
+  getContactos, getArticulos, getAjustes, uploadArchivo, getVehiculos, eur,
 } from "@/lib/api";
 import { imprimirDocumento, imprimirListado } from "@/lib/print";
 import PdfPreview from "@/components/PdfPreview";
@@ -51,7 +51,7 @@ const estadoTone = (e) => ({
 
 const emptyForm = (op) => ({
   tipo_operacion: op, serie: "", contacto_id: "", contacto_nombre: "", contacto_nif: "",
-  fecha: new Date().toISOString().slice(0, 10), estado: "borrador", lineas: [], pdf_path: "", pdf_filename: "", notas: "",
+  fecha: new Date().toISOString().slice(0, 10), estado: "borrador", lineas: [], pdf_path: "", pdf_filename: "", vehiculo_id: "", vehiculo_matricula: "", notas: "",
 });
 
 export default function Documentos({ entidad, operacion }) {
@@ -71,6 +71,7 @@ export default function Documentos({ entidad, operacion }) {
   const [delId, setDelId] = useState(null);
   const [preview, setPreview] = useState(null);
   const [subiendo, setSubiendo] = useState(false);
+  const [vehiculos, setVehiculos] = useState([]);
 
   const load = () => { setLoading(true); getDocumentos(entidad).then((d) => { setItems(d); setLoading(false); }); };
   useEffect(() => {
@@ -78,6 +79,7 @@ export default function Documentos({ entidad, operacion }) {
     getContactos(esCompra ? "proveedor" : "cliente").then(setContactos);
     getArticulos().then(setArticulos);
     getAjustes().then((a) => { setSeries((esCompra ? a.series_compra : a.series_venta) || []); setEmpresa(a.empresa || {}); });
+    if (esCompra) getVehiculos().then(setVehiculos);
   }, [entidad, operacion]);
 
   const visibles = items.filter((d) => d.tipo_operacion === operacion);
@@ -311,6 +313,17 @@ export default function Documentos({ entidad, operacion }) {
                 {ESTADOS.map((s) => <option key={s} value={s}>{s}</option>)}
               </select>
             </div>
+            {esCompra && (
+              <div>
+                <Label className="text-xs">Vehículo (imputar coste)</Label>
+                <select data-testid="doc-vehiculo" value={form.vehiculo_id}
+                  onChange={(e) => { const v = vehiculos.find((x) => x.id === e.target.value); setForm({ ...form, vehiculo_id: e.target.value, vehiculo_matricula: v?.matricula || "" }); }}
+                  className="w-full h-10 mt-1 border border-input rounded-md bg-white px-2 text-sm">
+                  <option value="">— Sin imputar —</option>
+                  {vehiculos.map((v) => <option key={v.id} value={v.id}>{`${v.matricula} · ${[v.marca, v.modelo].filter(Boolean).join(" ")}`}</option>)}
+                </select>
+              </div>
+            )}
           </div>
           {esCompra && (
             <div className="flex items-center gap-3 flex-wrap" data-testid="adjuntar-pdf">

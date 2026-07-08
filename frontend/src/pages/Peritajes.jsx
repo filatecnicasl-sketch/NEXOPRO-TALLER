@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
-import { Plus, PencilSimple, Trash, MagnifyingGlass, ShieldCheck, Camera, Gear } from "@phosphor-icons/react";
+import { Plus, PencilSimple, Trash, MagnifyingGlass, ShieldCheck, Camera, Gear, Printer } from "@phosphor-icons/react";
 import { toast } from "sonner";
 import {
   getPeritajes, createPeritaje, updatePeritaje, deletePeritaje, estadoPeritaje, getPeritaje,
-  getVehiculos, getContactos, getCompanias, createCompania, deleteCompania, createVehiculo, createContacto, eur,
+  getVehiculos, getContactos, getCompanias, createCompania, deleteCompania, createVehiculo, createContacto, getAjustes, eur,
 } from "@/lib/api";
+import { imprimirInformePeritaje } from "@/lib/taller_print";
 import PageHeader from "@/components/PageHeader";
 import FotosGaleria from "@/components/FotosGaleria";
 import { Button } from "@/components/ui/button";
@@ -40,6 +41,7 @@ export default function Peritajes() {
   const [vehiculos, setVehiculos] = useState([]);
   const [clientes, setClientes] = useState([]);
   const [companias, setCompanias] = useState([]);
+  const [empresa, setEmpresa] = useState({});
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [open, setOpen] = useState(false);
@@ -61,7 +63,13 @@ export default function Peritajes() {
     getVehiculos().then(setVehiculos);
     getContactos("cliente").then(setClientes);
     getCompanias().then(setCompanias);
+    getAjustes().then((a) => setEmpresa(a.empresa || {})).catch(() => {});
   }, []);
+
+  const imprimir = (p) => {
+    const veh = vehiculos.find((v) => v.id === p.vehiculo_id) || {};
+    imprimirInformePeritaje({ empresa, peritaje: p, vehiculo: veh });
+  };
 
   const openNew = () => { setForm(EMPTY); setDanios([]); setEditId(null); setEditFotos([]); setOpen(true); };
   const openEdit = (p) => { setForm({ ...EMPTY, ...p }); setDanios(p.danios || []); setEditId(p.id); setEditFotos(p.fotos || []); setOpen(true); };
@@ -181,6 +189,7 @@ export default function Peritajes() {
                 <TableCell className="text-zinc-500 text-sm"><span className="inline-flex items-center gap-1"><Camera size={14} /> {(p.fotos || []).length}</span></TableCell>
                 <TableCell className="text-right tabular-nums font-medium text-zinc-900">{eur(p.importe_total)}</TableCell>
                 <TableCell className="text-right">
+                  <button data-testid={`imprimir-peritaje-${p.id}`} onClick={() => imprimir(p)} className="text-zinc-400 hover:text-primary p-1.5" title="Imprimir informe"><Printer size={16} /></button>
                   <button data-testid={`editar-peritaje-${p.id}`} onClick={() => openEdit(p)} className="text-zinc-400 hover:text-primary p-1.5"><PencilSimple size={16} /></button>
                   <button data-testid={`eliminar-peritaje-${p.id}`} onClick={() => setDelId(p.id)} className="text-zinc-400 hover:text-red-500 p-1.5"><Trash size={16} /></button>
                 </TableCell>

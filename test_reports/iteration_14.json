@@ -1,0 +1,31 @@
+{
+  "summary": "TALLER Fase 4 (imputación de coste de compras a vehículo + informes imprimibles) verificada. Backend: 7/7 pytest verdes (POST/PUT pedidos y albaranes de compra con vehiculo_id, factura recibida con vehiculo_id, venta sigue sin vehiculo_id, ficha_vehiculo agrega compras[] con Pedido+Albarán+Factura y coste_compras exacto = suma de totales incl. IVA). Frontend: doc-vehiculo aparece en /compras/pedidos y NO en /ventas/pedidos; fr-vehiculo aparece en /facturas-recibidas; coste-compras se muestra en la ficha del vehículo tras clic en fila; botones imprimir-orden-{id} e imprimir-peritaje-{id} invocan window.open sin lanzar excepción JS (popup count = 1, sin errores).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "FacturasRecibidas · select fr-vehiculo", "issues": ["Se observaron entradas duplicadas en el desplegable (ej. 'F4SE4TST · BMW X1' aparece 2 veces). Probablemente hay 2 vehículos con misma matrícula en BD (dato seed), no bug de código. Considerar validar unicidad de matrícula en POST /taller/vehiculos o dedupe en getVehiculos."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter14_taller_fase4.py",
+    "/app/test_reports/pytest/iter14.xml"
+  ],
+  "action_items": [
+    "(Opcional) Validar unicidad de matrícula en el modelo de vehículo o dedupe en dropdown (fr-vehiculo/doc-vehiculo).",
+    "(Opcional) /api/facturas-recibidas no expone DELETE — documentar comportamiento en frontend si el usuario intenta borrar (icono/menú deshabilitado)."
+  ],
+  "critical_code_review_comments": [
+    "ficha_vehiculo suma 'total' de cada compra incluyendo IVA — correcto según spec ('total con IVA').",
+    "_build_documento persiste vehiculo_matricula tal cual llega del frontend; si el frontend envía solo vehiculo_id sin matrícula, el campo queda vacío (no se resuelve desde BD como sí ocurre en órdenes/peritajes/citas/préstamos donde hay un lookup a db.vehiculos). Consistencia deseable: en _make_documento_routes hacer lookup si vehiculo_id está pero vehiculo_matricula vacío. No bloquea porque la ficha se agrega por vehiculo_id, pero afectaría a listados/impresión de documentos.",
+    "server.py alcanzó 2191 líneas — considerar split por dominio (documentos, taller, facturas) para mantenibilidad (>700 líneas ya excede el umbral)."
+  ],
+  "updated_files": ["/app/backend/tests/test_iter14_taller_fase4.py"],
+  "success_rate": {"backend": "100% (7/7)", "frontend": "100% flujos verificados"},
+  "test_credentials": "Licencia REACT_APP_LICENSE_KEY=NEXO-DEMO-0001 (sin login usuario).",
+  "seed_data_creation": "Test backend crea 1 vehículo TEST-F4-01 + 2 pedidos + 1 albarán + 1 factura recibida y limpia todo excepto factura recibida (no hay DELETE, según spec). En UI se creó y borró 1 vehículo TEST-F4-UI-P + 1 peritaje para probar el botón imprimir-peritaje. BD limpia salvo la factura recibida F-TEST-F4-001 (persistente por diseño).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Fase 4 100% verde. La factura recibida TEST_F4 queda en BD (esperado: sin DELETE). Rutas: /ventas/pedidos, /compras/pedidos (no /venta/*). Impresión: window.open + document.write en /app/frontend/src/lib/taller_print.js — no genera PDF real, solo HTML+CSS con auto-print."
+}
