@@ -1,0 +1,31 @@
+{
+  "summary": "Iteration 4 validated: line quantity+unit (cant/ud) persists in facturas emitidas/recibidas and documents, forma_pago select persists (7 options), Verifactu no-delete + rectificativa (abono) with negative total + original marked Rectificada, series in albaranes de venta (B → B-2026-0005), auto-create cliente regression, cliente IBAN + delivery fields regression. 6/6 backend tests + full UI walkthrough pass. No JS errors.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Detalle Factura Emitida (dialog)", "issues": ["Línea muestra 'descripcion x3' pero no muestra la unidad (p.ej. 'x3 m2'). El backend persiste unidad correctamente; solo es cuestión de visualización en el detalle."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter4_rectificar.py",
+    "/app/test_reports/pytest/iter4.xml"
+  ],
+  "action_items": [
+    "(Opcional/UX) Mostrar unidad en el detalle de factura emitida junto con la cantidad, p.ej. 'x3 m2'."
+  ],
+  "critical_code_review_comments": [
+    "_emitir_factura numbering usa count_documents({serie})+1 y NO es atómico bajo concurrencia (posible colisión de números). Recomiendo migrar a _next_seq(f'num_facturas_emitidas_{serie}') como ya se usa para documentos.",
+    "rectificar factura recibida no exige numero_proveedor único; podría chocar con validación futura."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter4_rectificar.py"
+  ],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "test_credentials": "License NEXO-DEMO-0001 (ACTIVA). Admin no usado esta ronda.",
+  "seed_data_creation": "Filas TEST_UI_FE1, TEST_UI_Venta1 creadas por el walkthrough (no limpiadas). Datos TEST_* de pytest se limpian en runtime cuando aplica.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Backend cambios verificados: LineaItem.unidad, forma_pago en emitidas/recibidas, POST /facturas-emitidas/{id}/rectificar y /facturas-recibidas/{id}/rectificar (rectificativa con total negativo, rectifica_a apuntando al original, original con estado=rectificada), DELETE en ambas facturas eliminado (405). Serie 'B' en albaranes venta produce B-2026-XXXX; compra sigue ALB-YYYY-XXXX. UI: dialogo emitida usa 'emitir-factura-button' (no 'guardar-factura-button'). AI PDF sigue bloqueado (0 balance) — no probado."
+}

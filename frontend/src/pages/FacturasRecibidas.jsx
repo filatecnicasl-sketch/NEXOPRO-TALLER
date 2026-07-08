@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
-import { Plus, Trash, Sparkle, FileArrowDown, Robot } from "@phosphor-icons/react";
+import { Plus, ArrowUUpLeft, Sparkle, FileArrowDown, Robot } from "@phosphor-icons/react";
 import { toast } from "sonner";
 import {
-  getFacturasRecibidas, createFacturaRecibida, deleteFacturaRecibida, estadoFacturaRecibida, getContactos, getArticulos, eur,
+  getFacturasRecibidas, createFacturaRecibida, rectificarFacturaRecibida, estadoFacturaRecibida, getContactos, getArticulos, eur,
 } from "@/lib/api";
 import PageHeader from "@/components/PageHeader";
 import LineasEditor, { calcTotales } from "@/components/LineasEditor";
@@ -20,8 +20,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 
 const emptyForm = () => ({
   numero_proveedor: "", proveedor_id: "", proveedor_nombre: "", proveedor_nif: "",
-  fecha: new Date().toISOString().slice(0, 10), estado: "pendiente", origen: "manual", lineas: [], notas: "",
+  fecha: new Date().toISOString().slice(0, 10), estado: "pendiente", origen: "manual", forma_pago: "Transferencia", lineas: [], notas: "",
 });
+const FORMA_PAGO = ["Transferencia", "Efectivo", "Tarjeta", "Domiciliación", "Recibo", "Confirming", "Otro"];
 
 export default function FacturasRecibidas() {
   const [items, setItems] = useState([]);
@@ -31,7 +32,7 @@ export default function FacturasRecibidas() {
   const [open, setOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [form, setForm] = useState(emptyForm());
-  const [delId, setDelId] = useState(null);
+  const [rectId, setRectId] = useState(null);
 
   const load = () => { setLoading(true); getFacturasRecibidas().then((d) => { setItems(d); setLoading(false); }); };
   useEffect(() => { load(); getContactos("proveedor").then(setProveedores); getArticulos().then(setArticulos); }, []);
@@ -59,7 +60,15 @@ export default function FacturasRecibidas() {
     load();
   };
 
-  const remove = async () => { await deleteFacturaRecibida(delId); setDelId(null); toast.success("Eliminada"); load(); };
+  const rectificar = async () => {
+    try {
+      await rectificarFacturaRecibida(rectId);
+      toast.success("Rectificativa (abono) registrada");
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || "No se pudo rectificar");
+    }
+    setRectId(null); load();
+  };
 
   const onExtracted = (datos) => {
     const prov = datos.proveedor_existente;
@@ -118,7 +127,10 @@ export default function FacturasRecibidas() {
             )}
             {items.map((f, i) => (
               <TableRow key={f.id} className="animate-row" style={{ animationDelay: `${i * 25}ms` }} data-testid={`factura-recibida-row-${f.id}`}>
-                <TableCell className="font-mono-plex text-xs text-slate-800">{f.numero_proveedor || "—"}</TableCell>
+                <TableCell className="font-mono-plex text-xs text-slate-800">
+                  {f.numero_proveedor || "—"}
+                  {f.tipo_factura === "rectificativa" && <Badge className="ml-2 rounded-sm bg-orange-100 text-orange-700 hover:bg-orange-100 text-[10px]">Rectificativa</Badge>}
+                </TableCell>
                 <TableCell className="text-slate-700">{f.proveedor_nombre}</TableCell>
                 <TableCell className="text-slate-600">{f.fecha}</TableCell>
                 <TableCell>
@@ -129,13 +141,19 @@ export default function FacturasRecibidas() {
                 <TableCell className="text-right tabular-nums">{eur(f.base_total)}</TableCell>
                 <TableCell className="text-right tabular-nums font-medium">{eur(f.total)}</TableCell>
                 <TableCell>
-                  <button data-testid={`toggle-estado-${f.id}`} onClick={() => toggleEstado(f)}
-                    className={`text-xs px-2 py-1 rounded-sm ${f.estado === "pagada" ? "bg-emerald-50 text-emerald-600" : "bg-amber-50 text-amber-600"}`}>
-                    {f.estado === "pagada" ? "Pagada" : "Pendiente"}
-                  </button>
+                  {f.estado === "rectificada" ? (
+                    <span className="text-xs px-2 py-1 rounded-sm bg-orange-50 text-orange-600">Rectificada</span>
+                  ) : (
+                    <button data-testid={`toggle-estado-${f.id}`} onClick={() => toggleEstado(f)}
+                      className={`text-xs px-2 py-1 rounded-sm ${f.estado === "pagada" ? "bg-emerald-50 text-emerald-600" : "bg-amber-50 text-amber-600"}`}>
+                      {f.estado === "pagada" ? "Pagada" : "Pendiente"}
+                    </button>
+                  )}
                 </TableCell>
                 <TableCell className="text-right">
-                  <button data-testid={`eliminar-${f.id}`} onClick={() => setDelId(f.id)} className="text-slate-400 hover:text-red-500 p-1.5"><Trash size={16} /></button>
+                  {f.tipo_factura !== "rectificativa" && f.estado !== "rectificada" && (
+                    <button data-testid={`rectificar-${f.id}`} onClick={() => setRectId(f.id)} title="Registrar rectificativa (abono)" className="text-slate-400 hover:text-orange-500 p-1.5"><ArrowUUpLeft size={16} /></button>
+                  )}
                 </TableCell>
               </TableRow>
             ))}
@@ -179,6 +197,13 @@ export default function FacturasRecibidas() {
               <Label className="text-xs">Fecha</Label>
               <Input type="date" value={form.fecha} onChange={(e) => setForm({ ...form, fecha: e.target.value })} className="rounded-sm mt-1" />
             </div>
+            <div>
+              <Label className="text-xs">Forma de pago</Label>
+              <select data-testid="select-forma-pago" value={form.forma_pago} onChange={(e) => setForm({ ...form, forma_pago: e.target.value })}
+                className="w-full h-10 mt-1 border border-input rounded-sm bg-white px-2 text-sm">
+                {FORMA_PAGO.map((f) => <option key={f} value={f}>{f}</option>)}
+              </select>
+            </div>
           </div>
           <LineasEditor lineas={form.lineas} setLineas={(l) => setForm({ ...form, lineas: l })} articulos={articulos} />
           <DialogFooter className="mt-2">
@@ -189,15 +214,17 @@ export default function FacturasRecibidas() {
         </DialogContent>
       </Dialog>
 
-      <AlertDialog open={!!delId} onOpenChange={(o) => !o && setDelId(null)}>
+      <AlertDialog open={!!rectId} onOpenChange={(o) => !o && setRectId(null)}>
         <AlertDialogContent className="rounded-sm">
           <AlertDialogHeader>
-            <AlertDialogTitle>¿Eliminar factura recibida?</AlertDialogTitle>
-            <AlertDialogDescription>Esta acción no se puede deshacer.</AlertDialogDescription>
+            <AlertDialogTitle>Registrar factura rectificativa</AlertDialogTitle>
+            <AlertDialogDescription>
+              Según Verifactu, las facturas no se eliminan. Se registrará una <b>rectificativa (abono)</b> que anula los importes de la original y la marca como rectificada.
+            </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel className="rounded-sm">Cancelar</AlertDialogCancel>
-            <AlertDialogAction data-testid="confirmar-eliminar-button" onClick={remove} className="rounded-sm bg-red-500 hover:bg-red-600">Eliminar</AlertDialogAction>
+            <AlertDialogAction data-testid="confirmar-rectificar-button" onClick={rectificar} className="rounded-sm bg-orange-500 hover:bg-orange-600">Registrar rectificativa</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

@@ -37,7 +37,7 @@ const estadoColor = (e) => ({
 }[e] || "bg-slate-100 text-slate-600");
 
 const emptyForm = (tipo) => ({
-  tipo_operacion: tipo, contacto_id: "", contacto_nombre: "", contacto_nif: "",
+  tipo_operacion: tipo, serie: "", contacto_id: "", contacto_nombre: "", contacto_nif: "",
   fecha: new Date().toISOString().slice(0, 10), estado: "borrador", lineas: [], notas: "",
 });
 
@@ -183,6 +183,12 @@ export default function Documentos({ entidad }) {
             </div>
             {form.tipo_operacion === "venta" && (
               <>
+                <div>
+                  <Label className="text-xs">Serie</Label>
+                  <Input data-testid="input-serie-doc" value={form.serie}
+                    onChange={(e) => setForm({ ...form, serie: e.target.value.toUpperCase() })}
+                    className="rounded-sm mt-1 font-mono-plex" placeholder="Ej. A (opcional)" />
+                </div>
                 <div>
                   <Label className="text-xs">Nombre cliente</Label>
                   <Input data-testid="input-contacto-nombre" value={form.contacto_nombre}

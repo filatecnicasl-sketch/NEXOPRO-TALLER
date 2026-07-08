@@ -1,15 +1,16 @@
 import { useEffect, useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
-import { Plus, Trash, Eye, Receipt, ShieldCheck, CheckCircle } from "@phosphor-icons/react";
+import { Plus, ArrowUUpLeft, Eye, Receipt, ShieldCheck, CheckCircle } from "@phosphor-icons/react";
 import { toast } from "sonner";
 import {
-  getFacturasEmitidas, createFacturaEmitida, deleteFacturaEmitida, estadoFacturaEmitida, getContactos, getArticulos, eur,
+  getFacturasEmitidas, createFacturaEmitida, rectificarFacturaEmitida, estadoFacturaEmitida, getContactos, getArticulos, eur,
 } from "@/lib/api";
 import PageHeader from "@/components/PageHeader";
 import LineasEditor, { calcTotales } from "@/components/LineasEditor";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -17,9 +18,11 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
+const FORMA_PAGO = ["Transferencia", "Efectivo", "Tarjeta", "Domiciliación", "Recibo", "Confirming", "Otro"];
+
 const emptyForm = () => ({
   serie: "A", cliente_id: "", cliente_nombre: "", cliente_nif: "",
-  fecha_expedicion: new Date().toISOString().slice(0, 10), estado: "emitida", lineas: [], notas: "",
+  fecha_expedicion: new Date().toISOString().slice(0, 10), estado: "emitida", forma_pago: "Transferencia", lineas: [], notas: "",
 });
 
 export default function FacturasEmitidas() {
@@ -30,7 +33,7 @@ export default function FacturasEmitidas() {
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState(emptyForm());
   const [detalle, setDetalle] = useState(null);
-  const [delId, setDelId] = useState(null);
+  const [rectId, setRectId] = useState(null);
 
   const load = () => { setLoading(true); getFacturasEmitidas().then((d) => { setItems(d); setLoading(false); }); };
   useEffect(() => { load(); getContactos("cliente").then(setClientes); getArticulos().then(setArticulos); }, []);
@@ -58,7 +61,15 @@ export default function FacturasEmitidas() {
     load();
   };
 
-  const remove = async () => { await deleteFacturaEmitida(delId); setDelId(null); toast.success("Factura eliminada"); load(); };
+  const rectificar = async () => {
+    try {
+      await rectificarFacturaEmitida(rectId);
+      toast.success("Factura rectificativa (abono) emitida");
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || "No se pudo rectificar");
+    }
+    setRectId(null); load();
+  };
   const totales = calcTotales(form.lineas);
 
   return (
@@ -94,17 +105,25 @@ export default function FacturasEmitidas() {
             )}
             {items.map((f, i) => (
               <TableRow key={f.id} className="animate-row" style={{ animationDelay: `${i * 25}ms` }} data-testid={`factura-emitida-row-${f.id}`}>
-                <TableCell className="font-mono-plex text-xs font-medium text-slate-800">{f.numero_completo}</TableCell>
+                <TableCell className="font-mono-plex text-xs font-medium text-slate-800">
+                  {f.numero_completo}
+                  {f.tipo_factura === "rectificativa" && <Badge className="ml-2 rounded-sm bg-orange-100 text-orange-700 hover:bg-orange-100 text-[10px]">Rectificativa</Badge>}
+                  {f.rectifica_a && <div className="text-[10px] text-slate-400">rectifica {f.rectifica_a}</div>}
+                </TableCell>
                 <TableCell className="text-slate-700">{f.cliente_nombre}</TableCell>
                 <TableCell className="text-slate-600">{f.fecha_expedicion}</TableCell>
                 <TableCell className="text-right tabular-nums">{eur(f.base_total)}</TableCell>
                 <TableCell className="text-right tabular-nums text-slate-500">{eur(f.iva_total)}</TableCell>
                 <TableCell className="text-right tabular-nums font-medium">{eur(f.total)}</TableCell>
                 <TableCell>
-                  <button data-testid={`toggle-estado-${f.id}`} onClick={() => toggleEstado(f)}
-                    className={`text-xs px-2 py-1 rounded-sm ${f.estado === "cobrada" ? "bg-emerald-50 text-emerald-600" : "bg-amber-50 text-amber-600"}`}>
-                    {f.estado === "cobrada" ? "Cobrada" : "Pendiente"}
-                  </button>
+                  {f.estado === "rectificada" ? (
+                    <span className="text-xs px-2 py-1 rounded-sm bg-orange-50 text-orange-600">Rectificada</span>
+                  ) : (
+                    <button data-testid={`toggle-estado-${f.id}`} onClick={() => toggleEstado(f)}
+                      className={`text-xs px-2 py-1 rounded-sm ${f.estado === "cobrada" ? "bg-emerald-50 text-emerald-600" : "bg-amber-50 text-amber-600"}`}>
+                      {f.estado === "cobrada" ? "Cobrada" : "Pendiente"}
+                    </button>
+                  )}
                 </TableCell>
                 <TableCell>
                   <span className="inline-flex items-center gap-1 text-xs text-emerald-600">
@@ -112,8 +131,10 @@ export default function FacturasEmitidas() {
                   </span>
                 </TableCell>
                 <TableCell className="text-right">
-                  <button data-testid={`ver-${f.id}`} onClick={() => setDetalle(f)} className="text-slate-400 hover:text-primary p-1.5"><Eye size={16} /></button>
-                  <button data-testid={`eliminar-${f.id}`} onClick={() => setDelId(f.id)} className="text-slate-400 hover:text-red-500 p-1.5"><Trash size={16} /></button>
+                  <button data-testid={`ver-${f.id}`} onClick={() => setDetalle(f)} title="Ver" className="text-slate-400 hover:text-primary p-1.5"><Eye size={16} /></button>
+                  {f.tipo_factura !== "rectificativa" && f.estado !== "rectificada" && (
+                    <button data-testid={`rectificar-${f.id}`} onClick={() => setRectId(f.id)} title="Emitir rectificativa (abono)" className="text-slate-400 hover:text-orange-500 p-1.5"><ArrowUUpLeft size={16} /></button>
+                  )}
                 </TableCell>
               </TableRow>
             ))}
@@ -153,6 +174,13 @@ export default function FacturasEmitidas() {
             <div>
               <Label className="text-xs">Fecha</Label>
               <Input type="date" value={form.fecha_expedicion} onChange={(e) => setForm({ ...form, fecha_expedicion: e.target.value })} className="rounded-sm mt-1" />
+            </div>
+            <div>
+              <Label className="text-xs">Forma de pago</Label>
+              <select data-testid="select-forma-pago" value={form.forma_pago} onChange={(e) => setForm({ ...form, forma_pago: e.target.value })}
+                className="w-full h-10 mt-1 border border-input rounded-sm bg-white px-2 text-sm">
+                {FORMA_PAGO.map((f) => <option key={f} value={f}>{f}</option>)}
+              </select>
             </div>
           </div>
           <LineasEditor lineas={form.lineas} setLineas={(l) => setForm({ ...form, lineas: l })} articulos={articulos} />
@@ -199,24 +227,38 @@ export default function FacturasEmitidas() {
                   <div className="text-[10px] uppercase tracking-widest text-slate-400 mt-2">QR Verifactu</div>
                 </div>
               </div>
-              <div className="bg-slate-50 rounded-sm p-3 mt-2">
-                <div className="text-[10px] uppercase tracking-widest text-slate-400 mb-1">Huella (SHA-256)</div>
-                <div className="font-mono-plex text-[11px] text-slate-600 break-all">{detalle.verifactu?.huella}</div>
+              <div className="bg-slate-50 rounded-sm p-3 mt-2 grid grid-cols-2 gap-2">
+                <div>
+                  <div className="text-[10px] uppercase tracking-widest text-slate-400 mb-1">Forma de pago</div>
+                  <div className="text-sm text-slate-700">{detalle.forma_pago || "—"}</div>
+                </div>
+                {detalle.rectifica_a && (
+                  <div>
+                    <div className="text-[10px] uppercase tracking-widest text-slate-400 mb-1">Rectifica a</div>
+                    <div className="text-sm text-orange-600 font-mono-plex">{detalle.rectifica_a}</div>
+                  </div>
+                )}
+                <div className="col-span-2">
+                  <div className="text-[10px] uppercase tracking-widest text-slate-400 mb-1">Huella (SHA-256)</div>
+                  <div className="font-mono-plex text-[11px] text-slate-600 break-all">{detalle.verifactu?.huella}</div>
+                </div>
               </div>
             </>
           )}
         </DialogContent>
       </Dialog>
 
-      <AlertDialog open={!!delId} onOpenChange={(o) => !o && setDelId(null)}>
+      <AlertDialog open={!!rectId} onOpenChange={(o) => !o && setRectId(null)}>
         <AlertDialogContent className="rounded-sm">
           <AlertDialogHeader>
-            <AlertDialogTitle>¿Eliminar factura?</AlertDialogTitle>
-            <AlertDialogDescription>Esta acción no se puede deshacer.</AlertDialogDescription>
+            <AlertDialogTitle>Emitir factura rectificativa</AlertDialogTitle>
+            <AlertDialogDescription>
+              Según Verifactu, las facturas no se pueden eliminar. Se emitirá una <b>factura rectificativa (abono)</b> que anula los importes de la original y la marca como rectificada.
+            </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel className="rounded-sm">Cancelar</AlertDialogCancel>
-            <AlertDialogAction data-testid="confirmar-eliminar-button" onClick={remove} className="rounded-sm bg-red-500 hover:bg-red-600">Eliminar</AlertDialogAction>
+            <AlertDialogAction data-testid="confirmar-rectificar-button" onClick={rectificar} className="rounded-sm bg-orange-500 hover:bg-orange-600">Emitir rectificativa</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

@@ -32,6 +32,7 @@ export const estadoFacturaEmitida = (id, estado) => {
   fd.append("estado", estado);
   return client.patch(`/facturas-emitidas/${id}/estado`, fd).then((r) => r.data);
 };
+export const rectificarFacturaEmitida = (id) => client.post(`/facturas-emitidas/${id}/rectificar`, {}).then((r) => r.data);
 export const deleteFacturaEmitida = (id) => client.delete(`/facturas-emitidas/${id}`).then((r) => r.data);
 
 // Facturas recibidas
@@ -43,6 +44,7 @@ export const estadoFacturaRecibida = (id, estado) => {
   fd.append("estado", estado);
   return client.patch(`/facturas-recibidas/${id}/estado`, fd).then((r) => r.data);
 };
+export const rectificarFacturaRecibida = (id) => client.post(`/facturas-recibidas/${id}/rectificar`, {}).then((r) => r.data);
 export const deleteFacturaRecibida = (id) => client.delete(`/facturas-recibidas/${id}`).then((r) => r.data);
 
 // Extracción IA

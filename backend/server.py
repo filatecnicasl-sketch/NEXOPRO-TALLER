@@ -252,6 +252,7 @@ class LineaItem(BaseModel):
     codigo_proveedor: str = ""
     descripcion: str = ""
     cantidad: float = 1
+    unidad: str = "ud"
     precio_unitario: float = 0
     descuento: float = 0        # porcentaje
     tipo_iva: float = 21        # porcentaje
@@ -278,6 +279,7 @@ def calcular_lineas(lineas: List[dict]):
             'codigo_proveedor': l.get('codigo_proveedor', ''),
             'descripcion': l.get('descripcion', ''),
             'cantidad': cantidad,
+            'unidad': l.get('unidad', 'ud'),
             'precio_unitario': precio,
             'descuento': descuento,
             'tipo_iva': tipo_iva,
@@ -293,6 +295,7 @@ def calcular_lineas(lineas: List[dict]):
 # ---- Documento (Pedidos / Albaranes) ----
 class DocumentoInput(BaseModel):
     tipo_operacion: Literal['venta', 'compra'] = 'venta'
+    serie: str = ""
     contacto_id: str = ""
     contacto_nombre: str = ""
     contacto_nif: str = ""
@@ -311,6 +314,7 @@ class FacturaEmitidaInput(BaseModel):
     fecha_expedicion: str = Field(default_factory=lambda: date.today().isoformat())
     lineas: List[LineaItem] = []
     estado: str = "emitida"
+    forma_pago: str = "Transferencia"
     notas: str = ""
 
 
@@ -324,6 +328,7 @@ class FacturaRecibidaInput(BaseModel):
     lineas: List[LineaItem] = []
     estado: str = "pendiente"
     origen: str = "manual"
+    forma_pago: str = "Transferencia"
     pdf_base64: str = ""
     notas: str = ""
 
@@ -490,10 +495,13 @@ async def ensure_cliente(nombre: str, nif: str = "") -> Optional[dict]:
 # ---------------------------------------------------------------------------
 # DOCUMENTOS genéricos (Pedidos / Albaranes)
 # ---------------------------------------------------------------------------
-async def _next_numero(coleccion: str, prefijo: str) -> str:
+async def _next_numero(coleccion: str, prefijo: str, serie: str = "") -> str:
     year = datetime.now().year
-    count = await db[coleccion].count_documents({}) + 1
-    return f"{prefijo}-{year}-{count:04d}"
+    if serie:
+        n = await _next_seq(f"num_{coleccion}_{serie}")
+        return f"{serie}-{year}-{n:04d}"
+    n = await _next_seq(f"num_{coleccion}")
+    return f"{prefijo}-{year}-{n:04d}"
 
 
 def _build_documento(data: DocumentoInput, numero: str):
@@ -501,6 +509,7 @@ def _build_documento(data: DocumentoInput, numero: str):
     return {
         "id": new_id(),
         "numero": numero,
+        "serie": data.serie,
         "tipo_operacion": data.tipo_operacion,
         "contacto_id": data.contacto_id,
         "contacto_nombre": data.contacto_nombre,
@@ -519,7 +528,9 @@ def _build_documento(data: DocumentoInput, numero: str):
 def _make_documento_routes(entidad: str, coleccion: str, prefijo: str, registrar_entrada=False):
     @api_router.post(f"/{entidad}")
     async def crear(data: DocumentoInput):
-        numero = await _next_numero(coleccion, prefijo)
+        # las series solo aplican a documentos emitidos (venta)
+        serie = data.serie if data.tipo_operacion == "venta" else ""
+        numero = await _next_numero(coleccion, prefijo, serie)
         doc = _build_documento(data, numero)
         if doc["tipo_operacion"] == "venta" and doc["contacto_nombre"] and not doc["contacto_id"]:
             cli = await ensure_cliente(doc["contacto_nombre"], doc.get("contacto_nif", ""))
@@ -595,6 +606,38 @@ async def _generar_verifactu(serie: str, numero: str, fecha: str, nif: str, tota
     }
 
 
+async def _emitir_factura(serie, cliente_id, cliente_nombre, cliente_nif, fecha, lineas, base, iva, total,
+                          estado, forma_pago, notas, tipo_factura="ordinaria", rectifica_a=""):
+    year = datetime.now().year
+    count = await db.facturas_emitidas.count_documents({"serie": serie}) + 1
+    numero = f"{count:04d}"
+    numero_completo = f"{serie}{year}-{numero}"
+    verifactu = await _generar_verifactu(serie, numero_completo, fecha, cliente_nif or "B00000000", total)
+    doc = {
+        "id": new_id(),
+        "serie": serie,
+        "numero": numero,
+        "numero_completo": numero_completo,
+        "tipo_factura": tipo_factura,
+        "rectifica_a": rectifica_a,
+        "cliente_id": cliente_id,
+        "cliente_nombre": cliente_nombre,
+        "cliente_nif": cliente_nif,
+        "fecha_expedicion": fecha,
+        "lineas": lineas,
+        "base_total": base,
+        "iva_total": iva,
+        "total": total,
+        "estado": estado,
+        "forma_pago": forma_pago,
+        "verifactu": verifactu,
+        "notas": notas,
+        "created_at": now_iso(),
+    }
+    await db.facturas_emitidas.insert_one(dict(doc))
+    return clean(doc)
+
+
 @api_router.post("/facturas-emitidas")
 async def crear_factura_emitida(data: FacturaEmitidaInput):
     cliente_id = data.cliente_id
@@ -604,32 +647,10 @@ async def crear_factura_emitida(data: FacturaEmitidaInput):
         if cli:
             cliente_id = cli["id"]
             cliente_nif = cliente_nif or cli.get("nif", "")
-    year = datetime.now().year
-    count = await db.facturas_emitidas.count_documents({"serie": data.serie}) + 1
-    numero = f"{count:04d}"
-    numero_completo = f"{data.serie}{year}-{numero}"
     lineas, base, iva, total = calcular_lineas([l.model_dump() for l in data.lineas])
-    verifactu = await _generar_verifactu(data.serie, numero_completo, data.fecha_expedicion, cliente_nif or "B00000000", total)
-    doc = {
-        "id": new_id(),
-        "serie": data.serie,
-        "numero": numero,
-        "numero_completo": numero_completo,
-        "cliente_id": cliente_id,
-        "cliente_nombre": data.cliente_nombre,
-        "cliente_nif": cliente_nif,
-        "fecha_expedicion": data.fecha_expedicion,
-        "lineas": lineas,
-        "base_total": base,
-        "iva_total": iva,
-        "total": total,
-        "estado": data.estado,
-        "verifactu": verifactu,
-        "notas": data.notas,
-        "created_at": now_iso(),
-    }
-    await db.facturas_emitidas.insert_one(dict(doc))
-    return clean(doc)
+    return await _emitir_factura(data.serie, cliente_id, data.cliente_nombre, cliente_nif,
+                                 data.fecha_expedicion, lineas, base, iva, total,
+                                 data.estado, data.forma_pago, data.notas)
 
 
 @api_router.get("/facturas-emitidas")
@@ -653,10 +674,24 @@ async def cambiar_estado_factura_emitida(doc_id: str, estado: str = Form(...)):
     return await db.facturas_emitidas.find_one({"id": doc_id}, {"_id": 0})
 
 
-@api_router.delete("/facturas-emitidas/{doc_id}")
-async def eliminar_factura_emitida(doc_id: str):
-    await db.facturas_emitidas.delete_one({"id": doc_id})
-    return {"ok": True}
+@api_router.post("/facturas-emitidas/{doc_id}/rectificar")
+async def rectificar_factura_emitida(doc_id: str):
+    """Verifactu: las facturas no se eliminan; se emite una factura rectificativa (abono)."""
+    orig = await db.facturas_emitidas.find_one({"id": doc_id}, {"_id": 0})
+    if not orig:
+        raise HTTPException(404, "No encontrada")
+    if orig.get("tipo_factura") == "rectificativa":
+        raise HTTPException(400, "Una factura rectificativa no se puede rectificar")
+    lineas_neg = [{**l, "cantidad": -abs(float(l.get("cantidad", 0)))} for l in orig["lineas"]]
+    lineas, base, iva, total = calcular_lineas(lineas_neg)
+    nueva = await _emitir_factura(
+        orig["serie"], orig.get("cliente_id", ""), orig["cliente_nombre"], orig.get("cliente_nif", ""),
+        date.today().isoformat(), lineas, base, iva, total, "emitida",
+        orig.get("forma_pago", "Transferencia"), f"Rectificativa (abono) de {orig['numero_completo']}",
+        tipo_factura="rectificativa", rectifica_a=orig["numero_completo"],
+    )
+    await db.facturas_emitidas.update_one({"id": doc_id}, {"$set": {"estado": "rectificada"}})
+    return nueva
 
 
 # ---------------------------------------------------------------------------
@@ -668,6 +703,8 @@ async def crear_factura_recibida(data: FacturaRecibidaInput):
     doc = {
         "id": new_id(),
         "numero_proveedor": data.numero_proveedor,
+        "tipo_factura": "ordinaria",
+        "rectifica_a": "",
         "proveedor_id": data.proveedor_id,
         "proveedor_nombre": data.proveedor_nombre,
         "proveedor_nif": data.proveedor_nif,
@@ -678,6 +715,7 @@ async def crear_factura_recibida(data: FacturaRecibidaInput):
         "total": total,
         "estado": data.estado,
         "origen": data.origen,
+        "forma_pago": data.forma_pago,
         "pdf_base64": data.pdf_base64,
         "notas": data.notas,
         "created_at": now_iso(),
@@ -712,10 +750,39 @@ async def cambiar_estado_factura_recibida(doc_id: str, estado: str = Form(...)):
     return await db.facturas_recibidas.find_one({"id": doc_id}, {"_id": 0, "pdf_base64": 0})
 
 
-@api_router.delete("/facturas-recibidas/{doc_id}")
-async def eliminar_factura_recibida(doc_id: str):
-    await db.facturas_recibidas.delete_one({"id": doc_id})
-    return {"ok": True}
+@api_router.post("/facturas-recibidas/{doc_id}/rectificar")
+async def rectificar_factura_recibida(doc_id: str):
+    """Verifactu: no se elimina; se registra una rectificativa (abono) que referencia la original."""
+    orig = await db.facturas_recibidas.find_one({"id": doc_id}, {"_id": 0})
+    if not orig:
+        raise HTTPException(404, "No encontrada")
+    if orig.get("tipo_factura") == "rectificativa":
+        raise HTTPException(400, "Una factura rectificativa no se puede rectificar")
+    lineas_neg = [{**l, "cantidad": -abs(float(l.get("cantidad", 0)))} for l in orig["lineas"]]
+    lineas, base, iva, total = calcular_lineas(lineas_neg)
+    doc = {
+        "id": new_id(),
+        "numero_proveedor": f"RECT-{orig.get('numero_proveedor', '')}",
+        "tipo_factura": "rectificativa",
+        "rectifica_a": orig.get("numero_proveedor", "") or orig["id"][:8],
+        "proveedor_id": orig.get("proveedor_id", ""),
+        "proveedor_nombre": orig["proveedor_nombre"],
+        "proveedor_nif": orig.get("proveedor_nif", ""),
+        "fecha": date.today().isoformat(),
+        "lineas": lineas,
+        "base_total": base,
+        "iva_total": iva,
+        "total": total,
+        "estado": "pendiente",
+        "origen": "rectificativa",
+        "forma_pago": orig.get("forma_pago", "Transferencia"),
+        "pdf_base64": "",
+        "notas": f"Rectificativa (abono) de {orig.get('numero_proveedor', '')}",
+        "created_at": now_iso(),
+    }
+    await db.facturas_recibidas.insert_one(dict(doc))
+    await db.facturas_recibidas.update_one({"id": doc_id}, {"$set": {"estado": "rectificada"}})
+    return clean(doc)
 
 
 # ---------------------------------------------------------------------------
