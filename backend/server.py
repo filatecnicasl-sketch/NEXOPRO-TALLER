@@ -2,6 +2,8 @@ from fastapi import FastAPI, APIRouter, HTTPException, UploadFile, File, Form, D
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
+from pymongo import ReturnDocument
+import re
 import os
 import json
 import hashlib
@@ -48,6 +50,14 @@ def new_id():
 def clean(doc: dict) -> dict:
     doc.pop('_id', None)
     return doc
+
+
+async def _next_seq(name: str) -> int:
+    """Contador atómico en Mongo (seguro ante concurrencia)."""
+    doc = await db.counters.find_one_and_update(
+        {"_id": name}, {"$inc": {"seq": 1}}, upsert=True, return_document=ReturnDocument.AFTER
+    )
+    return doc["seq"]
 
 
 # ---------------------------------------------------------------------------
@@ -374,8 +384,8 @@ class ArticuloInput(BaseModel):
 
 
 async def _next_articulo_ref() -> str:
-    count = await db.articulos.count_documents({}) + 1
-    return f"ART-{count:06d}"
+    n = await _next_seq("articulo_ref")
+    return f"ART-{n:06d}"
 
 
 @api_router.post("/articulos")
@@ -464,7 +474,10 @@ async def ensure_cliente(nombre: str, nif: str = "") -> Optional[dict]:
     if nif:
         existing = await db.contactos.find_one({"tipo": "cliente", "nif": nif})
     if not existing:
-        existing = await db.contactos.find_one({"tipo": "cliente", "nombre": nombre})
+        existing = await db.contactos.find_one({
+            "tipo": "cliente",
+            "nombre": {"$regex": f"^{re.escape(nombre)}$", "$options": "i"},
+        })
     if existing:
         return existing
     nuevo = Contacto(tipo="cliente", nombre=nombre, nif=nif, notas="Alta automática desde documento de venta")
@@ -885,6 +898,12 @@ async def startup_seed():
             "estado": "activa", "ultimo_pago": None, "proximo_pago": None,
             "notas": "Licencia de demostración", "created_at": now_iso(),
         })
+
+
+    # Contador de referencias de artículo (evita colisión con los existentes)
+    if not await db.counters.find_one({"_id": "articulo_ref"}):
+        existentes = await db.articulos.count_documents({})
+        await db.counters.insert_one({"_id": "articulo_ref", "seq": existentes})
 
 
 @app.on_event("shutdown")
