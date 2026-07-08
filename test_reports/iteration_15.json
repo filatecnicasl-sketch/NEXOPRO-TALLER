@@ -1,0 +1,32 @@
+{
+  "summary": "Backend-only tests for appointment reminders (recordatorios) feature: GET/PUT /api/ajustes notificaciones with secret masking & preservation, POST /api/notificaciones/test error paths, POST /api/taller/citas/{cid}/recordatorio graceful handling & 404, and scheduler health check. 8/8 pytest tests passed.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_notificaciones.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "server.py is 2583 lines — should be split into modular routers/services (ajustes, taller, notificaciones) for maintainability.",
+    "guardar_ajustes: sending empty string '' for api_key/auth_token clears the previously stored secret. This is desired for the 'reset' flow but is not documented; if the frontend accidentally sends '' instead of the mask when editing other fields, the secret would silently be wiped. Consider treating '' the same as MASK (preserve) and requiring an explicit boolean flag like `borrar_api_key` to clear.",
+    "_enviar_recordatorio_cita properly returns graceful per-channel errors (no 500) — good defensive coding.",
+    "AsyncIOScheduler startup + _job_recordatorios has a try/except that logs warnings — good; backend health confirmed while scheduler is registered."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_notificaciones.py (new)"
+  ],
+  "success_rate": {"backend": "100%", "frontend": "not tested (backend-only per request)"},
+  "test_credentials": "N/A — license-gated app, direct backend API calls do not require auth",
+  "seed_data_creation": "Created a single test cita (motivo='TEST recordatorio', matricula='TEST-ZZZ', fecha=2099-12-31T10:00) which was deleted in the fixture teardown. Real vehicle 7765HGJ untouched. Notificaciones config reset at end: email/whatsapp inactive with empty secrets, recordatorios.activo=false. Verified via GET /api/ajustes (email api_key_set=False, whatsapp auth_token_set=False, recordatorios.activo=False) and GET /api/taller/citas (0 leftover TEST citas).",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "test_notificaciones.py can be re-run as a regression. It uses PUT /api/ajustes to save+restore notificaciones state so it self-cleans. Verified: (1) GET masks api_key/auth_token as '••••••••' with *_set booleans, (2) PUT with MASK preserves prior secret; PUT with '' clears it, (3) empresa & series names preserved on notif-only PUT, (4) /api/notificaciones/test returns 400 with Spanish 'Configura...' message when unconfigured, (5) /api/taller/citas/{cid}/recordatorio returns 200 with enviado=false and per-channel ok=false errors when unconfigured (not 500), (6) 404 for missing cita, (7) scheduler doesn't crash backend."
+}

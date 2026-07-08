@@ -18,6 +18,10 @@ from pydantic import BaseModel, Field
 from typing import List, Optional, Literal
 from datetime import datetime, timezone, date, timedelta
 import uuid
+import asyncio
+import resend
+from twilio.rest import Client as TwilioClient
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -680,6 +684,32 @@ DEFAULT_EMPRESA = {
     "ciudad": "", "telefono": "", "email": "", "iban": "", "logo": "",
 }
 
+DEFAULT_NOTIF = {
+    "email": {"activo": False, "api_key": "", "from_email": "", "from_nombre": ""},
+    "whatsapp": {"activo": False, "account_sid": "", "auth_token": "", "from_number": ""},
+    "recordatorios": {
+        "activo": False,
+        "horas_antes": 24,
+        "canal": "email",  # email | whatsapp | ambos
+        "email_asunto": "Recordatorio de su cita en {empresa}",
+        "email_cuerpo": ("Hola {cliente},\n\nLe recordamos su cita en {empresa} el {fecha} a las {hora}.\n"
+                         "Vehículo: {matricula}\nMotivo: {motivo}\n\nUn saludo."),
+        "whatsapp_texto": ("Hola {cliente}, le recordamos su cita en {empresa} el {fecha} a las {hora}. "
+                           "Vehículo: {matricula}. {motivo}"),
+    },
+}
+NOTIF_SECRETOS = [("email", "api_key"), ("whatsapp", "auth_token")]
+MASK = "••••••••"
+
+
+def _merge_notif(cfg: dict) -> dict:
+    """Combina la config guardada con los valores por defecto (deep merge simple)."""
+    n = cfg.get("notificaciones") or {}
+    out = {}
+    for seccion, defval in DEFAULT_NOTIF.items():
+        out[seccion] = {**defval, **(n.get(seccion) or {})}
+    return out
+
 
 async def _get_ajustes() -> dict:
     cfg = await db.ajustes.find_one({"_id": "config"})
@@ -688,6 +718,7 @@ async def _get_ajustes() -> dict:
         cfg = {
             "_id": "config",
             "empresa": dict(DEFAULT_EMPRESA),
+            "notificaciones": dict(DEFAULT_NOTIF),
             "series_venta": [{"id": new_id(), "nombre": "A", "por_defecto": True,
                               "contadores": {"presupuestos": 1, "facturas": count_a + 1, "pedidos": 1, "albaranes": 1}}],
             "series_compra": [{"id": new_id(), "nombre": "C", "por_defecto": True,
@@ -719,6 +750,7 @@ class AjustesInput(BaseModel):
     empresa: dict = {}
     series_venta: List[dict] = []
     series_compra: List[dict] = []
+    notificaciones: Optional[dict] = None
 
 
 def _norm_series(series: list, tipos: list) -> list:
@@ -742,12 +774,20 @@ def _norm_series(series: list, tipos: list) -> list:
 
 @api_router.get("/ajustes")
 async def obtener_ajustes():
-    return clean(dict(await _get_ajustes()))
+    cfg = dict(await _get_ajustes())
+    notif = _merge_notif(cfg)
+    # Enmascara secretos y expone si están configurados
+    for seccion, campo in NOTIF_SECRETOS:
+        val = notif.get(seccion, {}).get(campo) or ""
+        notif[seccion][f"{campo}_set"] = bool(val)
+        notif[seccion][campo] = MASK if val else ""
+    cfg["notificaciones"] = notif
+    return clean(cfg)
 
 
 @api_router.put("/ajustes")
 async def guardar_ajustes(data: AjustesInput):
-    await _get_ajustes()
+    prev = await _get_ajustes()
     empresa = {**DEFAULT_EMPRESA, **(data.empresa or {})}
     sv = _norm_series(data.series_venta, ["presupuestos", "facturas", "pedidos", "albaranes"])
     sc = _norm_series(data.series_compra, ["pedidos", "albaranes"])
@@ -757,10 +797,24 @@ async def guardar_ajustes(data: AjustesInput):
     if not sc:
         sc = [{"id": new_id(), "nombre": "C", "por_defecto": True,
                "contadores": {"pedidos": 1, "albaranes": 1}}]
-    await db.ajustes.update_one({"_id": "config"}, {"$set": {
-        "empresa": empresa, "series_venta": sv, "series_compra": sc, "updated_at": now_iso(),
-    }}, upsert=True)
-    return clean(dict(await _get_ajustes()))
+    set_doc = {"empresa": empresa, "series_venta": sv, "series_compra": sc, "updated_at": now_iso()}
+    if data.notificaciones is not None:
+        prev_notif = _merge_notif(prev)
+        notif = {}
+        for seccion, defval in DEFAULT_NOTIF.items():
+            incoming = (data.notificaciones.get(seccion) or {})
+            merged = {**defval, **prev_notif.get(seccion, {}), **incoming}
+            # limpia claves auxiliares del GET
+            merged = {k: v for k, v in merged.items() if not k.endswith("_set")}
+            notif[seccion] = merged
+        # Mantiene los secretos previos si llega el valor enmascarado o vacío-no-enviado
+        for seccion, campo in NOTIF_SECRETOS:
+            entrante = (data.notificaciones.get(seccion) or {}).get(campo)
+            if entrante is None or entrante == MASK:
+                notif[seccion][campo] = prev_notif.get(seccion, {}).get(campo, "")
+        set_doc["notificaciones"] = notif
+    await db.ajustes.update_one({"_id": "config"}, {"$set": set_doc}, upsert=True)
+    return await obtener_ajustes()
 
 
 # ---------------------------------------------------------------------------
@@ -2130,6 +2184,205 @@ async def eliminar_cita(cid: str):
     return {"ok": True}
 
 
+# ---------------------------------------------------------------------------
+# NOTIFICACIONES — Recordatorios de citas (Email vía Resend / WhatsApp vía Twilio)
+# ---------------------------------------------------------------------------
+def _fmt_tel_e164(tel: str) -> str:
+    t = re.sub(r"[^\d+]", "", tel or "")
+    if not t:
+        return ""
+    if not t.startswith("+"):
+        t = "+34" + t.lstrip("0")
+    return t
+
+
+def _fecha_hora_cita(fecha: str):
+    if not fecha:
+        return "", ""
+    try:
+        dt = datetime.fromisoformat(fecha)
+        return dt.strftime("%d/%m/%Y"), dt.strftime("%H:%M")
+    except Exception:
+        parts = fecha.split("T")
+        f = parts[0]
+        try:
+            y, m, d = f.split("-")
+            f = f"{d}/{m}/{y}"
+        except Exception:
+            pass
+        return f, (parts[1][:5] if len(parts) > 1 else "")
+
+
+def _rellena_plantilla(txt: str, ctx: dict) -> str:
+    out = txt or ""
+    for k, v in ctx.items():
+        out = out.replace("{" + k + "}", str(v or ""))
+    return out
+
+
+async def _enviar_email(email_cfg: dict, to_email: str, asunto: str, cuerpo: str):
+    resend.api_key = email_cfg.get("api_key") or ""
+    frm = email_cfg.get("from_email") or ""
+    if email_cfg.get("from_nombre"):
+        frm = f'{email_cfg["from_nombre"]} <{email_cfg["from_email"]}>'
+    html = ("<div style=\"font-family:Arial,Helvetica,sans-serif;font-size:14px;color:#18181b;"
+            "line-height:1.6\">" + (cuerpo or "").replace("\n", "<br>") + "</div>")
+    params = {"from": frm, "to": [to_email], "subject": asunto, "html": html}
+    return await asyncio.to_thread(resend.Emails.send, params)
+
+
+async def _enviar_whatsapp(wa_cfg: dict, to_number: str, body: str):
+    cli = TwilioClient(wa_cfg.get("account_sid") or "", wa_cfg.get("auth_token") or "")
+    frm = wa_cfg.get("from_number") or ""
+
+    def _send():
+        return cli.messages.create(
+            from_=f"whatsapp:{frm}" if not frm.startswith("whatsapp:") else frm,
+            to=f"whatsapp:{to_number}",
+            body=body,
+        )
+    msg = await asyncio.to_thread(_send)
+    return msg.sid
+
+
+async def _enviar_recordatorio_cita(cita: dict, canal: Optional[str] = None, marcar_auto: bool = False):
+    cfg = await _get_ajustes()
+    notif = _merge_notif(cfg)
+    empresa = cfg.get("empresa", {})
+    rec = notif.get("recordatorios", {})
+    email_cfg, wa_cfg = notif.get("email", {}), notif.get("whatsapp", {})
+
+    cli = None
+    if cita.get("cliente_id"):
+        cli = await db.contactos.find_one({"id": cita["cliente_id"]}, {"_id": 0})
+    email_dest = ((cli or {}).get("email") or "").strip()
+    tel_dest = _fmt_tel_e164((cli or {}).get("telefono") or "")
+
+    f, h = _fecha_hora_cita(cita.get("fecha", ""))
+    ctx = {
+        "cliente": cita.get("cliente_nombre") or (cli or {}).get("nombre") or "cliente",
+        "empresa": empresa.get("nombre") or "nuestro taller",
+        "fecha": f, "hora": h,
+        "matricula": cita.get("vehiculo_matricula") or "—",
+        "motivo": cita.get("motivo") or "",
+        "telefono": empresa.get("telefono") or "",
+    }
+
+    canal = canal or rec.get("canal") or "email"
+    do_email = canal in ("email", "ambos")
+    do_wa = canal in ("whatsapp", "ambos")
+    resultados, enviado = {}, False
+
+    if do_email:
+        if not email_cfg.get("activo") or not email_cfg.get("api_key") or not email_cfg.get("from_email"):
+            resultados["email"] = {"ok": False, "error": "Email no configurado en Ajustes"}
+        elif not email_dest:
+            resultados["email"] = {"ok": False, "error": "El cliente no tiene email"}
+        else:
+            try:
+                asunto = _rellena_plantilla(rec.get("email_asunto"), ctx)
+                cuerpo = _rellena_plantilla(rec.get("email_cuerpo"), ctx)
+                r = await _enviar_email(email_cfg, email_dest, asunto, cuerpo)
+                resultados["email"] = {"ok": True, "id": (r or {}).get("id"), "destino": email_dest}
+                enviado = True
+            except Exception as e:
+                resultados["email"] = {"ok": False, "error": str(e)}
+
+    if do_wa:
+        if not wa_cfg.get("activo") or not wa_cfg.get("account_sid") or not wa_cfg.get("auth_token") or not wa_cfg.get("from_number"):
+            resultados["whatsapp"] = {"ok": False, "error": "WhatsApp no configurado en Ajustes"}
+        elif not tel_dest:
+            resultados["whatsapp"] = {"ok": False, "error": "El cliente no tiene teléfono"}
+        else:
+            try:
+                texto = _rellena_plantilla(rec.get("whatsapp_texto"), ctx)
+                sid = await _enviar_whatsapp(wa_cfg, tel_dest, texto)
+                resultados["whatsapp"] = {"ok": True, "sid": sid, "destino": tel_dest}
+                enviado = True
+            except Exception as e:
+                resultados["whatsapp"] = {"ok": False, "error": str(e)}
+
+    upd = {"recordatorio_resultado": resultados}
+    if enviado:
+        upd["recordatorio_enviado_at"] = now_iso()
+        upd["recordatorio_canales"] = [k for k, v in resultados.items() if v.get("ok")]
+    if marcar_auto:
+        upd["recordatorio_auto_at"] = now_iso()
+    await db.citas.update_one({"id": cita["id"]}, {"$set": upd})
+    return {"enviado": enviado, "resultados": resultados}
+
+
+@api_router.post("/taller/citas/{cid}/recordatorio")
+async def enviar_recordatorio(cid: str, canal: Optional[str] = Form(None)):
+    cita = await db.citas.find_one({"id": cid}, {"_id": 0})
+    if not cita:
+        raise HTTPException(404, "Cita no encontrada")
+    res = await _enviar_recordatorio_cita(cita, canal=canal)
+    return res
+
+
+class TestNotifInput(BaseModel):
+    canal: Literal['email', 'whatsapp']
+    destino: str
+
+
+@api_router.post("/notificaciones/test")
+async def probar_notificacion(data: TestNotifInput):
+    cfg = await _get_ajustes()
+    notif = _merge_notif(cfg)
+    empresa = cfg.get("empresa", {})
+    nombre = empresa.get("nombre") or "tu taller"
+    if data.canal == "email":
+        ec = notif.get("email", {})
+        if not ec.get("api_key") or not ec.get("from_email"):
+            raise HTTPException(400, "Configura la API key y el email remitente antes de probar")
+        try:
+            r = await _enviar_email(ec, data.destino.strip(),
+                                    f"Prueba de recordatorios · {nombre}",
+                                    f"Hola,\n\nEste es un email de prueba de {nombre}. La configuración de correo funciona correctamente.")
+            return {"ok": True, "id": (r or {}).get("id")}
+        except Exception as e:
+            raise HTTPException(400, f"Error al enviar el email: {e}")
+    else:
+        wc = notif.get("whatsapp", {})
+        if not wc.get("account_sid") or not wc.get("auth_token") or not wc.get("from_number"):
+            raise HTTPException(400, "Configura SID, token y número antes de probar")
+        try:
+            sid = await _enviar_whatsapp(wc, _fmt_tel_e164(data.destino),
+                                         f"Prueba de recordatorios de {nombre}. La configuración de WhatsApp funciona correctamente.")
+            return {"ok": True, "sid": sid}
+        except Exception as e:
+            raise HTTPException(400, f"Error al enviar el WhatsApp: {e}")
+
+
+async def _job_recordatorios():
+    try:
+        cfg = await _get_ajustes()
+        rec = _merge_notif(cfg).get("recordatorios", {})
+        if not rec.get("activo"):
+            return
+        horas = int(rec.get("horas_antes") or 24)
+        now = datetime.now()
+        ahora_iso = now.strftime("%Y-%m-%dT%H:%M")
+        limite_iso = (now + timedelta(hours=horas)).strftime("%Y-%m-%dT%H:%M")
+        q = {
+            "fecha": {"$gte": ahora_iso, "$lte": limite_iso},
+            "estado": {"$in": ["pendiente", "confirmada"]},
+            "$or": [{"recordatorio_auto_at": {"$exists": False}},
+                    {"recordatorio_auto_at": None}, {"recordatorio_auto_at": ""}],
+        }
+        citas = await db.citas.find(q, {"_id": 0}).to_list(500)
+        for c in citas:
+            await _enviar_recordatorio_cita(c, marcar_auto=True)
+        if citas:
+            logger.info(f"Recordatorios automáticos procesados: {len(citas)}")
+    except Exception as e:
+        logger.warning(f"Job recordatorios: {e}")
+
+
+_scheduler = AsyncIOScheduler()
+
+
 # ---- Vehículos de cortesía: préstamos ----
 class PrestamoInput(BaseModel):
     vehiculo_id: str = ""            # vehículo de cortesía (tipo=cortesia)
@@ -2308,7 +2561,22 @@ async def startup_seed():
         existentes = await db.articulos.count_documents({})
         await db.counters.insert_one({"_id": "articulo_ref", "seq": existentes})
 
+    # Scheduler de recordatorios automáticos de citas (cada 30 min)
+    try:
+        if not _scheduler.running:
+            _scheduler.add_job(_job_recordatorios, "interval", minutes=30, id="recordatorios",
+                               replace_existing=True, next_run_time=datetime.now() + timedelta(seconds=60))
+            _scheduler.start()
+            logger.info("Scheduler de recordatorios iniciado")
+    except Exception as e:
+        logger.warning(f"No se pudo iniciar el scheduler: {e}")
+
 
 @app.on_event("shutdown")
 async def shutdown_db_client():
+    try:
+        if _scheduler.running:
+            _scheduler.shutdown(wait=False)
+    except Exception:
+        pass
     client.close()

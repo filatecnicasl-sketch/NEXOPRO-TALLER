@@ -136,6 +136,13 @@ export const estadoCita = (id, estado) => {
   return client.patch(`/taller/citas/${id}/estado`, fd).then((r) => r.data);
 };
 export const deleteCita = (id) => client.delete(`/taller/citas/${id}`).then((r) => r.data);
+export const enviarRecordatorioCita = (id, canal) => {
+  const fd = new FormData();
+  if (canal) fd.append("canal", canal);
+  return client.post(`/taller/citas/${id}/recordatorio`, fd).then((r) => r.data);
+};
+export const probarNotificacion = (canal, destino) =>
+  client.post("/notificaciones/test", { canal, destino }).then((r) => r.data);
 
 // Taller — Préstamos de cortesía
 export const getPrestamos = (estado) => client.get("/taller/prestamos", { params: { estado } }).then((r) => r.data);

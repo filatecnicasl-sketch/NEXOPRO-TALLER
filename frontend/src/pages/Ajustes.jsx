@@ -1,11 +1,13 @@
 import { useEffect, useState } from "react";
-import { Plus, Trash, FloppyDisk, Buildings, Stack, Star, UploadSimple, Image as ImageIcon } from "@phosphor-icons/react";
+import { Plus, Trash, FloppyDisk, Buildings, Stack, Star, UploadSimple, Image as ImageIcon, BellRinging, EnvelopeSimple, WhatsappLogo, PaperPlaneTilt } from "@phosphor-icons/react";
 import { toast } from "sonner";
-import { getAjustes, updateAjustes } from "@/lib/api";
+import { getAjustes, updateAjustes, probarNotificacion } from "@/lib/api";
 import PageHeader from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 
 const EMPRESA_FIELDS = [
   { k: "nombre", label: "Nombre / Razón social", span: 2 },
@@ -81,10 +83,103 @@ function SeriesEditor({ titulo, subtitulo, tipos, labels, series, setSeries }) {
   );
 }
 
+function NotifEditor({ notif, setNotif }) {
+  const [testEmail, setTestEmail] = useState("");
+  const [testTel, setTestTel] = useState("");
+  const [testing, setTesting] = useState("");
+  const n = notif || {};
+  const email = n.email || {}, wa = n.whatsapp || {}, rec = n.recordatorios || {};
+  const setSec = (sec, campo, valor) => setNotif({ ...n, [sec]: { ...(n[sec] || {}), [campo]: valor } });
+
+  const probar = async (canal, destino) => {
+    if (!destino.trim()) return toast.error("Indica un destino de prueba");
+    setTesting(canal);
+    try {
+      await probarNotificacion(canal, destino.trim());
+      toast.success(canal === "email" ? "Email de prueba enviado" : "WhatsApp de prueba enviado");
+    } catch (e) { toast.error(e?.response?.data?.detail || "Error al enviar la prueba"); }
+    finally { setTesting(""); }
+  };
+
+  return (
+    <div className="bg-white border border-zinc-200 rounded-lg shadow-sm overflow-hidden" data-testid="notif-card">
+      <div className="px-5 py-4 border-b border-zinc-100 flex items-center gap-3">
+        <span className="inline-flex h-9 w-9 items-center justify-center rounded-md bg-indigo-50 text-indigo-600"><BellRinging size={18} weight="duotone" /></span>
+        <div>
+          <h3 className="font-heading font-semibold tracking-tight text-zinc-900">Notificaciones y recordatorios</h3>
+          <p className="text-xs text-zinc-500">Configura el envío de recordatorios de citas por email y/o WhatsApp</p>
+        </div>
+      </div>
+
+      <div className="p-5 space-y-6">
+        {/* EMAIL */}
+        <div className="rounded-lg border border-zinc-150 border-zinc-200 p-4">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2 text-sm font-semibold text-zinc-800"><EnvelopeSimple size={18} className="text-indigo-500" /> Correo electrónico (Resend)</div>
+            <Switch data-testid="notif-email-activo" checked={!!email.activo} onCheckedChange={(v) => setSec("email", "activo", v)} />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div><Label className="text-xs">Email remitente (verificado en Resend)</Label><Input data-testid="notif-email-from" value={email.from_email || ""} onChange={(e) => setSec("email", "from_email", e.target.value)} placeholder="citas@tudominio.com" className="rounded-md mt-1" /></div>
+            <div><Label className="text-xs">Nombre del remitente</Label><Input value={email.from_nombre || ""} onChange={(e) => setSec("email", "from_nombre", e.target.value)} placeholder="Taller Pérez" className="rounded-md mt-1" /></div>
+            <div className="col-span-2"><Label className="text-xs">API Key de Resend {email.api_key_set && <span className="text-emerald-600">· configurada</span>}</Label><Input data-testid="notif-email-key" type="password" value={email.api_key || ""} onChange={(e) => setSec("email", "api_key", e.target.value)} placeholder="re_xxxxxxxx" className="rounded-md mt-1 font-mono-plex" /></div>
+          </div>
+          <p className="text-[11px] text-zinc-400 mt-2">Consigue tu clave gratis en resend.com → API Keys. Guarda antes de probar.</p>
+          <div className="flex items-center gap-2 mt-3">
+            <Input value={testEmail} onChange={(e) => setTestEmail(e.target.value)} placeholder="tu@email.com" className="h-9 rounded-md text-sm max-w-xs" data-testid="notif-test-email-dest" />
+            <Button type="button" variant="outline" size="sm" disabled={testing === "email"} onClick={() => probar("email", testEmail)} className="rounded-md" data-testid="notif-test-email"><PaperPlaneTilt size={14} className="mr-1" /> {testing === "email" ? "Enviando…" : "Enviar prueba"}</Button>
+          </div>
+        </div>
+
+        {/* WHATSAPP */}
+        <div className="rounded-lg border border-zinc-200 p-4">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2 text-sm font-semibold text-zinc-800"><WhatsappLogo size={18} className="text-emerald-500" /> WhatsApp (Twilio)</div>
+            <Switch data-testid="notif-wa-activo" checked={!!wa.activo} onCheckedChange={(v) => setSec("whatsapp", "activo", v)} />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div><Label className="text-xs">Account SID</Label><Input data-testid="notif-wa-sid" value={wa.account_sid || ""} onChange={(e) => setSec("whatsapp", "account_sid", e.target.value)} placeholder="ACxxxxxxxx" className="rounded-md mt-1 font-mono-plex" /></div>
+            <div><Label className="text-xs">Número WhatsApp (from)</Label><Input data-testid="notif-wa-from" value={wa.from_number || ""} onChange={(e) => setSec("whatsapp", "from_number", e.target.value)} placeholder="+14155238886" className="rounded-md mt-1 font-mono-plex" /></div>
+            <div className="col-span-2"><Label className="text-xs">Auth Token {wa.auth_token_set && <span className="text-emerald-600">· configurado</span>}</Label><Input data-testid="notif-wa-token" type="password" value={wa.auth_token || ""} onChange={(e) => setSec("whatsapp", "auth_token", e.target.value)} placeholder="••••••••" className="rounded-md mt-1 font-mono-plex" /></div>
+          </div>
+          <p className="text-[11px] text-zinc-400 mt-2">Credenciales en console.twilio.com. El número debe tener WhatsApp habilitado. Guarda antes de probar.</p>
+          <div className="flex items-center gap-2 mt-3">
+            <Input value={testTel} onChange={(e) => setTestTel(e.target.value)} placeholder="+34600000000" className="h-9 rounded-md text-sm max-w-xs font-mono-plex" data-testid="notif-test-wa-dest" />
+            <Button type="button" variant="outline" size="sm" disabled={testing === "whatsapp"} onClick={() => probar("whatsapp", testTel)} className="rounded-md" data-testid="notif-test-wa"><PaperPlaneTilt size={14} className="mr-1" /> {testing === "whatsapp" ? "Enviando…" : "Enviar prueba"}</Button>
+          </div>
+        </div>
+
+        {/* RECORDATORIOS */}
+        <div className="rounded-lg border border-zinc-200 p-4">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2 text-sm font-semibold text-zinc-800"><BellRinging size={18} className="text-amber-500" /> Recordatorios automáticos de citas</div>
+            <Switch data-testid="notif-rec-activo" checked={!!rec.activo} onCheckedChange={(v) => setSec("recordatorios", "activo", v)} />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label className="text-xs">Canal de envío</Label>
+              <select data-testid="notif-rec-canal" value={rec.canal || "email"} onChange={(e) => setSec("recordatorios", "canal", e.target.value)} className="h-10 w-full text-sm rounded-md border border-input bg-white px-3 mt-1">
+                <option value="email">Solo Email</option>
+                <option value="whatsapp">Solo WhatsApp</option>
+                <option value="ambos">Email y WhatsApp</option>
+              </select>
+            </div>
+            <div><Label className="text-xs">Enviar con antelación (horas)</Label><Input data-testid="notif-rec-horas" type="number" min={1} value={rec.horas_antes ?? 24} onChange={(e) => setSec("recordatorios", "horas_antes", Number(e.target.value))} className="rounded-md mt-1" /></div>
+            <div className="col-span-2"><Label className="text-xs">Asunto del email</Label><Input value={rec.email_asunto || ""} onChange={(e) => setSec("recordatorios", "email_asunto", e.target.value)} className="rounded-md mt-1" /></div>
+            <div className="col-span-2"><Label className="text-xs">Cuerpo del email</Label><Textarea value={rec.email_cuerpo || ""} onChange={(e) => setSec("recordatorios", "email_cuerpo", e.target.value)} rows={4} className="rounded-md mt-1" /></div>
+            <div className="col-span-2"><Label className="text-xs">Texto de WhatsApp</Label><Textarea value={rec.whatsapp_texto || ""} onChange={(e) => setSec("recordatorios", "whatsapp_texto", e.target.value)} rows={2} className="rounded-md mt-1" /></div>
+          </div>
+          <p className="text-[11px] text-zinc-400 mt-2">Variables disponibles: <span className="font-mono-plex">{"{cliente} {empresa} {fecha} {hora} {matricula} {motivo}"}</span></p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function Ajustes() {
   const [empresa, setEmpresa] = useState({});
   const [seriesVenta, setSeriesVenta] = useState([]);
   const [seriesCompra, setSeriesCompra] = useState([]);
+  const [notif, setNotif] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -93,6 +188,7 @@ export default function Ajustes() {
       setEmpresa(d.empresa || {});
       setSeriesVenta(d.series_venta || []);
       setSeriesCompra(d.series_compra || []);
+      setNotif(d.notificaciones || null);
       setLoading(false);
     });
   }, []);
@@ -102,10 +198,11 @@ export default function Ajustes() {
     const sc = seriesCompra.filter((s) => (s.nombre || "").trim());
     setSaving(true);
     try {
-      const d = await updateAjustes({ empresa, series_venta: sv, series_compra: sc });
+      const d = await updateAjustes({ empresa, series_venta: sv, series_compra: sc, notificaciones: notif });
       setEmpresa(d.empresa || {});
       setSeriesVenta(d.series_venta || []);
       setSeriesCompra(d.series_compra || []);
+      setNotif(d.notificaciones || null);
       toast.success("Ajustes guardados");
     } catch { toast.error("Error al guardar ajustes"); }
     finally { setSaving(false); }
@@ -190,6 +287,8 @@ export default function Ajustes() {
           series={seriesCompra}
           setSeries={setSeriesCompra}
         />
+
+        <NotifEditor notif={notif} setNotif={setNotif} />
       </div>
     </div>
   );

@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Plus, PencilSimple, Trash, CalendarBlank, Clock, Car, CaretLeft, CaretRight } from "@phosphor-icons/react";
+import { Plus, PencilSimple, Trash, CalendarBlank, Clock, Car, CaretLeft, CaretRight, PaperPlaneTilt } from "@phosphor-icons/react";
 import { toast } from "sonner";
 import {
-  getCitas, createCita, updateCita, estadoCita, deleteCita,
+  getCitas, createCita, updateCita, estadoCita, deleteCita, enviarRecordatorioCita,
   getVehiculos, getContactos, createVehiculo, createContacto, getPeritajes, getPrestamos,
 } from "@/lib/api";
 import PageHeader from "@/components/PageHeader";
@@ -102,6 +102,21 @@ export default function Citas() {
     catch { toast.error("No se pudo cambiar el estado"); }
   };
   const remove = async () => { await deleteCita(delId); setDelId(null); toast.success("Cita eliminada"); load(); };
+  const [enviando, setEnviando] = useState(null);
+  const enviarRecordatorio = async (c) => {
+    setEnviando(c.id);
+    try {
+      const r = await enviarRecordatorioCita(c.id);
+      const res = r.resultados || {};
+      const oks = Object.keys(res).filter((k) => res[k].ok);
+      const fails = Object.keys(res).filter((k) => !res[k].ok);
+      if (oks.length) toast.success(`Recordatorio enviado (${oks.join(", ")})`);
+      if (fails.length) toast.error(fails.map((k) => `${k}: ${res[k].error}`).join(" · "));
+      if (!oks.length && !fails.length) toast.error("No se pudo enviar el recordatorio");
+      load();
+    } catch (e) { toast.error(e?.response?.data?.detail || "Error al enviar el recordatorio"); }
+    finally { setEnviando(null); }
+  };
 
   const guardarVehiculo = async () => {
     if (!vehForm.matricula.trim() && !vehForm.marca.trim()) return toast.error("Indica al menos la matrícula");
@@ -289,6 +304,11 @@ export default function Citas() {
                         <select data-testid={`cita-estado-${c.id}`} value={c.estado} onChange={(e) => cambiarEstado(c, e.target.value)} className="h-8 text-xs rounded-md border border-input bg-white px-2">
                           {ESTADOS.map((e) => <option key={e.value} value={e.value}>{e.label}</option>)}
                         </select>
+                        <button data-testid={`recordatorio-cita-${c.id}`} disabled={enviando === c.id} onClick={() => enviarRecordatorio(c)}
+                          title={c.recordatorio_enviado_at ? `Recordatorio enviado (${(c.recordatorio_canales || []).join(", ")})` : "Enviar recordatorio al cliente"}
+                          className={`p-1.5 transition-colors ${c.recordatorio_enviado_at ? "text-emerald-500 hover:text-emerald-600" : "text-zinc-400 hover:text-primary"} disabled:opacity-40`}>
+                          <PaperPlaneTilt size={16} weight={c.recordatorio_enviado_at ? "fill" : "regular"} />
+                        </button>
                         <button data-testid={`editar-cita-${c.id}`} onClick={() => openEdit(c)} className="text-zinc-400 hover:text-primary p-1.5"><PencilSimple size={16} /></button>
                         <button data-testid={`eliminar-cita-${c.id}`} onClick={() => setDelId(c.id)} className="text-zinc-400 hover:text-red-500 p-1.5"><Trash size={16} /></button>
                       </div>
