@@ -2124,6 +2124,157 @@ async def hoja_entrada_pdf(oid: str):
                     headers={"Content-Disposition": f'inline; filename="hoja-entrada-{orden.get("numero","")}.pdf"'})
 
 
+def _build_parte_html(orden, vehiculo, cliente, empresa):
+    def e(v):
+        return str(v if v is not None else "").replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+
+    def money(n):
+        try:
+            v = float(n or 0)
+        except Exception:
+            v = 0.0
+        return f"{v:,.2f} €".replace(",", "X").replace(".", ",").replace("X", ".")
+
+    def fmtf(f):
+        if not f:
+            return datetime.now(timezone.utc).strftime("%d/%m/%Y")
+        try:
+            return datetime.fromisoformat(str(f)[:19]).strftime("%d/%m/%Y")
+        except Exception:
+            return str(f)
+
+    ACCENT = "#4338ca"
+    logo = _img_data_uri(empresa.get("logo", ""))
+    dir_taller = " · ".join([x for x in [empresa.get("direccion", ""),
+                             " ".join([x for x in [empresa.get("codigo_postal", ""), empresa.get("ciudad", "")] if x])] if x])
+    trabajos = ", ".join([_TIPOS_TRABAJO.get(t, t) for t in (orden.get("tipos_trabajo") or [])])
+
+    filas = ""
+    for l in (orden.get("lineas") or []):
+        cant = float(l.get("cantidad", 0) or 0)
+        pu = float(l.get("precio_unitario", 0) or 0)
+        base = cant * pu * (1 - float(l.get("descuento", 0) or 0) / 100)
+        tot = l.get("total")
+        if tot is None:
+            tot = base * (1 + float(l.get("tipo_iva", 0) or 0) / 100)
+        filas += (f'<tr><td class="ld">{e(l.get("descripcion",""))}</td>'
+                  f'<td class="lr">{e(l.get("cantidad",""))} {e(l.get("unidad","ud"))}</td>'
+                  f'<td class="lr">{money(pu)}</td>'
+                  f'<td class="lr" style="font-weight:600">{money(tot)}</td></tr>')
+    if not filas:
+        filas = '<tr><td colspan="4" style="padding:16px;text-align:center;color:#a1a1aa">Sin líneas</td></tr>'
+
+    fotos = ""
+    imgs = [f for f in (orden.get("fotos") or []) if "pdf" not in (f.get("content_type") or "")]
+    if imgs:
+        cells = ""
+        for f in imgs[:12]:
+            uri = _img_data_uri(f.get("path", ""))
+            if uri:
+                cells += f'<div class="fcell"><img src="{uri}"/></div>'
+        if cells:
+            fotos = (f'<div class="fttl">Reportaje fotográfico ({len(imgs)})</div>'
+                     f'<div class="fgrid">{cells}</div>')
+
+    logo_html = (f'<img src="{logo}" style="max-height:56px;max-width:190px;object-fit:contain"/>'
+                 if logo else f'<div style="font-size:20px;font-weight:800">{e(empresa.get("nombre","Taller"))}</div>')
+
+    css = """
+    @page { size: A4 portrait; margin: 14mm; }
+    * { box-sizing:border-box; font-family:'Helvetica','Arial',sans-serif; }
+    body { margin:0; color:#18181b; font-size:12px; }
+    .head { display:flex; justify-content:space-between; align-items:flex-start;
+            border-bottom:3px solid __AC__; padding-bottom:14px; margin-bottom:20px; }
+    .hinfo { font-size:10px; color:#52525b; line-height:1.5; margin-top:4px; }
+    .doctit { font-size:24px; font-weight:800; text-align:right; }
+    .docref { font-family:monospace; font-size:12px; color:#3f3f46; text-align:right; margin-top:3px; }
+    .docdate { font-size:11px; color:#71717a; text-align:right; }
+    .sec { font-size:11px; font-weight:700; color:__AC__; text-transform:uppercase;
+           letter-spacing:.06em; margin:0 0 8px; }
+    .grid { display:grid; grid-template-columns:repeat(3,1fr); gap:12px;
+            background:#fafafa; border:1px solid #eee; border-radius:8px; padding:14px; margin-bottom:18px; }
+    .g-lbl { font-size:9px; text-transform:uppercase; letter-spacing:.08em; color:#a1a1aa; }
+    .g-val { font-weight:600; font-size:12px; }
+    .desc { font-size:12px; color:#3f3f46; margin-bottom:16px; }
+    table.lin { width:100%; border-collapse:collapse; }
+    table.lin th { background:#f4f4f5; padding:8px; font-size:9px; text-transform:uppercase;
+                   color:#71717a; text-align:right; }
+    table.lin th:first-child { text-align:left; }
+    table.lin td { padding:7px 8px; border-bottom:1px solid #f1f1f4; }
+    td.ld { text-align:left; } td.lr { text-align:right; }
+    .tot { width:250px; margin-left:auto; margin-top:14px; }
+    .tot tr td { padding:4px 8px; }
+    .tot .k { color:#71717a; } .tot .v { text-align:right; }
+    .tot .grand td { border-top:2px solid __AC__; font-weight:800; font-size:14px; }
+    .tot .grand .v { color:__AC__; }
+    .fttl { font-size:11px; font-weight:700; color:__AC__; text-transform:uppercase;
+            letter-spacing:.06em; margin:22px 0 10px; }
+    .fgrid { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; }
+    .fcell { border:1px solid #e4e4e7; border-radius:6px; overflow:hidden; height:130px; }
+    .fcell img { width:100%; height:100%; object-fit:cover; }
+    .firmas { display:flex; justify-content:space-between; gap:40px; margin-top:44px; }
+    .firmas div { flex:1; border-top:1px solid #d4d4d8; padding-top:6px; font-size:11px; color:#71717a; }
+    """.replace("__AC__", ACCENT)
+
+    def g(lbl, val):
+        if not val and val != 0:
+            return ""
+        return f'<div><div class="g-lbl">{e(lbl)}</div><div class="g-val">{e(val)}</div></div>'
+
+    km = vehiculo.get("kilometros")
+    body = f'''
+    <div class="head">
+      <div>{logo_html}<div class="hinfo">
+        {('<div style="font-weight:600;color:#18181b">'+e(empresa.get("nombre",""))+'</div>') if empresa.get("nombre") else ''}
+        {('<div>NIF: '+e(empresa.get("nif",""))+'</div>') if empresa.get("nif") else ''}
+        {('<div>'+e(dir_taller)+'</div>') if dir_taller else ''}
+        {('<div>Tel: '+e(empresa.get("telefono",""))+'</div>') if empresa.get("telefono") else ''}
+      </div></div>
+      <div><div class="doctit">Parte de trabajo</div>
+        <div class="docref">{e(orden.get("numero","—"))}</div>
+        <div class="docdate">{fmtf(orden.get("fecha_entrada"))}</div></div>
+    </div>
+    <div class="sec">Vehículo</div>
+    <div class="grid">
+      {g("Matrícula", orden.get("vehiculo_matricula") or vehiculo.get("matricula",""))}
+      {g("Marca / Modelo", " ".join([x for x in [vehiculo.get("marca",""), vehiculo.get("modelo","")] if x]))}
+      {g("Kilómetros", (str(km)+" km") if km is not None else "")}
+      {g("Cliente", cliente.get("nombre") or orden.get("cliente_nombre",""))}
+      {g("Tipo de trabajo", trabajos)}
+      {g("Estado", orden.get("estado",""))}
+    </div>
+    {('<div class="sec">Descripción</div><div class="desc">'+e(orden.get("descripcion",""))+'</div>') if orden.get("descripcion") else ''}
+    <table class="lin"><thead><tr>
+      <th>Concepto</th><th>Cant.</th><th>Precio</th><th>Total</th>
+    </tr></thead><tbody>{filas}</tbody></table>
+    <table class="tot">
+      <tr><td class="k">Base</td><td class="v">{money(orden.get("base"))}</td></tr>
+      <tr><td class="k">IVA</td><td class="v">{money(orden.get("cuota_iva"))}</td></tr>
+      <tr class="grand"><td>TOTAL</td><td class="v">{money(orden.get("total"))}</td></tr>
+    </table>
+    {fotos}
+    <div class="firmas"><div>Firma del taller</div><div>Firma del cliente (conforme)</div></div>
+    '''
+    return f"<!doctype html><html><head><meta charset='utf-8'><style>{css}</style></head><body>{body}</body></html>"
+
+
+@api_router.get("/taller/ordenes/{oid}/parte-trabajo.pdf")
+async def parte_trabajo_pdf(oid: str):
+    orden = await db.ordenes_trabajo.find_one({"id": oid}, {"_id": 0})
+    if not orden:
+        raise HTTPException(404, "Orden no encontrada")
+    vehiculo = await db.vehiculos.find_one({"id": orden.get("vehiculo_id")}, {"_id": 0}) or {}
+    cliente = await db.contactos.find_one({"id": orden.get("cliente_id") or vehiculo.get("cliente_id")}, {"_id": 0}) or {}
+    cfg = await _get_ajustes()
+    empresa = cfg.get("empresa", {}) or {}
+    html = _build_parte_html(orden, vehiculo, cliente, empresa)
+    from weasyprint import HTML as _WHTML
+    pdf = await asyncio.to_thread(lambda: _WHTML(string=html).write_pdf())
+    return Response(content=pdf, media_type="application/pdf",
+                    headers={"Content-Disposition": f'inline; filename="parte-{orden.get("numero","")}.pdf"'})
+
+
+
 
 # ---- Sesiones de subida por QR (públicas) ----
 class FotoSesionInput(BaseModel):

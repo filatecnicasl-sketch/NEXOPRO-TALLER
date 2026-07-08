@@ -1,0 +1,15 @@
+{
+  "summary": "Verified WeasyPrint server-side PDFs + client blob download for both 'Parte de trabajo' and 'Hoja de entrada'. Backend: 4/4 pytest OK (valid ids -> 200 application/pdf %PDF; invalid id -> 404). Frontend: 3/3 UI flows OK - Órdenes de trabajo dropdown 'Imprimir orden' (imprimir-orden-{id}) fetches parte-trabajo.pdf 200 and creates anchor with download='parte-OT-000021.pdf'; dropdown 'Hoja de entrada' (hoja-entrada-{id}) fetches hoja-entrada.pdf 200 and creates anchor with download='hoja-entrada-OT-000021.pdf'; Recepción rápida 'Descargar hoja y finalizar' (rr-imprimir-finalizar) after creating OT-000022 fetches hoja-entrada.pdf 200, creates anchor download and CLOSES the dialog.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": ["/app/backend/tests/test_taller_pdfs.py", "/app/test_reports/pytest/taller_pdfs_results.xml"],
+  "action_items": [],
+  "critical_code_review_comments": [],
+  "updated_files": ["/app/backend/tests/test_taller_pdfs.py", "/app/test_reports/iteration_18.json"],
+  "success_rate": {"backend": "100% (4/4)", "frontend": "100% (3/3)"},
+  "seed_data_creation": "Created OT-000022 (matrícula TESTRR1) via Recepción rápida during test.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Blob+anchor download approach confirmed working in headless Chromium. Playwright verified via document.createElement('a') interception: anchor.download attribute is set correctly ('parte-OT-XXX.pdf' / 'hoja-entrada-OT-XXX.pdf') and fetch to /api/taller/ordenes/{id}/{parte-trabajo|hoja-entrada}.pdf returns 200 application/pdf. No popups, no window.open. RR dialog closes after download click.",
+  "rca of the issue": "Bug is FIXED. Previous window.open / iframe approaches replaced by fetch -> blob -> anchor[download] click (descargarPdf in /app/frontend/src/lib/api.js). Backend renders A4 PDF via WeasyPrint. All three UI triggers (imprimir-orden-{id}, hoja-entrada-{id}, rr-imprimir-finalizar) verified end-to-end."
+}

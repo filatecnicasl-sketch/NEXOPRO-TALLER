@@ -10,6 +10,23 @@ export const facturaeUrl = (id) => `${API}/facturas-emitidas/${id}/facturae`;
 
 // Hoja de entrada de taller (PDF A4 horizontal generado en servidor)
 export const hojaEntradaUrl = (id) => `${API}/taller/ordenes/${id}/hoja-entrada.pdf`;
+// Parte de trabajo (PDF A4 generado en servidor)
+export const parteTrabajoUrl = (id) => `${API}/taller/ordenes/${id}/parte-trabajo.pdf`;
+
+// Descarga fiable de un PDF (funciona en todos los navegadores, sin ventanas emergentes)
+export async function descargarPdf(url, filename) {
+  const r = await fetch(url);
+  if (!r.ok) throw new Error("No se pudo generar el PDF");
+  const blob = await r.blob();
+  const objUrl = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = objUrl;
+  a.download = filename || "documento.pdf";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(objUrl), 4000);
+}
 
 // Gestión documental (PDF original)
 export const uploadArchivo = (file) => {
