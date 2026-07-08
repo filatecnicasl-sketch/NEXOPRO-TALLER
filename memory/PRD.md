@@ -35,6 +35,20 @@ Autónomos y pymes españolas que gestionan compras/ventas y facturación con ob
   Admin: admin@nexopro.com / Admin1234!. Licencia demo: NEXO-DEMO-0001 (frontend/.env REACT_APP_LICENSE_KEY).
 
 ## Estado / Bloqueos
+- MÓDULO TALLER — FASE 1 (Vehículos + Órdenes de trabajo) (2026-07-08):
+  · Backend: colecciones `vehiculos` y `ordenes_trabajo`. Endpoints CRUD
+    /api/taller/vehiculos (+ /{id}/ficha) y /api/taller/ordenes (+ PATCH /{id}/estado).
+    Matrícula se guarda en MAYÚSCULAS; cliente_nombre se rellena desde contactos; la orden
+    hereda vehículo/cliente y autonumera OT-000001 (_next_seq); totales vía calcular_lineas.
+  · Frontend: pages Vehiculos.jsx (lista + alta/edición + ficha con órdenes) y OrdenesTrabajo.jsx
+    (lista + alta/edición con LineasEditor, tipos chapa/pintura/mecánica, estados
+    recepción→en curso→finalizado→entregado). lib/taller.jsx (EstadoOTBadge, TIPOS/ESTADOS).
+    Clientes reutilizan contactos existentes (confirmado por usuario).
+  · Verificado testing_agent iteration_11 (backend 14/14, frontend 100%). Aviso menor no
+    bloqueante: warning React <span> en <option> (sin impacto).
+  · PENDIENTE Taller: Fase 2 (peritajes + compañías de seguros + fotos por QR/subida móvil +
+    anexar peritaciones email/whatsapp), Fase 3 (citas + vehículos de cortesía),
+    Fase 4 (compras imputadas por vehículo).
 - NAVEGACIÓN SUPERIOR + MÓDULO TALLER (scaffold) (2026-07-08):
   · Layout.jsx rediseñado: se sustituyó el sidebar izquierdo por una BARRA SUPERIOR estilo ribbon
     (referencia del usuario: Visionwin Gestión). Fila 1 = marca + pestañas de módulo
