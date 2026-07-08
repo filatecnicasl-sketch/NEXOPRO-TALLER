@@ -1949,6 +1949,182 @@ async def borrar_firma_orden(oid: str):
     return {"ok": True}
 
 
+_TIPOS_TRABAJO = {"chapa": "Chapa", "pintura": "Pintura", "mecanica": "Mecánica",
+                  "electricidad": "Electricidad", "diagnosis": "Diagnosis",
+                  "revision": "Revisión", "neumaticos": "Neumáticos", "otros": "Otros"}
+
+
+def _img_data_uri(path_or_url: str) -> str:
+    """Descarga logo/firma y lo devuelve como data URI (para incrustar en el PDF)."""
+    try:
+        if not path_or_url:
+            return ""
+        if path_or_url.startswith("http"):
+            import requests
+            r = requests.get(path_or_url, timeout=8)
+            if r.status_code != 200:
+                return ""
+            ct = r.headers.get("content-type", "image/png").split(";")[0]
+            return f"data:{ct};base64,{base64.b64encode(r.content).decode()}"
+        data, ct = storage_get(path_or_url)
+        return f"data:{ct or 'image/png'};base64,{base64.b64encode(data).decode()}"
+    except Exception:
+        return ""
+
+
+def _build_resguardo_html(orden, vehiculo, cliente, empresa):
+    def e(v):
+        return str(v if v is not None else "").replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+
+    def fmtf(f):
+        if not f:
+            return ""
+        try:
+            return datetime.fromisoformat(str(f)[:19]).strftime("%d/%m/%Y")
+        except Exception:
+            return str(f)
+
+    logo = _img_data_uri(empresa.get("logo", ""))
+    firma = _img_data_uri(orden.get("firma_cliente_path", ""))
+    dir_taller = " · ".join([x for x in [empresa.get("direccion", ""),
+                             " ".join([x for x in [empresa.get("codigo_postal", ""), empresa.get("ciudad", "")] if x])] if x])
+    trabajos = ", ".join([_TIPOS_TRABAJO.get(t, t) for t in (orden.get("tipos_trabajo") or [])])
+    obs = " · ".join([x for x in [orden.get("descripcion", ""), trabajos] if x])
+
+    filas = ""
+    lineas = orden.get("lineas") or []
+    for i in range(21):
+        l = lineas[i] if i < len(lineas) else None
+        desc = mo = mat = ""
+        if l:
+            desc = e(l.get("descripcion", ""))
+            imp = float(l.get("cantidad", 0) or 0) * float(l.get("precio_unitario", 0) or 0)
+            val = f"{imp:.2f} €"
+            if (l.get("unidad") or "").lower() in ("h", "hora", "horas", "mo"):
+                mo = val
+            else:
+                mat = val
+        filas += (f'<tr style="height:26px"><td class="n">{i+1}</td>'
+                  f'<td class="d">{desc}</td><td class="m">{mo}</td><td class="m">{mat}</td></tr>')
+
+    car = ('<svg viewBox="0 0 300 150" width="150" height="72">'
+           '<rect x="46" y="6" width="40" height="15" rx="6" fill="#e4e4e7"/>'
+           '<rect x="214" y="6" width="40" height="15" rx="6" fill="#e4e4e7"/>'
+           '<rect x="46" y="129" width="40" height="15" rx="6" fill="#e4e4e7"/>'
+           '<rect x="214" y="129" width="40" height="15" rx="6" fill="#e4e4e7"/>'
+           '<rect x="34" y="18" width="232" height="114" rx="46" fill="none" stroke="#555" stroke-width="1.6"/>'
+           '<rect x="102" y="60" width="96" height="30" rx="4" fill="none" stroke="#bbb" stroke-width="1"/>'
+           '</svg>')
+    logo_html = f'<img src="{logo}" style="max-height:42px;max-width:150px"/>' if logo else ""
+    firma_html = f'<img src="{firma}" style="max-height:36px;max-width:150px"/>' if firma else '<div style="height:36px"></div>'
+
+    def cell(lbl, val):
+        return f'<td class="c"><div class="lbl">{e(lbl)}</div><div class="val">{e(val)}</div></td>'
+
+    body = f'''
+    <div class="title">EJEMPLAR PARA EL PRESTADOR DEL SERVICIO</div>
+    <table class="b hdr"><tr>
+      <td style="width:50%;border-right:1.4px solid #000;padding:0"><table class="inner"><tr>
+        <td class="c" style="width:60%">{logo_html}<div class="lbl">Nombre del taller</div><div class="val big">{e(empresa.get("nombre",""))}</div></td>
+        {cell("CIF", empresa.get("nif",""))}</tr>
+        <tr>{cell("Dirección", dir_taller)}{cell("RIIA", "")}</tr>
+        <tr>{cell("Mail", empresa.get("email",""))}{cell("Teléfono", empresa.get("telefono",""))}</tr>
+        <tr>{cell("", "")}{cell("Fax", "")}</tr></table></td>
+      <td style="width:50%;padding:0;vertical-align:top">
+        <div class="rgtitle">RESGUARDO DE DEPÓSITO SIN PRESUPUESTO Nº: <b>{e(orden.get("numero",""))}</b></div>
+        <table class="inner">
+          <tr>{cell("Titular del vehículo", cliente.get("nombre") or orden.get("cliente_nombre",""))}{cell("CIF/DNI titular", cliente.get("nif",""))}</tr>
+          <tr>{cell("Persona solicitante","")}{cell("CIF/DNI solicitante","")}</tr>
+          <tr>{cell("Dirección titular", cliente.get("direccion",""))}{cell("Teléfono", cliente.get("telefono",""))}</tr>
+          <tr>{cell("Mail", cliente.get("email",""))}{cell("Fax","")}</tr>
+        </table></td>
+    </tr></table>
+
+    <table class="b body"><tr>
+      <td style="width:48%;border-right:1.4px solid #000;padding:0;vertical-align:top">
+        <div class="sec">REPARACIONES A REALIZAR</div>
+        <table class="rep"><tr class="hr"><th style="width:16px">Nº</th><th style="text-align:left">DESCRIPCIÓN</th><th style="width:52px">MANO DE OBRA</th><th style="width:48px">MATERIALES</th></tr>{filas}</table>
+      </td>
+      <td style="width:52%;padding:0;vertical-align:top">
+        <table class="inner" style="border-bottom:1.4px solid #000"><tr>
+          <td rowspan="4" style="width:150px;text-align:center;border-right:1px solid #000">{car}</td>
+          {cell("Fecha", fmtf(orden.get("fecha_entrada")))}{cell("Matrícula", orden.get("vehiculo_matricula") or vehiculo.get("matricula",""))}{cell("Marca", vehiculo.get("marca",""))}</tr>
+          <tr>{cell("Km", vehiculo.get("kilometros") if vehiculo.get("kilometros") is not None else "")}<td class="c"><div class="lbl">Seguro</div><div class="val">☐ SÍ &nbsp; ☐ NO</div></td>{cell("Modelo", vehiculo.get("modelo",""))}</tr>
+          <tr><td class="c" colspan="3"><span class="lbl">Combustible R</span> <span class="val">{e(vehiculo.get("combustible",""))}</span></td></tr>
+          <tr><td class="c" colspan="3"><div class="lbl">Observaciones</div><div class="val" style="font-weight:normal">{e(obs)}</div></td></tr>
+        </table>
+        <div class="renuncia">
+          <div class="rtit">RENUNCIA A LA ELABORACIÓN<br>DE PRESUPUESTO PREVIO</div>
+          <div class="rtxt">EL CLIENTE TIENE DERECHO A LA ELABORACIÓN DE UN PRESUPUESTO PREVIO. MEDIANTE LA PRESENTE FIRMA EL USUARIO RENUNCIA A LA ELABORACIÓN DE PRESUPUESTO PREVIO Y AUTORIZA A REALIZAR LOS TRABAJOS NECESARIOS PARA LA REPARACIÓN DEL VEHÍCULO Y/O SERVICIOS SOLICITADOS CONFORME A LO REFLEJADO EN ESTE RESGUARDO DE DEPÓSITO.</div>
+          <table style="width:100%;margin-top:8px"><tr>
+            <td style="width:50%"><b>EL PRESTADOR DEL SERVICIO</b><br>{e(empresa.get("nombre",""))}</td>
+            <td style="width:50%;text-align:center"><b style="display:block;text-align:left">CONFORME CLIENTE</b>{firma_html}</td>
+          </tr></table>
+        </div>
+        <div class="fentrega"><b>FECHA PREVISTA DE ENTREGA DEL VEHÍCULO REPARADO</b> <span style="float:right"><b>{e(fmtf(orden.get("fecha_entrega_estimada")))}</b></span></div>
+        <div class="autoriz"><b>EL CLIENTE CON LA FIRMA ANTERIOR AUTORIZA AL TALLER A:</b>
+          <table style="width:100%;margin-top:4px"><tr>
+            <td style="width:50%">☐ REALIZAR DESPLAZAMIENTOS DE DIAGNÓSTICO.</td>
+            <td style="width:50%">☐ UTILIZAR ELEMENTOS, EQUIPOS O CONJUNTOS USADOS O NO ESPECÍFICOS (ART. 9 Y 10 DECRETO 9/2003).</td></tr>
+            <tr><td>☐ UTILIZAR ELEMENTOS, EQUIPOS O CONJUNTOS RECONSTRUIDOS (ART. 9 Y 10 DECRETO 9/2003).</td>
+            <td>☐ RENUNCIA A RETIRAR ELEMENTOS SUSTITUIDOS TRAS REPARACIÓN.</td></tr></table>
+        </div>
+      </td>
+    </tr></table>
+
+    <table class="b legal"><tr>
+      <td style="width:50%;border-right:1.4px solid #000"><b>Protección de Datos de Carácter Personal:</b> con la firma del presente usted presta su consentimiento para que sus datos sean tratados mientras que no comunique lo contrario por este taller, con la finalidad de gestión contable/administrativa de los servicios. Podrá ejercitar sus derechos de acceso, rectificación, supresión, oposición, y los demás reconocidos en esta norma, enviando solicitud a la dirección indicada, remitiendo copia de su DNI. Puede ejercitar el derecho a presentar una reclamación ante la Agencia Española de Protección de Datos.</td>
+      <td style="width:50%">SI TRANSCURRIDOS TRES DÍAS DESDE LA PUESTA EN CONOCIMIENTO DEL CLIENTE DE LA FINALIZACIÓN DE LOS TRABAJOS DE ELABORACIÓN DEL PRESUPUESTO O REPARACIÓN DEL VEHÍCULO, NO PROCEDA EL CLIENTE AL PRONUNCIAMIENTO SOBRE LA ACEPTACIÓN O NO DEL PRESUPUESTO O A LA RETIRADA DEL VEHÍCULO, SE DEVENGARÁN UNOS GASTOS DIARIOS DE ESTANCIA DE __________ € MÁS IVA.</td>
+    </tr></table>
+    '''
+
+    css = """
+    @page { size: A4 landscape; margin: 6mm; }
+    * { box-sizing:border-box; font-family: Arial, Helvetica, sans-serif; }
+    body { margin:0; color:#000; font-size:9px; }
+    table { border-collapse:collapse; width:100%; }
+    .b { border:1.4px solid #000; }
+    .title { text-align:center; font-size:18px; font-weight:bold; padding:5px 0; }
+    .hdr td { vertical-align:top; }
+    .inner { width:100%; }
+    .inner td.c { border-right:.8px solid #000; border-bottom:.8px solid #000; padding:2px 6px; vertical-align:top; }
+    .lbl { font-size:6.5px; text-transform:uppercase; color:#333; }
+    .val { font-size:10px; font-weight:bold; min-height:12px; }
+    .val.big { font-size:13px; }
+    .rgtitle { border-bottom:.8px solid #000; padding:3px 6px; font-size:9px; font-weight:bold; }
+    .body td { vertical-align:top; }
+    .sec { text-align:center; font-weight:bold; font-size:10px; padding:3px 0; border-bottom:.8px solid #000; }
+    .rep th { font-size:7px; border:.8px solid #000; background:#f0f0f0; padding:2px; }
+    .rep td { border-right:.8px solid #000; border-bottom:1px dotted #aaa; font-size:8.5px; padding:1px 4px; }
+    .rep td.n { text-align:center; color:#555; }
+    .rep td.m { text-align:right; }
+    .renuncia { border:1.2px solid #000; margin:6px; padding:8px 10px; }
+    .rtit { text-align:center; font-size:15px; font-weight:bold; line-height:1.1; margin-bottom:6px; }
+    .rtxt { font-size:8px; font-weight:bold; text-align:justify; line-height:1.4; }
+    .fentrega { border-top:1.2px solid #000; border-bottom:1.2px solid #000; padding:4px 8px; font-size:8.5px; }
+    .autoriz { padding:5px 8px; font-size:8px; }
+    .legal td { padding:5px 8px; font-size:7px; text-align:justify; line-height:1.4; }
+    """
+    return f"<!doctype html><html><head><meta charset='utf-8'><style>{css}</style></head><body>{body}</body></html>"
+
+
+@api_router.get("/taller/ordenes/{oid}/hoja-entrada.pdf")
+async def hoja_entrada_pdf(oid: str):
+    orden = await db.ordenes_trabajo.find_one({"id": oid}, {"_id": 0})
+    if not orden:
+        raise HTTPException(404, "Orden no encontrada")
+    vehiculo = await db.vehiculos.find_one({"id": orden.get("vehiculo_id")}, {"_id": 0}) or {}
+    cliente = await db.contactos.find_one({"id": orden.get("cliente_id") or vehiculo.get("cliente_id")}, {"_id": 0}) or {}
+    cfg = await _get_ajustes()
+    empresa = cfg.get("empresa", {}) or {}
+    html = _build_resguardo_html(orden, vehiculo, cliente, empresa)
+    from weasyprint import HTML as _WHTML
+    pdf = await asyncio.to_thread(lambda: _WHTML(string=html).write_pdf())
+    return Response(content=pdf, media_type="application/pdf",
+                    headers={"Content-Disposition": f'inline; filename="hoja-entrada-{orden.get("numero","")}.pdf"'})
+
+
+
 # ---- Sesiones de subida por QR (públicas) ----
 class FotoSesionInput(BaseModel):
     tipo: str
