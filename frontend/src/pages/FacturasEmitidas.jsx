@@ -211,7 +211,7 @@ export default function FacturasEmitidas() {
                   <div className="border border-slate-200 rounded-sm">
                     {detalle.lineas.map((l, i) => (
                       <div key={i} className="flex justify-between px-3 py-2 border-b border-slate-100 last:border-0 text-sm">
-                        <span className="text-slate-700">{l.descripcion} <span className="text-slate-400">x{l.cantidad}</span></span>
+                        <span className="text-slate-700">{l.descripcion} <span className="text-slate-400">x{l.cantidad} {l.unidad || "ud"}</span></span>
                         <span className="tabular-nums">{eur(l.total)}</span>
                       </div>
                     ))}
