@@ -1,9 +1,8 @@
-import { NavLink, Outlet } from "react-router-dom";
+import { NavLink, Outlet, Link } from "react-router-dom";
 
 const LOGO = "https://customer-assets.emergentagent.com/job_invoice-hub-861/artifacts/7wiurgv7_favicom.png";
 
 const NAV = [
-  { to: "/", label: "Panel de control", testid: "nav-dashboard" },
   { to: "/clientes", label: "Clientes", testid: "nav-clientes" },
   { to: "/proveedores", label: "Proveedores", testid: "nav-proveedores" },
   { to: "/articulos", label: "Artículos", testid: "nav-articulos" },
@@ -19,13 +18,13 @@ export default function Layout() {
       <header className="sticky top-0 z-40 bg-white border-b border-slate-200" data-testid="topbar">
         <div className="max-w-[1500px] mx-auto px-6">
           <div className="flex items-center h-16 gap-8">
-            <div className="flex items-center gap-2.5 shrink-0">
+            <Link to="/" data-testid="logo-home" className="flex items-center gap-2.5 shrink-0">
               <img src={LOGO} alt="NexoPro" className="h-9 w-9 object-contain" />
               <div className="leading-none">
                 <div className="font-heading font-bold text-[17px] text-slate-900">NexoPro</div>
                 <div className="text-[9px] uppercase tracking-[0.2em] text-slate-400 mt-0.5">ERP · Verifactu</div>
               </div>
-            </div>
+            </Link>
             <nav className="flex items-center gap-1 overflow-x-auto no-scrollbar" data-testid="main-nav">
               {NAV.map((item) => (
                 <NavLink

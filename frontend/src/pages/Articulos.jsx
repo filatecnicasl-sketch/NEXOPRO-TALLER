@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Plus, PencilSimple, Trash, MagnifyingGlass, Package } from "@phosphor-icons/react";
+import Barcode from "react-barcode";
 import { toast } from "sonner";
 import { getArticulos, createArticulo, updateArticulo, deleteArticulo, eur } from "@/lib/api";
 import PageHeader from "@/components/PageHeader";
@@ -15,7 +16,15 @@ import {
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 const IVA = [21, 10, 4, 0];
-const EMPTY = { referencia: "", nombre: "", descripcion: "", precio: 0, tipo_iva: 21, unidad: "ud", notas: "" };
+const EMPTY = { referencia: "", nombre: "", descripcion: "", precio: 0, tipo_iva: 21, unidad: "ud", codigo_proveedor: "", codigo_propio: "", codigo_barras: "", notas: "" };
+
+function BarcodePreview({ value }) {
+  try {
+    return <Barcode value={String(value)} height={48} fontSize={12} margin={4} />;
+  } catch {
+    return <span className="text-xs text-slate-400">Código no válido para código de barras</span>;
+  }
+}
 
 export default function Articulos() {
   const [items, setItems] = useState([]);
@@ -45,7 +54,11 @@ export default function Articulos() {
   const remove = async () => { await deleteArticulo(delId); setDelId(null); toast.success("Artículo eliminado"); load(); };
 
   const filtered = items.filter(
-    (a) => a.nombre.toLowerCase().includes(search.toLowerCase()) || (a.referencia || "").toLowerCase().includes(search.toLowerCase())
+    (a) => a.nombre.toLowerCase().includes(search.toLowerCase())
+      || (a.referencia || "").toLowerCase().includes(search.toLowerCase())
+      || (a.codigo_proveedor || "").toLowerCase().includes(search.toLowerCase())
+      || (a.codigo_propio || "").toLowerCase().includes(search.toLowerCase())
+      || (a.codigo_barras || "").toLowerCase().includes(search.toLowerCase())
   );
 
   return (
@@ -58,7 +71,7 @@ export default function Articulos() {
 
       <div className="relative mb-4 max-w-sm">
         <MagnifyingGlass size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-        <Input data-testid="buscar-articulo-input" placeholder="Buscar por nombre o referencia..." value={search}
+        <Input data-testid="buscar-articulo-input" placeholder="Buscar por nombre, referencia o código..." value={search}
           onChange={(e) => setSearch(e.target.value)} className="pl-9 rounded-sm" />
       </div>
 
@@ -68,6 +81,8 @@ export default function Articulos() {
             <TableRow className="bg-slate-50 hover:bg-slate-50">
               <TableHead>Referencia</TableHead>
               <TableHead>Nombre</TableHead>
+              <TableHead>Cód. prov.</TableHead>
+              <TableHead>Cód. propio</TableHead>
               <TableHead>Origen (documentos)</TableHead>
               <TableHead>Unidad</TableHead>
               <TableHead className="text-right">Precio</TableHead>
@@ -76,9 +91,9 @@ export default function Articulos() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {loading && <TableRow><TableCell colSpan={7} className="text-center text-slate-400 py-8">Cargando...</TableCell></TableRow>}
+            {loading && <TableRow><TableCell colSpan={9} className="text-center text-slate-400 py-8">Cargando...</TableCell></TableRow>}
             {!loading && filtered.length === 0 && (
-              <TableRow><TableCell colSpan={7} className="py-16 text-center">
+              <TableRow><TableCell colSpan={9} className="py-16 text-center">
                 <Package size={40} className="mx-auto text-slate-200 mb-3" />
                 <p className="text-slate-500 text-sm">No hay artículos todavía</p>
                 <Button variant="link" onClick={openNew} className="text-primary">Añadir el primero</Button>
@@ -91,6 +106,8 @@ export default function Articulos() {
                   {a.nombre}
                   {a.auto && <span className="ml-2 text-[10px] uppercase tracking-wide text-primary bg-accent px-1.5 py-0.5 rounded-sm">auto</span>}
                 </TableCell>
+                <TableCell className="font-mono-plex text-xs text-slate-600">{a.codigo_proveedor || "—"}</TableCell>
+                <TableCell className="font-mono-plex text-xs text-slate-600">{a.codigo_propio || "—"}</TableCell>
                 <TableCell>
                   {(a.origenes && a.origenes.length > 0) ? (
                     <div className="flex flex-wrap gap-1 max-w-[280px]">
@@ -146,6 +163,23 @@ export default function Articulos() {
                 className="w-full h-10 mt-1 border border-input rounded-sm bg-white px-2 text-sm">
                 {IVA.map((v) => <option key={v} value={v}>{v}%</option>)}
               </select>
+            </div>
+            <div>
+              <Label className="text-xs">Código proveedor</Label>
+              <Input data-testid="input-codigo-proveedor" value={form.codigo_proveedor} onChange={(e) => setForm({ ...form, codigo_proveedor: e.target.value })} className="rounded-sm mt-1 font-mono-plex" placeholder="Ref. del proveedor" />
+            </div>
+            <div>
+              <Label className="text-xs">Código propio</Label>
+              <Input data-testid="input-codigo-propio" value={form.codigo_propio} onChange={(e) => setForm({ ...form, codigo_propio: e.target.value })} className="rounded-sm mt-1 font-mono-plex" placeholder="Tu código interno" />
+            </div>
+            <div className="col-span-2">
+              <Label className="text-xs">Código de barras / QR</Label>
+              <Input data-testid="input-codigo-barras" value={form.codigo_barras} onChange={(e) => setForm({ ...form, codigo_barras: e.target.value })} className="rounded-sm mt-1 font-mono-plex" placeholder="Ej. 8412345678901" />
+              {form.codigo_barras && (
+                <div className="mt-3 flex justify-center bg-white border border-slate-200 rounded-sm p-3" data-testid="codigo-barras-preview">
+                  <BarcodePreview value={form.codigo_barras} />
+                </div>
+              )}
             </div>
           </div>
           {editId && form.origenes && form.origenes.length > 0 && (

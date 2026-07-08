@@ -23,13 +23,14 @@ export default function LineasEditor({ lineas, setLineas, articulos = [] }) {
     setLineas(next);
   };
   const add = () =>
-    setLineas([...lineas, { descripcion: "", cantidad: 1, precio_unitario: 0, descuento: 0, tipo_iva: 21 }]);
+    setLineas([...lineas, { codigo_proveedor: "", descripcion: "", cantidad: 1, precio_unitario: 0, descuento: 0, tipo_iva: 21 }]);
   const remove = (i) => setLineas(lineas.filter((_, idx) => idx !== i));
 
   const addArticulo = (id) => {
     const a = articulos.find((x) => x.id === id);
     if (!a) return;
     setLineas([...lineas, {
+      codigo_proveedor: a.codigo_proveedor || "",
       descripcion: a.referencia ? `${a.referencia} · ${a.nombre}` : a.nombre,
       cantidad: 1, precio_unitario: a.precio || 0, descuento: 0, tipo_iva: a.tipo_iva ?? 21,
     }]);
@@ -41,7 +42,8 @@ export default function LineasEditor({ lineas, setLineas, articulos = [] }) {
     <div className="space-y-3" data-testid="lineas-editor">
       <div className="border border-slate-200 rounded-sm overflow-hidden">
         <div className="grid grid-cols-12 gap-2 bg-slate-50 px-3 py-2 text-[11px] uppercase tracking-wider text-slate-500 font-medium">
-          <div className="col-span-5">Descripción</div>
+          <div className="col-span-2">Cód. prov.</div>
+          <div className="col-span-3">Descripción</div>
           <div className="col-span-1 text-right">Cant.</div>
           <div className="col-span-2 text-right">Precio</div>
           <div className="col-span-1 text-right">Dto%</div>
@@ -58,8 +60,15 @@ export default function LineasEditor({ lineas, setLineas, articulos = [] }) {
           return (
             <div key={i} className="grid grid-cols-12 gap-2 px-3 py-2 border-t border-slate-100 items-center">
               <Input
+                data-testid={`linea-codprov-${i}`}
+                className="col-span-2 h-8 text-sm font-mono-plex"
+                value={l.codigo_proveedor || ""}
+                onChange={(e) => update(i, "codigo_proveedor", e.target.value)}
+                placeholder="Ref."
+              />
+              <Input
                 data-testid={`linea-descripcion-${i}`}
-                className="col-span-5 h-8 text-sm"
+                className="col-span-3 h-8 text-sm"
                 value={l.descripcion}
                 onChange={(e) => update(i, "descripcion", e.target.value)}
                 placeholder="Concepto"

@@ -227,6 +227,7 @@ class ContactoInput(BaseModel):
 
 
 class LineaItem(BaseModel):
+    codigo_proveedor: str = ""
     descripcion: str = ""
     cantidad: float = 1
     precio_unitario: float = 0
@@ -252,6 +253,7 @@ def calcular_lineas(lineas: List[dict]):
         base_total += base
         iva_total += cuota
         resultado.append({
+            'codigo_proveedor': l.get('codigo_proveedor', ''),
             'descripcion': l.get('descripcion', ''),
             'cantidad': cantidad,
             'precio_unitario': precio,
@@ -355,6 +357,9 @@ class ArticuloInput(BaseModel):
     precio: float = 0
     tipo_iva: float = 21
     unidad: str = "ud"
+    codigo_proveedor: str = ""
+    codigo_propio: str = ""
+    codigo_barras: str = ""
     notas: str = ""
 
 
@@ -403,23 +408,29 @@ async def registrar_articulos_entrada(lineas: list, origen: dict):
             "proveedor": origen.get("proveedor", ""),
             "precio": l.get("precio_unitario", 0),
             "cantidad": l.get("cantidad", 0),
+            "codigo_proveedor": l.get("codigo_proveedor", ""),
         }
+        cod_prov = l.get("codigo_proveedor", "")
         existing = await db.articulos.find_one({"nombre_lower": nombre.lower()})
         if existing:
             origenes = existing.get("origenes", [])
             if not any(o.get("documento_id") == origen["id"] for o in origenes):
                 origenes.append(entry)
-            await db.articulos.update_one({"id": existing["id"]}, {"$set": {
+            update = {
                 "origenes": origenes,
                 "precio": l.get("precio_unitario", existing.get("precio", 0)),
                 "tipo_iva": l.get("tipo_iva", existing.get("tipo_iva", 21)),
-            }})
+            }
+            if cod_prov and not existing.get("codigo_proveedor"):
+                update["codigo_proveedor"] = cod_prov
+            await db.articulos.update_one({"id": existing["id"]}, {"$set": update})
         else:
             art = {
                 "id": new_id(), "referencia": "", "nombre": nombre,
                 "nombre_lower": nombre.lower(), "descripcion": "",
                 "precio": l.get("precio_unitario", 0), "tipo_iva": l.get("tipo_iva", 21),
-                "unidad": "ud", "notas": "", "origenes": [entry], "auto": True,
+                "unidad": "ud", "codigo_proveedor": cod_prov, "codigo_propio": "",
+                "codigo_barras": "", "notas": "", "origenes": [entry], "auto": True,
                 "created_at": now_iso(),
             }
             await db.articulos.insert_one(dict(art))
