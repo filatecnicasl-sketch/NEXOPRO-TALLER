@@ -92,9 +92,10 @@ export default function Documentos({ entidad }) {
 
   const onExtracted = (datos) => {
     const prov = datos.proveedor_existente;
+    const defCompra = seriesCompra.find((s) => s.por_defecto) || seriesCompra[0];
     setForm({
       tipo_operacion: "compra",
-      serie: "",
+      serie: defCompra?.nombre || "",
       contacto_id: prov?.id || "",
       contacto_nombre: prov?.nombre || datos.proveedor?.nombre || "",
       contacto_nif: prov?.nif || datos.proveedor?.nif || "",
