@@ -35,6 +35,14 @@ Autónomos y pymes españolas que gestionan compras/ventas y facturación con ob
   Admin: admin@nexopro.com / Admin1234!. Licencia demo: NEXO-DEMO-0001 (frontend/.env REACT_APP_LICENSE_KEY).
 
 ## Estado / Bloqueos
+- GESTIÓN DOCUMENTAL + BANCO PROVEEDOR (2026-07-08):
+  · Datos bancarios (IBAN/Banco/BIC-SWIFT) ahora también en la ficha de PROVEEDOR (antes solo clientes).
+  · Object storage (emergent): helpers init_storage/storage_put/storage_get/_guardar_pdf; POST /api/archivos/subir
+    (PDF, máx 15MB) y GET /api/archivos/{path} (inline application/pdf). extraer_pdf guarda el PDF original y
+    devuelve pdf_path/pdf_filename. DocumentoInput y FacturaRecibidaInput tienen pdf_path/pdf_filename.
+  · Frontend: componente PdfPreview (iframe). Adjuntar PDF + "Vista previa" en Facturas Recibidas y en
+    documentos de COMPRA (albaranes/pedidos recibidos). Los PDF importados por IA se guardan automáticamente.
+  Verificado testing_agent iteration_10 (backend 6/6, frontend 100%).
 - FLUJO ENLAZADO + DOCUMENTOS IMPRIMIBLES + LOGO (2026-07-08):
   · Conversión con un clic: Presupuesto→Pedido/Albarán; Pedido→Albarán; Albarán→Factura
     (venta→factura emitida, compra→factura recibida). Backend POST /api/documentos/{entidad}/{id}/convertir
