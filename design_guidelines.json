@@ -1,72 +1,121 @@
 {
-  "theme": "light",
-  "archetype": "Swiss & High-Contrast",
+  "theme_strategy": "Archetype 4: Swiss & High-Contrast mixed with Modern Fintech (Stripe/Linear vibe). Authoritative, precise, data-dense, and highly accessible. Clean white/zinc interfaces for the main ERP to ensure readability, and a sleek dark mode for the central admin licensing panel.",
   "typography": {
-    "heading_font": "Cabinet Grotesk",
-    "body_font": "IBM Plex Sans",
-    "hierarchy": {
-      "h1": "text-4xl sm:text-5xl tracking-tight font-medium",
-      "h2": "text-2xl sm:text-3xl tracking-tight font-medium",
-      "h3": "text-xl sm:text-2xl font-medium",
-      "h4": "text-lg sm:text-xl font-medium",
-      "body": "text-sm text-slate-700 leading-relaxed",
-      "small": "text-xs text-slate-500 uppercase tracking-widest"
+    "headings": {
+      "font": "Cabinet Grotesk",
+      "style": "tracking-tight text-zinc-900",
+      "usage": "Page titles, card headers, section titles. Use font-semibold to font-bold. E.g., text-2xl tracking-tight font-semibold."
+    },
+    "body": {
+      "font": "IBM Plex Sans",
+      "style": "text-zinc-600 leading-relaxed",
+      "usage": "Data tables, descriptions, standard text. Ensures high legibility for numbers and dense data. E.g., text-sm text-zinc-600."
+    },
+    "data_values": {
+      "font": "IBM Plex Sans",
+      "style": "text-zinc-900 font-medium",
+      "usage": "Primary data points in tables or cards (e.g., Customer Name, Total Amount)."
+    },
+    "monospaced": {
+      "font": "IBM Plex Mono",
+      "style": "tracking-tight",
+      "usage": "Invoice numbers, IDs, and Verifactu hashes/footprints. If not available, use any clean monospace font."
     }
   },
   "colors": {
-    "background": "#FAFAFA",
-    "surface": "#FFFFFF",
-    "border": "#E2E8F0",
-    "text_primary": "#0F172A",
-    "text_secondary": "#475569",
-    "primary": "#0055FF",
-    "primary_hover": "#0044CC",
-    "success": "#10B981",
-    "warning": "#F59E0B",
-    "error": "#EF4444"
-  },
-  "layout": {
-    "spacing_scale": "Generous internal padding (p-6, p-8) for containers, dense tight gaps (gap-4) for data grids.",
-    "grid_system": "Control Room Grid (Dense). grid-cols-1 md:grid-cols-3 lg:grid-cols-4 or 12-col subgrid for tables.",
-    "alignment": "Left-aligned for all dense content, tables, and forms. Center only for empty states or AI processing loaders."
-  },
-  "components": {
-    "sidebar": "Fixed left sidebar, 1px right border border-slate-200. Monochrome text, active state has font-medium and black text. Icons: Phosphor.",
-    "cards": "Flat solid background, no shadow, 1px solid border-slate-200, rounded-none or rounded-sm max 4px. Hover: subtle shadow-sm.",
-    "tables": "Dense Shadcn tables. Zebra striping on hover, sticky header. Verifactu status as minimalist badges.",
-    "buttons": "Square or rounded-sm corners. Primary buttons are solid Blue/Black. Secondary buttons are outlined.",
-    "pdf_uploader": "Dashed border area with Phosphor upload icon. When processing, use a monospace font loader 'Extrayendo datos AI...'"
-  },
-  "motion": {
-    "hover": "Fast transitions (150ms). translate-y-[1px] for buttons.",
-    "lists": "Staggered fade-in for table rows or dashboard widgets.",
-    "ai_extraction": "Scanning line animation over the PDF preview, skeleton loaders for extracted fields until confirmed."
-  },
-  "icons_and_assets": {
-    "icon_library": "@phosphor-icons/react",
-    "install_command": "yarn add @phosphor-icons/react",
-    "images": {
-      "login_background": {
-        "url": "https://images.pexels.com/photos/1313534/pexels-photo-1313534.jpeg",
-        "description": "Modern office architecture, used for the left/right split panel on the login/auth screen."
-      },
-      "empty_state_team": {
-        "url": "https://images.pexels.com/photos/36733304/pexels-photo-36733304.jpeg",
-        "description": "Professional team, can be used in onboarding or empty states for 'Add your first supplier'."
-      }
+    "primary": {
+      "base": "indigo-600",
+      "hover": "indigo-700",
+      "text_on_primary": "white"
+    },
+    "background": {
+      "main_app": "zinc-50",
+      "surface": "white",
+      "central_admin": "zinc-950",
+      "admin_surface": "zinc-900"
+    },
+    "text": {
+      "primary": "zinc-900",
+      "secondary": "zinc-500",
+      "muted": "zinc-400"
+    },
+    "borders": {
+      "light": "zinc-200",
+      "dark": "zinc-800"
+    },
+    "semantic": {
+      "success": "text-emerald-700 bg-emerald-50 ring-emerald-600/20",
+      "warning": "text-amber-700 bg-amber-50 ring-amber-600/20",
+      "danger": "text-red-700 bg-red-50 ring-red-600/20",
+      "info": "text-blue-700 bg-blue-50 ring-blue-600/20"
     }
   },
-  "accessibility": {
-    "contrast": "Ensure all text passes WCAG AA. Buttons text must be white against primary colors.",
-    "testing": "All interactive elements MUST include data-testid (e.g., data-testid='upload-pdf-button', data-testid='sidebar-clientes')."
+  "layouts": {
+    "overall_structure": "Transition from top navbar to a Left Sidebar (collapsible, 240px width) for main navigation, creating an F-Pattern hierarchy. Top header should contain Breadcrumbs, Global Search, and Action Buttons.",
+    "page_header": "Includes Title, Subtitle/Summary Chips (e.g., 'Total: 124 Orders'), and primary actions (e.g., 'Nuevo Cliente') aligned to the right.",
+    "data_tables": {
+      "structure": "Edge-to-edge inside a card with rounded-lg border border-zinc-200 shadow-sm overflow-hidden. Use Shadcn Table component.",
+      "headers": "Sticky headers (top-0, z-10) with bg-zinc-50/90 backdrop-blur-sm, text-xs font-semibold text-zinc-500 uppercase tracking-wider.",
+      "rows": "Height 48px-52px. Hover state: hover:bg-zinc-50 transition-colors. Subtle border-b border-zinc-100.",
+      "alignment": "Left-align text, Right-align numbers/currency, Center-align status badges.",
+      "density": "Compact but readable. Group primary info (e.g., Name) with secondary info (e.g., Email) below it in the same cell using text-sm and text-xs text-zinc-500.",
+      "actions": "Use a sticky right column or explicit 'more-vertical' dropdown menu for row actions (Edit/Delete)."
+    },
+    "central_admin_panel": "Strict Dark Mode. Use zinc-950 background, zinc-900 for cards, zinc-800 for borders. Primary accent shifts to indigo-500. This highly differentiates the internal admin from the client-facing ERP."
   },
+  "visual_enhancers": {
+    "shadows": "Use subtle ambient shadows for cards: shadow-sm (0 1px 2px 0 rgb(0 0 0 / 0.05)). Drop shadow for dropdowns: shadow-lg border border-zinc-200.",
+    "radius": "rounded-lg for cards and dialogs, rounded-md for inputs and buttons, rounded-full for status pills and avatars.",
+    "borders": "1px solid crisp borders (border-zinc-200). Remove unnecessary internal borders to let whitespace act as a divider.",
+    "empty_states": "Never show an empty table. Use a centered layout inside the table container with an abstract icon (lucide/phosphor), a heading, a muted description, and a primary CTA."
+  },
+  "motion": {
+    "micro_interactions": "Subtle translate-y-[-1px] and shadow-md on hover for clickable cards. Use simple Tailwind transitions (transition-all duration-200 ease-in-out) for hover states.",
+    "dialogs": "Smooth fade-in and scale-in (95% to 100%) for Create/Edit modals.",
+    "sidebar": "Smooth width transition if collapsible."
+  },
+  "components_strategy": {
+    "tables": "Enhance shadcn/ui tables. Add row density and right-aligned numbers.",
+    "status_pills": "Use Shadcn Badge component, overridden with semantic colors (soft background, strong text, thin ring border via ring-1 ring-inset).",
+    "kpi_cards": "Top dashboard cards: Value text-3xl font-bold tracking-tight, with a small trend indicator (+5.2%) in green/red.",
+    "avatars": "Use Shadcn Avatar for Client/Supplier initials (e.g., 'JD' for John Doe) to add visual anchors in lists.",
+    "tabs": "Use Shadcn Tabs for Facturas Recibidas / Emitidas. Style them as pill tabs or clean underline tabs.",
+    "ai_import_card": "For 'Facturas Recibidas (AI PDF import)', create a dedicated dropzone area with dashed borders (border-indigo-300 bg-indigo-50/50), an icon, and a 'Consumo IA' progress bar/stat card nearby."
+  },
+  "accessibility": {
+    "contrast": "Ensure all text, especially secondary text-zinc-500, meets APCA/WCAG AA contrast ratios against white/zinc-50 backgrounds.",
+    "focus": "focus-visible:ring-2 focus-visible:ring-indigo-600 focus-visible:ring-offset-2 on all inputs and buttons.",
+    "data_testids": "MANDATORY. Ensure all existing data-testids remain intact. Add descriptive data-testid to any new interactive elements (e.g., data-testid='btn-create-client')."
+  },
+  "icons": {
+    "library": "Lucide (existing). Set strokeWidth to 1.5 for a cleaner, premium look.",
+    "usage": "Use icons in the sidebar, in empty states (large and muted), and in KPI cards."
+  },
+  "image_urls": [
+    {
+      "url": "https://images.unsplash.com/photo-1709626011485-6fe000ea2dbc?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1NDh8MHwxfHNlYXJjaHwxfHxhYnN0cmFjdCUyMGJ1c2luZXNzJTIwZ2VvbWV0cmljJTIwc2hhcGVzfGVufDB8fHx8MTc4Mjc5Mjg2NXww&ixlib=rb-4.1.0&q=85",
+      "description": "Abstract blue geometry. Use purely as a very subtle, low-opacity background decoration for the Central Admin Login or AI Processing empty state."
+    }
+  ],
   "instructions_to_main_agent": [
-    "Build a sidebar layout with navigation for Dashboard, Clientes, Proveedores, Pedidos, Albaranes, Facturas Emitidas, Facturas Recibidas.",
-    "Implement the 'Control Room' dense grid for the Dashboard showing KPIs (Facturación, Pendientes, etc.).",
-    "For the AI PDF upload flow (in Facturas Recibidas / Albaranes), create a split-screen or modal: PDF preview on one side, extracted data form on the other for review.",
-    "Use Shadcn UI for tables, dialogs, forms, and dropdowns. Customize them to remove heavy shadows and large border radii.",
-    "Ensure the UI is entirely in Spanish as requested.",
-    "Use Cabinet Grotesk for headings and IBM Plex Sans for body text. Do NOT use Inter.",
-    "Include data-testid attributes on all critical UI elements for testing."
+    "Refactor the current basic top-nav layout into a professional left-sidebar layout (Stripe/Linear style) combined with a top header for breadcrumbs.",
+    "Enhance all CRUD Data Tables (Clientes, Proveedores, Artículos, Pedidos, Albaranes, Facturas): Make them crisp with sticky headers, zebra/hover states, grouped cell data (Name + Email), right-aligned amounts, and status badges.",
+    "Implement a polished Dark Mode exclusively for the Central Admin licensing panel.",
+    "For the 'Facturas Recibidas' AI PDF import, build a prominent dashed dropzone UI and a distinct 'Consumo IA' widget.",
+    "Ensure the Verifactu section shows the QR code gracefully in the details drawer/dialog.",
+    "DO NOT break existing functionality or remove existing data-testids. Use existing Tailwind and Shadcn setup (.js files), but override styles to match these guidelines.",
+    "Keep typography scales constrained: H1 max text-3xl for dashboards, use Cabinet Grotesk for display and IBM Plex Sans for data tables."
+  ],
+  "UNIVERSAL GUIDELINES FOR MAIN AGENT": [
+    "You tend to converge toward generic outputs. Avoid this: make creative, distinctive frontends that surprise and delight. A premium B2B SaaS feels intentional in every pixel.",
+    "Create depth through layered design elements (subtle borders, off-white backgrounds, drop shadows).",
+    "Use glass-morphism effects carefully, mostly for sticky headers or dropdowns (backdrop-blur-md bg-white/80).",
+    "Do NOT apply universal transitions (e.g. transition: all). Target specific properties like transition-colors or transition-transform.",
+    "Do NOT center align the app container. Dashboards must be left-aligned and fill the viewport.",
+    "Every interaction needs micro-animations - hover states, transitions. Static = dead.",
+    "Always use modern button styles (rounded-md, crisp padding, clear active states).",
+    "CRITICAL: DO NOT use complete `transparent` background in headers, overlays, or any surface that has content under it. Example: Dropdowns MUST have a solid/blurred background.",
+    "Add data-testid attributes to ALL interactive elements.",
+    "Use sonner for toast notifications."
   ]
 }
