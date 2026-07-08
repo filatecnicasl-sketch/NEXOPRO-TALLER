@@ -16,7 +16,11 @@ desde PDF del proveedor mediante IA. Stack: FastAPI + React + MongoDB (Python pa
 Autónomos y pymes españolas que gestionan compras/ventas y facturación con obligación Verifactu.
 
 ## Implementado (2026-07-08)
-- CRUD Clientes y Proveedores (búsqueda, editar, eliminar).
+- CRUD Clientes (con datos bancarios IBAN/banco/SWIFT y dirección de entrega) y Proveedores.
+- Alta automática de cliente al crear factura/albarán/pedido de VENTA con nombre nuevo (ensure_cliente).
+- Artículos: referencia AUTOMÁTICA (ART-000000), código proveedor, código de barras/QR con vista previa.
+  Alta automática de artículos desde documentos de ENTRADA (marca AUTO + a qué documentos corresponde).
+- Líneas de documentos con columna "Cód. prov." (código del artículo del proveedor).
 - CRUD Artículos/Productos + alta automática de artículos desde albaranes/facturas de ENTRADA
   (marca AUTO y guarda a qué documento(s) corresponde cada artículo).
 - Pedidos y Albaranes con líneas + totales. Albaranes con pestañas Recibidos (IA)/Emitidos.
