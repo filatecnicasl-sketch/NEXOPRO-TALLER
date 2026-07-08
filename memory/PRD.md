@@ -35,6 +35,21 @@ Autónomos y pymes españolas que gestionan compras/ventas y facturación con ob
   Admin: admin@nexopro.com / Admin1234!. Licencia demo: NEXO-DEMO-0001 (frontend/.env REACT_APP_LICENSE_KEY).
 
 ## Estado / Bloqueos
+- TALLER — CORTESÍAS VENCIDAS EN ROJO + RECORDATORIOS DE CITAS (2026-07-08):
+  · UI: coches de cortesía vencidos (fecha_devolucion_prevista < hoy y no devueltos) se resaltan en ROJO
+    con badge "Vencida" en TallerDashboard.jsx y en la lista de Cortesia.jsx. Verificado por screenshot.
+  · Recordatorios de citas configurables desde Ajustes → sección "Notificaciones y recordatorios":
+    Email (Resend) + WhatsApp (Twilio), credenciales guardadas POR TENANT en mongo (ajustes.notificaciones),
+    NO en .env. Secretos (email.api_key, whatsapp.auth_token) enmascarados en GET ('••••••••' + *_set bool)
+    y preservados en PUT si llega la máscara. Plantillas editables con variables {cliente}{empresa}{fecha}
+    {hora}{matricula}{motivo}. Envío MANUAL (botón avión en cada cita, Citas.jsx) + AUTOMÁTICO
+    (APScheduler cada 30 min, envía citas dentro de la ventana horas_antes, marca recordatorio_auto_at).
+  · Backend: GET/PUT /api/ajustes (notificaciones), POST /api/taller/citas/{id}/recordatorio,
+    POST /api/notificaciones/test. Helpers _enviar_email/_enviar_whatsapp/_enviar_recordatorio_cita,
+    _job_recordatorios + AsyncIOScheduler en startup. Deps nuevas: resend, twilio, apscheduler.
+  · Verificado testing_agent iteration_15 (backend 8/8: enmascarado, preservación, error-paths, 404, scheduler ok).
+    Envío real no verificable sin claves de proveedor; probados los caminos de "no configurado" (sin 500).
+    NOTA: el usuario aún NO tiene claves de Resend/Twilio; las introducirá en Ajustes cuando las obtenga.
 - CITAS — AGENDA SEMANA/MES + IMPORTACIÓN CLIENTES EXCEL (2026-07-08):
   · Citas.jsx: vistas Agenda (lista) / Semana / Mes con navegación (Hoy, ‹ ›). El calendario
     fusiona citas (color por estado), PERITAJES pendientes (ámbar) y DEVOLUCIONES de cortesía
