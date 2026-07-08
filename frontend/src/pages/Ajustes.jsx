@@ -98,11 +98,11 @@ export default function Ajustes() {
   }, []);
 
   const save = async () => {
-    if (seriesVenta.some((s) => !s.nombre.trim())) return toast.error("Todas las series de venta necesitan un nombre");
-    if (seriesCompra.some((s) => !s.nombre.trim())) return toast.error("Todas las series de compra necesitan un nombre");
+    const sv = seriesVenta.filter((s) => (s.nombre || "").trim());
+    const sc = seriesCompra.filter((s) => (s.nombre || "").trim());
     setSaving(true);
     try {
-      const d = await updateAjustes({ empresa, series_venta: seriesVenta, series_compra: seriesCompra });
+      const d = await updateAjustes({ empresa, series_venta: sv, series_compra: sc });
       setEmpresa(d.empresa || {});
       setSeriesVenta(d.series_venta || []);
       setSeriesCompra(d.series_compra || []);

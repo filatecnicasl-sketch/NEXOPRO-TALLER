@@ -35,10 +35,20 @@ Autónomos y pymes españolas que gestionan compras/ventas y facturación con ob
   Admin: admin@nexopro.com / Admin1234!. Licencia demo: NEXO-DEMO-0001 (frontend/.env REACT_APP_LICENSE_KEY).
 
 ## Estado / Bloqueos
-- La extracción IA está IMPLEMENTADA pero BLOQUEADA: el Emergent LLM Key tiene saldo 0 ("Budget exceeded").
-  Requiere recarga (Perfil → Universal Key → Add Balance) para funcionar.
+- REDISEÑO UI/UX COMPLETO (2026-07-08): estética profesional indigo/zinc con sidebar aplicada a TODAS
+  las páginas (Dashboard, Clientes/Proveedores, Artículos, Pedidos, Albaranes, Facturas Emitidas/Recibidas,
+  ImportPdfDialog). Nuevo componente reutilizable Pill (estados). LineasEditor con anchos CSS-grid alineados.
+- AJUSTES + SERIES (2026-07-08): nueva sección "Ajustes" (nav "Sistema" → /ajustes). Gestiona datos de
+  empresa y numeración de series de VENTA (facturas/pedidos/albaranes) y COMPRA (pedidos/albaranes) con
+  "próximo número" editable por tipo de documento y serie por defecto (estrella). Backend: singleton
+  db.ajustes {empresa, series_venta, series_compra}; GET/PUT /api/ajustes; _siguiente_contador ($inc atómico);
+  la numeración de facturas emitidas y documentos (pedidos/albaranes) se genera desde estos contadores.
+  Selectores de serie conectados en FacturasEmitidas (input-serie) y Documentos (input-serie-doc).
+  Verificado por testing_agent (iteration_6): backend 5/5, frontend 100% flujos probados.
 
 ## Backlog / Próximos pasos (P1/P2)
+- (P1) Añadir en el Panel Admin central el consumo de tokens/créditos de IA POR licencia/cliente.
+- (P1) Primer módulo sectorial (taller/hostelería/construcción) sobre este módulo base de facturación.
 - Convertir pedido→albarán→factura (flujo enlazado).
 - Conexión real a Verifactu/AEAT (certificado digital, entorno producción).
 - Exportar factura a PDF y envío por email (Resend/SendGrid).
