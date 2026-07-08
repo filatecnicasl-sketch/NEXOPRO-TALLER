@@ -1,0 +1,29 @@
+{
+  "summary": "Iteration 3: validated NEW changes only (nav, auto ref for artículos, código proveedor/barras, LineasEditor codigo-prov col, auto-create cliente on factura emitida and pedidos/albaranes venta, cliente IBAN+entrega). All 7 backend tests + full UI walkthrough pass.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Radix Dialogs (multiple)", "issues": ["Missing DialogDescription / aria-describedby on several DialogContent (a11y warning). Non-blocking."]},
+      {"screen": "Articulos dialog", "issues": ["React hydration warning: <span> is child of <option> in the IVA <select>. Emitted by dev instrumentation (Emergent x-* markers wrapping option text). Non-blocking but shows console error."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_nuevos_cambios.py",
+    "/app/test_reports/pytest/iter3.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Articulos.jsx line 60-61: duplicate filter clause on codigo_barras (harmless dup).",
+    "_next_articulo_ref uses count_documents()+1 which is NOT safe under concurrency (could collide if two POST simultaneously). Consider a MongoDB counter collection with findOneAndUpdate($inc).",
+    "ensure_cliente matches by exact nombre — case-sensitive; may create duplicates for the same client typed differently."
+  ],
+  "updated_files": ["/app/backend/tests/test_nuevos_cambios.py"],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "seed_data_creation": "Created test data (TEST_* prefixed) — auto-cleaned after each test; some may remain via UI walkthrough.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "All new-round features verified against public URL. Backend tests live at /app/backend/tests/test_nuevos_cambios.py (7 tests, all pass). AI PDF extraction still skipped (0 LLM balance). License NEXO-DEMO-0001 remains ACTIVA.",
+  "test_credentials": "Admin admin@nexopro.com / Admin1234! (not used this round). ERP client uses REACT_APP_LICENSE_KEY=NEXO-DEMO-0001."
+}

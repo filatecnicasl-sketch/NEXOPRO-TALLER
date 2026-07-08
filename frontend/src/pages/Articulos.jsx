@@ -16,7 +16,7 @@ import {
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 const IVA = [21, 10, 4, 0];
-const EMPTY = { referencia: "", nombre: "", descripcion: "", precio: 0, tipo_iva: 21, unidad: "ud", codigo_proveedor: "", codigo_propio: "", codigo_barras: "", notas: "" };
+const EMPTY = { nombre: "", descripcion: "", precio: 0, tipo_iva: 21, unidad: "ud", codigo_proveedor: "", codigo_barras: "", notas: "" };
 
 function BarcodePreview({ value }) {
   try {
@@ -57,7 +57,7 @@ export default function Articulos() {
     (a) => a.nombre.toLowerCase().includes(search.toLowerCase())
       || (a.referencia || "").toLowerCase().includes(search.toLowerCase())
       || (a.codigo_proveedor || "").toLowerCase().includes(search.toLowerCase())
-      || (a.codigo_propio || "").toLowerCase().includes(search.toLowerCase())
+      || (a.codigo_barras || "").toLowerCase().includes(search.toLowerCase())
       || (a.codigo_barras || "").toLowerCase().includes(search.toLowerCase())
   );
 
@@ -82,7 +82,7 @@ export default function Articulos() {
               <TableHead>Referencia</TableHead>
               <TableHead>Nombre</TableHead>
               <TableHead>Cód. prov.</TableHead>
-              <TableHead>Cód. propio</TableHead>
+              <TableHead>Cód. barras/QR</TableHead>
               <TableHead>Origen (documentos)</TableHead>
               <TableHead>Unidad</TableHead>
               <TableHead className="text-right">Precio</TableHead>
@@ -107,7 +107,7 @@ export default function Articulos() {
                   {a.auto && <span className="ml-2 text-[10px] uppercase tracking-wide text-primary bg-accent px-1.5 py-0.5 rounded-sm">auto</span>}
                 </TableCell>
                 <TableCell className="font-mono-plex text-xs text-slate-600">{a.codigo_proveedor || "—"}</TableCell>
-                <TableCell className="font-mono-plex text-xs text-slate-600">{a.codigo_propio || "—"}</TableCell>
+                <TableCell className="font-mono-plex text-xs text-slate-600">{a.codigo_barras || "—"}</TableCell>
                 <TableCell>
                   {(a.origenes && a.origenes.length > 0) ? (
                     <div className="flex flex-wrap gap-1 max-w-[280px]">
@@ -138,8 +138,8 @@ export default function Articulos() {
           <DialogHeader><DialogTitle className="font-heading">{editId ? "Editar artículo" : "Nuevo artículo"}</DialogTitle></DialogHeader>
           <div className="grid grid-cols-2 gap-4 py-2">
             <div>
-              <Label className="text-xs">Referencia</Label>
-              <Input data-testid="input-referencia" value={form.referencia} onChange={(e) => setForm({ ...form, referencia: e.target.value })} className="rounded-sm mt-1" />
+              <Label className="text-xs">Referencia (automática)</Label>
+              <Input data-testid="input-referencia" value={editId ? (form.referencia || "") : "Se generará automáticamente"} disabled className="rounded-sm mt-1 font-mono-plex bg-slate-50 text-slate-500" />
             </div>
             <div>
               <Label className="text-xs">Unidad</Label>
@@ -164,13 +164,9 @@ export default function Articulos() {
                 {IVA.map((v) => <option key={v} value={v}>{v}%</option>)}
               </select>
             </div>
-            <div>
+            <div className="col-span-2">
               <Label className="text-xs">Código proveedor</Label>
               <Input data-testid="input-codigo-proveedor" value={form.codigo_proveedor} onChange={(e) => setForm({ ...form, codigo_proveedor: e.target.value })} className="rounded-sm mt-1 font-mono-plex" placeholder="Ref. del proveedor" />
-            </div>
-            <div>
-              <Label className="text-xs">Código propio</Label>
-              <Input data-testid="input-codigo-propio" value={form.codigo_propio} onChange={(e) => setForm({ ...form, codigo_propio: e.target.value })} className="rounded-sm mt-1 font-mono-plex" placeholder="Tu código interno" />
             </div>
             <div className="col-span-2">
               <Label className="text-xs">Código de barras / QR</Label>

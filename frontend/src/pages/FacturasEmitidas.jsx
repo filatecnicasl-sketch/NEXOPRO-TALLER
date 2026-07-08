@@ -47,7 +47,7 @@ export default function FacturasEmitidas() {
     try {
       await createFacturaEmitida(form);
       toast.success("Factura emitida y registrada en Verifactu");
-      setOpen(false); load();
+      setOpen(false); load(); getContactos("cliente").then(setClientes);
     } catch { toast.error("Error al emitir la factura"); }
   };
 
@@ -131,12 +131,24 @@ export default function FacturasEmitidas() {
               <Input data-testid="input-serie" value={form.serie} onChange={(e) => setForm({ ...form, serie: e.target.value.toUpperCase() })} className="rounded-sm mt-1" />
             </div>
             <div className="col-span-2">
-              <Label className="text-xs">Cliente</Label>
+              <Label className="text-xs">Cliente existente (opcional)</Label>
               <select data-testid="select-cliente" value={form.cliente_id} onChange={(e) => onCliente(e.target.value)}
                 className="w-full h-10 mt-1 border border-input rounded-sm bg-white px-2 text-sm">
-                <option value="">— Selecciona —</option>
+                <option value="">— Nuevo cliente / escribir abajo —</option>
                 {clientes.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
               </select>
+            </div>
+            <div>
+              <Label className="text-xs">Nombre cliente *</Label>
+              <Input data-testid="input-cliente-nombre" value={form.cliente_nombre}
+                onChange={(e) => setForm({ ...form, cliente_nombre: e.target.value, cliente_id: "" })}
+                className="rounded-sm mt-1" placeholder="Se dará de alta si es nuevo" />
+            </div>
+            <div>
+              <Label className="text-xs">NIF / CIF</Label>
+              <Input data-testid="input-cliente-nif" value={form.cliente_nif}
+                onChange={(e) => setForm({ ...form, cliente_nif: e.target.value })}
+                className="rounded-sm mt-1 font-mono-plex" />
             </div>
             <div>
               <Label className="text-xs">Fecha</Label>

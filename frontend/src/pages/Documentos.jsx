@@ -74,7 +74,7 @@ export default function Documentos({ entidad }) {
     try {
       if (editId) { await updateDocumento(entidad, editId, form); toast.success(`${cfg.label} actualizado`); }
       else { await createDocumento(entidad, form); toast.success(`${cfg.label} creado`); }
-      setOpen(false); load();
+      setOpen(false); load(); getContactos().then(setContactos);
     } catch { toast.error("Error al guardar"); }
   };
 
@@ -177,10 +177,26 @@ export default function Documentos({ entidad }) {
               <Label className="text-xs">{form.tipo_operacion === "venta" ? "Cliente" : "Proveedor"}</Label>
               <select data-testid="select-contacto" value={form.contacto_id} onChange={(e) => onContacto(e.target.value)}
                 className="w-full h-10 mt-1 border border-input rounded-sm bg-white px-2 text-sm">
-                <option value="">{form.contacto_nombre || "— Selecciona —"}</option>
+                <option value="">{form.tipo_operacion === "venta" ? "— Nuevo cliente / escribir abajo —" : (form.contacto_nombre || "— Selecciona —")}</option>
                 {contactosForm.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
               </select>
             </div>
+            {form.tipo_operacion === "venta" && (
+              <>
+                <div>
+                  <Label className="text-xs">Nombre cliente</Label>
+                  <Input data-testid="input-contacto-nombre" value={form.contacto_nombre}
+                    onChange={(e) => setForm({ ...form, contacto_nombre: e.target.value, contacto_id: "" })}
+                    className="rounded-sm mt-1" placeholder="Se dará de alta si es nuevo" />
+                </div>
+                <div>
+                  <Label className="text-xs">NIF / CIF</Label>
+                  <Input data-testid="input-contacto-nif" value={form.contacto_nif}
+                    onChange={(e) => setForm({ ...form, contacto_nif: e.target.value })}
+                    className="rounded-sm mt-1 font-mono-plex" />
+                </div>
+              </>
+            )}
             <div>
               <Label className="text-xs">Fecha</Label>
               <Input type="date" data-testid="input-fecha" value={form.fecha} onChange={(e) => setForm({ ...form, fecha: e.target.value })} className="rounded-sm mt-1" />

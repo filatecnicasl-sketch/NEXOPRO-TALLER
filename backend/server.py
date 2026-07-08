@@ -209,6 +209,12 @@ class Contacto(BaseModel):
     ciudad: str = ""
     codigo_postal: str = ""
     pais: str = "España"
+    iban: str = ""
+    banco: str = ""
+    swift: str = ""
+    direccion_entrega: str = ""
+    ciudad_entrega: str = ""
+    cp_entrega: str = ""
     notas: str = ""
     created_at: str = Field(default_factory=now_iso)
 
@@ -223,6 +229,12 @@ class ContactoInput(BaseModel):
     ciudad: str = ""
     codigo_postal: str = ""
     pais: str = "España"
+    iban: str = ""
+    banco: str = ""
+    swift: str = ""
+    direccion_entrega: str = ""
+    ciudad_entrega: str = ""
+    cp_entrega: str = ""
     notas: str = ""
 
 
@@ -351,21 +363,25 @@ async def eliminar_contacto(contacto_id: str):
 # ARTÍCULOS / PRODUCTOS
 # ---------------------------------------------------------------------------
 class ArticuloInput(BaseModel):
-    referencia: str = ""
     nombre: str
     descripcion: str = ""
     precio: float = 0
     tipo_iva: float = 21
     unidad: str = "ud"
     codigo_proveedor: str = ""
-    codigo_propio: str = ""
     codigo_barras: str = ""
     notas: str = ""
+
+
+async def _next_articulo_ref() -> str:
+    count = await db.articulos.count_documents({}) + 1
+    return f"ART-{count:06d}"
 
 
 @api_router.post("/articulos")
 async def crear_articulo(data: ArticuloInput):
     d = data.model_dump()
+    d["referencia"] = await _next_articulo_ref()
     doc = {"id": new_id(), **d, "nombre_lower": d["nombre"].strip().lower(),
            "origenes": [], "auto": False, "created_at": now_iso()}
     await db.articulos.insert_one(dict(doc))
@@ -379,11 +395,13 @@ async def listar_articulos():
 
 @api_router.put("/articulos/{articulo_id}")
 async def actualizar_articulo(articulo_id: str, data: ArticuloInput):
+    existing = await db.articulos.find_one({"id": articulo_id})
+    if not existing:
+        raise HTTPException(404, "Artículo no encontrado")
     d = data.model_dump()
     d["nombre_lower"] = d["nombre"].strip().lower()
-    res = await db.articulos.update_one({"id": articulo_id}, {"$set": d})
-    if res.matched_count == 0:
-        raise HTTPException(404, "Artículo no encontrado")
+    d["referencia"] = existing.get("referencia", "")  # la referencia es automática, no editable
+    await db.articulos.update_one({"id": articulo_id}, {"$set": d})
     return await db.articulos.find_one({"id": articulo_id}, {"_id": 0})
 
 
@@ -426,14 +444,33 @@ async def registrar_articulos_entrada(lineas: list, origen: dict):
             await db.articulos.update_one({"id": existing["id"]}, {"$set": update})
         else:
             art = {
-                "id": new_id(), "referencia": "", "nombre": nombre,
+                "id": new_id(), "referencia": await _next_articulo_ref(), "nombre": nombre,
                 "nombre_lower": nombre.lower(), "descripcion": "",
                 "precio": l.get("precio_unitario", 0), "tipo_iva": l.get("tipo_iva", 21),
-                "unidad": "ud", "codigo_proveedor": cod_prov, "codigo_propio": "",
+                "unidad": "ud", "codigo_proveedor": cod_prov,
                 "codigo_barras": "", "notas": "", "origenes": [entry], "auto": True,
                 "created_at": now_iso(),
             }
             await db.articulos.insert_one(dict(art))
+
+
+async def ensure_cliente(nombre: str, nif: str = "") -> Optional[dict]:
+    """Busca un cliente por NIF o nombre; si no existe, lo da de alta automáticamente."""
+    nombre = (nombre or "").strip()
+    if not nombre:
+        return None
+    query = {"tipo": "cliente"}
+    existing = None
+    if nif:
+        existing = await db.contactos.find_one({"tipo": "cliente", "nif": nif})
+    if not existing:
+        existing = await db.contactos.find_one({"tipo": "cliente", "nombre": nombre})
+    if existing:
+        return existing
+    nuevo = Contacto(tipo="cliente", nombre=nombre, nif=nif, notas="Alta automática desde documento de venta")
+    doc = nuevo.model_dump()
+    await db.contactos.insert_one(dict(doc))
+    return doc
 
 
 
@@ -471,6 +508,11 @@ def _make_documento_routes(entidad: str, coleccion: str, prefijo: str, registrar
     async def crear(data: DocumentoInput):
         numero = await _next_numero(coleccion, prefijo)
         doc = _build_documento(data, numero)
+        if doc["tipo_operacion"] == "venta" and doc["contacto_nombre"] and not doc["contacto_id"]:
+            cli = await ensure_cliente(doc["contacto_nombre"], doc.get("contacto_nif", ""))
+            if cli:
+                doc["contacto_id"] = cli["id"]
+                doc["contacto_nif"] = doc["contacto_nif"] or cli.get("nif", "")
         await db[coleccion].insert_one(dict(doc))
         if registrar_entrada and doc["tipo_operacion"] == "compra":
             await registrar_articulos_entrada(doc["lineas"], {
@@ -542,20 +584,27 @@ async def _generar_verifactu(serie: str, numero: str, fecha: str, nif: str, tota
 
 @api_router.post("/facturas-emitidas")
 async def crear_factura_emitida(data: FacturaEmitidaInput):
+    cliente_id = data.cliente_id
+    cliente_nif = data.cliente_nif
+    if data.cliente_nombre and not cliente_id:
+        cli = await ensure_cliente(data.cliente_nombre, data.cliente_nif)
+        if cli:
+            cliente_id = cli["id"]
+            cliente_nif = cliente_nif or cli.get("nif", "")
     year = datetime.now().year
     count = await db.facturas_emitidas.count_documents({"serie": data.serie}) + 1
     numero = f"{count:04d}"
     numero_completo = f"{data.serie}{year}-{numero}"
     lineas, base, iva, total = calcular_lineas([l.model_dump() for l in data.lineas])
-    verifactu = await _generar_verifactu(data.serie, numero_completo, data.fecha_expedicion, data.cliente_nif or "B00000000", total)
+    verifactu = await _generar_verifactu(data.serie, numero_completo, data.fecha_expedicion, cliente_nif or "B00000000", total)
     doc = {
         "id": new_id(),
         "serie": data.serie,
         "numero": numero,
         "numero_completo": numero_completo,
-        "cliente_id": data.cliente_id,
+        "cliente_id": cliente_id,
         "cliente_nombre": data.cliente_nombre,
-        "cliente_nif": data.cliente_nif,
+        "cliente_nif": cliente_nif,
         "fecha_expedicion": data.fecha_expedicion,
         "lineas": lineas,
         "base_total": base,
