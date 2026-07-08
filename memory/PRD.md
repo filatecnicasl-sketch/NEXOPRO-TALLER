@@ -35,6 +35,18 @@ Autónomos y pymes españolas que gestionan compras/ventas y facturación con ob
   Admin: admin@nexopro.com / Admin1234!. Licencia demo: NEXO-DEMO-0001 (frontend/.env REACT_APP_LICENSE_KEY).
 
 ## Estado / Bloqueos
+- FIX IMPRESIÓN (no imprimía) — RESUELTO Y VERIFICADO (2026-07-08):
+  · open() en taller_print.js reescrita: iframe oculto con srcdoc=html e impresión en su evento
+    onload (iframe.contentWindow.print()) + fallback setTimeout(1500) + fallback window.open si
+    print() lanza. Se quitaron los <script>onload internos que no disparaban en iframe. Incrementa
+    window.__printTriggered antes de imprimir (marcador de verificación).
+  · Verificado por testing_agent (iteration_16.json, frontend 100%): Hoja de entrada, Parte de
+    trabajo y Recepción rápida ("Imprimir hoja y finalizar") disparan la impresión (contador 1→2→3),
+    iframe con contenido correcto (RESGUARDO / @page size:A4 landscape), sin popups ni errores JS.
+  · Añadido DialogDescription en RecepcionRapida (aviso a11y de Radix resuelto).
+  · Recepción rápida: botón final "Imprimir hoja y finalizar" (imprime + cierra) + "Cerrar sin imprimir".
+  · Datos de ejemplo eliminados; empresa reseteada a vacío. Solo queda vehículo 7765HGJ y orden
+    OT-000016 (del usuario).
 - TALLER — HOJA DE ENTRADA A4 HORIZONTAL (réplica ASORECA) + IMPRESIÓN (2026-07-08):
   · imprimirHojaEntrada (taller_print.js) rehecha como réplica fiel del "Resguardo de depósito sin
     presupuesto" ASORECA: A4 HORIZONTAL, UN solo ejemplar, ocupa todo el folio (contenedor 190mm).

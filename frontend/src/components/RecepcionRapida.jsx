@@ -14,7 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 
 const selectCls = "h-10 w-full text-sm rounded-md border border-input bg-white px-3 mt-1";
 const hoy = () => new Date().toISOString().slice(0, 10);
@@ -84,6 +84,7 @@ export default function RecepcionRapida({ open, onOpenChange, vehiculos, cliente
             <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-amber-100 text-amber-600"><Lightning size={18} weight="fill" /></span>
             Recepción rápida{orden?.numero ? ` · ${orden.numero}` : ""}
           </DialogTitle>
+          <DialogDescription>Alta exprés del vehículo con fotos del estado y firma del cliente.</DialogDescription>
         </DialogHeader>
 
         {paso === "datos" && (
