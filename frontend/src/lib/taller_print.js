@@ -120,88 +120,140 @@ function linea(label, valor, ancho = "1fr") {
   </div>`;
 }
 
+const REP_ROWS = 15;
+
 export function imprimirHojaEntrada({ empresa = {}, orden = {}, vehiculo = {}, cliente = {} }) {
-  const trabajos = (orden.tipos_trabajo || []).map((t) => TIPOS[t] || t).join(", ");
   const fentrada = orden.fecha_entrada || new Date().toISOString().slice(0, 10);
-  const marcaModelo = [vehiculo.marca, vehiculo.modelo].filter(Boolean).join(" ");
-  const km = vehiculo.kilometros != null ? `${vehiculo.kilometros} km` : "";
+  const fmtF = (f) => { try { const d = new Date(f); return isNaN(d) ? (f || "") : d.toLocaleDateString("es-ES"); } catch { return f || ""; } };
+  const esMO = (l) => ["h", "hora", "horas", "mo"].includes((l.unidad || "").toLowerCase());
 
-  const copia = (destinatario) => `
-  <div style="border:1px solid #e4e4e7;border-radius:10px;padding:14px 16px">
-    <div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid ${ACCENT};padding-bottom:8px;margin-bottom:10px">
-      ${empresaHeader(empresa)}
-      <div style="text-align:right">
-        <div style="font-size:17px;font-weight:800;letter-spacing:-.02em">Hoja de entrada</div>
-        <div style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:#3f3f46;margin-top:2px">${esc(orden.numero || "—")}</div>
-        <div style="display:inline-block;margin-top:4px;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#fff;background:${ACCENT};border-radius:4px;padding:2px 7px">Ejemplar para el ${esc(destinatario)}</div>
-      </div>
-    </div>
+  let reps = "";
+  for (let i = 0; i < REP_ROWS; i++) {
+    const l = (orden.lineas || [])[i];
+    const mo = l && esMO(l) ? l.descripcion : "";
+    const mat = l && !esMO(l) ? l.descripcion : "";
+    reps += `<tr><td style="text-align:center;color:#71717a;width:16px">${i + 1}</td><td style="padding-left:4px">${esc(mo)}</td><td style="padding-left:4px">${esc(mat)}</td></tr>`;
+  }
 
-    <div style="display:grid;grid-template-columns:1.4fr 1fr 1fr;gap:10px;margin-bottom:8px">
-      ${linea("Cliente", cliente.nombre || orden.cliente_nombre)}
-      ${linea("NIF / CIF", cliente.nif)}
-      ${linea("Teléfono", cliente.telefono)}
-    </div>
-    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:8px">
-      ${linea("Matrícula", orden.vehiculo_matricula || vehiculo.matricula)}
-      ${linea("Marca / Modelo", marcaModelo)}
-      ${linea("Bastidor / VIN", vehiculo.bastidor)}
-      ${linea("Color", vehiculo.color)}
-    </div>
-    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:10px">
-      ${linea("Km de entrada", km)}
-      ${linea("Combustible", vehiculo.combustible)}
-      ${linea("Fecha de entrada", fentrada)}
-      ${linea("Hora", "")}
-    </div>
-
-    <div style="margin-bottom:10px">
-      <span style="font-size:8.5px;text-transform:uppercase;letter-spacing:.08em;color:#a1a1aa">Trabajos solicitados / motivo</span>
-      <div style="border-bottom:1px solid #d4d4d8;min-height:16px;font-size:12px;padding:1px 0">${esc([trabajos, orden.descripcion].filter(Boolean).join(" · "))}</div>
-      <div style="border-bottom:1px solid #d4d4d8;min-height:16px"></div>
-    </div>
-
-    <div style="display:grid;grid-template-columns:1.15fr 1fr;gap:16px;margin-bottom:10px">
-      <div>
-        <div style="font-size:9px;font-weight:700;color:${ACCENT};text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px">Estado y daños observados</div>
-        <div style="text-align:center;border:1px dashed #d4d4d8;border-radius:8px;padding:6px">${CAR_SVG}
-          <div style="font-size:8px;color:#a1a1aa;margin-top:2px">Marque los golpes, arañazos y daños existentes</div>
-        </div>
-      </div>
-      <div>
-        <div style="font-size:9px;font-weight:700;color:${ACCENT};text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px">Objetos de valor en el vehículo</div>
-        <div style="border-bottom:1px solid #d4d4d8;min-height:16px;margin-bottom:6px"></div>
-        <div style="border-bottom:1px solid #d4d4d8;min-height:16px;margin-bottom:6px"></div>
-        <div style="border-bottom:1px solid #d4d4d8;min-height:16px;margin-bottom:10px"></div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-          ${linea("Presupuesto máx. autorizado", "")}
-          ${linea("Fecha entrega estimada", orden.fecha_entrega_estimada)}
-        </div>
-      </div>
-    </div>
-
-    <div style="font-size:7.5px;color:#71717a;line-height:1.5;background:#fafafa;border:1px solid #f1f1f4;border-radius:6px;padding:7px 9px;margin-bottom:8px">
-      El cliente autoriza la reparación del vehículo por los trabajos indicados y hasta el importe máximo señalado. El taller no se
-      responsabiliza de los objetos de valor no declarados. Transcurrido el plazo de recogida, podrán aplicarse gastos de custodia
-      y estacionamiento. El vehículo podrá ser retenido hasta el pago total de la reparación (derecho de retención, art. 1.600 CC).
-      Datos tratados por ${esc(empresa.nombre || "el taller")} con la finalidad de gestionar la reparación (RGPD UE 2016/679);
-      puede ejercer sus derechos de acceso, rectificación y supresión dirigiéndose al taller.
-    </div>
-
-    <div style="display:flex;justify-content:space-between;gap:30px;margin-top:14px">
-      <div style="flex:1;border-top:1px solid #d4d4d8;padding-top:5px;font-size:10px;color:#71717a">Firma y sello del taller</div>
-      <div style="flex:1;text-align:center">
-        ${orden.firma_cliente_path ? `<img src="${esc(mediaUrl(orden.firma_cliente_path))}" style="max-height:46px;max-width:180px;object-fit:contain;margin-bottom:2px" />` : `<div style="height:46px"></div>`}
-        <div style="border-top:1px solid #d4d4d8;padding-top:5px;font-size:10px;color:#71717a">Firma del cliente (conforme)</div>
-      </div>
-    </div>
-  </div>`;
+  const fld = (label, val) => `<div style="min-width:0"><div class="lbl">${esc(label)}</div><div class="fld">${esc(val || "")}</div></div>`;
+  const chk = (marcado, txt) => `<div class="chk"><span style="font-size:11px;line-height:1">${marcado ? "☑" : "☐"}</span><span>${txt}</span></div>`;
 
   const body = `
-    ${copia("TALLER")}
-    <div style="text-align:center;color:#a1a1aa;font-size:9px;letter-spacing:.3em;margin:8px 0">✂ - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -</div>
-    ${copia("CLIENTE")}`;
-  open(shell(`Hoja de entrada ${orden.numero || ""}`, body));
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid ${ACCENT};padding-bottom:6px;margin-bottom:8px">
+    <div style="display:flex;gap:10px;align-items:flex-start">
+      ${empresa.logo ? `<img src="${esc(empresa.logo)}" style="max-height:46px;max-width:120px;object-fit:contain" />` : ""}
+      <div>
+        <div class="lbl">Nombre del taller</div>
+        <div style="font-size:15px;font-weight:800;letter-spacing:-.01em">${esc(empresa.nombre || "TALLER")}</div>
+        <div style="font-size:8.5px;color:#3f3f46;margin-top:2px">${esc([empresa.direccion, [empresa.codigo_postal, empresa.ciudad].filter(Boolean).join(" ")].filter(Boolean).join(" · "))}</div>
+        <div style="font-size:8.5px;color:#3f3f46">${empresa.email ? esc(empresa.email) : ""}${empresa.telefono ? " · Tel: " + esc(empresa.telefono) : ""}</div>
+        <div style="font-size:8.5px;color:#3f3f46;margin-top:1px">${empresa.nif ? "CIF: " + esc(empresa.nif) : ""} &nbsp; RIIA: __________</div>
+      </div>
+    </div>
+    <div style="text-align:right">
+      <div style="font-size:8px;font-weight:700;color:#fff;background:${ACCENT};border-radius:4px;padding:2px 8px;display:inline-block;letter-spacing:.05em">EJEMPLAR PARA EL PRESTADOR DEL SERVICIO</div>
+      <div style="font-size:13px;font-weight:800;margin-top:6px;line-height:1.2">RESGUARDO DE DEPÓSITO<br>SIN PRESUPUESTO Nº: <span class="accent">${esc(orden.numero || "—")}</span></div>
+    </div>
+  </div>
+
+  <div class="box" style="margin-bottom:8px">
+    <div style="display:grid;grid-template-columns:1.6fr 1.2fr 1fr;gap:12px;margin-bottom:6px">
+      ${fld("Titular del vehículo", cliente.nombre || orden.cliente_nombre)}
+      ${fld("Persona solicitante", "")}
+      ${fld("Dirección titular", cliente.direccion)}
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px">
+      ${fld("CIF / DNI titular", cliente.nif)}
+      ${fld("CIF / DNI solicitante", "")}
+      ${fld("Teléfono", cliente.telefono)}
+      ${fld("Fax", "")}
+      ${fld("Mail", cliente.email)}
+    </div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1.05fr 1fr;gap:12px;margin-bottom:8px">
+    <div>
+      <div class="sec" style="margin-bottom:3px">Reparaciones a realizar</div>
+      <table class="rep">
+        <thead><tr style="background:#f4f4f5">
+          <th style="width:16px">Nº</th><th style="text-align:left;padding-left:4px">Mano de obra</th><th style="text-align:left;padding-left:4px">Materiales</th>
+        </tr></thead>
+        <tbody>${reps}</tbody>
+      </table>
+    </div>
+    <div>
+      <div class="box" style="margin-bottom:8px">
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:6px">
+          ${fld("Fecha", fmtF(fentrada))}
+          ${fld("Matrícula", orden.vehiculo_matricula || vehiculo.matricula)}
+          ${fld("Km", vehiculo.kilometros != null ? String(vehiculo.kilometros) : "")}
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:6px">
+          ${fld("Marca", vehiculo.marca)}
+          ${fld("Modelo", vehiculo.modelo)}
+        </div>
+        <div style="display:flex;gap:18px;align-items:center;margin-bottom:6px;font-size:8.5px">
+          <div><span class="lbl">Seguro</span> &nbsp; ☐ SÍ &nbsp; ☐ NO</div>
+          <div style="flex:1">${fld("Combustible", vehiculo.combustible)}</div>
+        </div>
+        ${fld("Observaciones", [orden.descripcion, (orden.tipos_trabajo || []).map((t) => TIPOS[t] || t).join(", ")].filter(Boolean).join(" · "))}
+      </div>
+      <div style="text-align:center;border:1px dashed #d4d4d8;border-radius:8px;padding:4px">${CAR_SVG}
+        <div style="font-size:7px;color:#a1a1aa">Marque los daños existentes en el vehículo</div>
+      </div>
+    </div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1.25fr 1fr;gap:12px;margin-bottom:8px">
+    <div class="box">
+      <div class="sec" style="margin-bottom:4px">Renuncia a la elaboración de presupuesto previo</div>
+      <div style="font-size:8px;line-height:1.45;text-align:justify">EL CLIENTE TIENE DERECHO A LA ELABORACIÓN DE UN PRESUPUESTO PREVIO. MEDIANTE LA PRESENTE FIRMA EL USUARIO RENUNCIA A LA ELABORACIÓN DE PRESUPUESTO PREVIO Y AUTORIZA A REALIZAR LOS TRABAJOS NECESARIOS PARA LA REPARACIÓN DEL VEHÍCULO Y/O SERVICIOS SOLICITADOS CONFORME A LO REFLEJADO EN ESTE RESGUARDO DE DEPÓSITO.</div>
+      <div style="display:flex;justify-content:space-between;gap:20px;margin-top:14px">
+        <div style="flex:1;text-align:center">
+          <div style="border-top:1px solid #d4d4d8;padding-top:3px;font-size:8px;color:#71717a">EL PRESTADOR DEL SERVICIO<br><b>${esc(empresa.nombre || "")}</b></div>
+        </div>
+        <div style="flex:1;text-align:center">
+          ${orden.firma_cliente_path ? `<img src="${esc(mediaUrl(orden.firma_cliente_path))}" style="max-height:38px;max-width:150px;object-fit:contain" />` : `<div style="height:38px"></div>`}
+          <div style="border-top:1px solid #d4d4d8;padding-top:3px;font-size:8px;color:#71717a">CONFORME CLIENTE</div>
+        </div>
+      </div>
+      <div style="margin-top:8px">${fld("Fecha prevista de entrega del vehículo reparado", fmtF(orden.fecha_entrega_estimada))}</div>
+    </div>
+    <div class="box">
+      <div class="sec" style="margin-bottom:4px">El cliente, con la firma anterior, autoriza al taller a:</div>
+      ${chk(false, "Realizar desplazamientos de diagnóstico.")}
+      ${chk(false, "Utilizar elementos, equipos o conjuntos usados o no específicos (Art. 9 y 10 Decreto 9/2003).")}
+      ${chk(false, "Utilizar elementos, equipos o conjuntos reconstruidos (Art. 9 y 10 Decreto 9/2003).")}
+      ${chk(false, "Renuncia a retirar elementos sustituidos tras reparación.")}
+    </div>
+  </div>
+
+  <div style="font-size:7px;line-height:1.5;color:#52525b;text-align:justify;border-top:1px solid #e4e4e7;padding-top:6px">
+    <p style="margin:0 0 5px">SI TRANSCURRIDOS TRES DÍAS DESDE LA PUESTA EN CONOCIMIENTO DEL CLIENTE DE LA FINALIZACIÓN DE LOS TRABAJOS DE ELABORACIÓN DEL PRESUPUESTO O REPARACIÓN DEL VEHÍCULO, NO PROCEDA EL CLIENTE AL PRONUNCIAMIENTO SOBRE LA ACEPTACIÓN O NO DEL PRESUPUESTO O A LA RETIRADA DEL VEHÍCULO, SE DEVENGARÁN UNOS GASTOS DIARIOS DE ESTANCIA DE __________ € MÁS IVA.</p>
+    <p style="margin:0"><b>Protección de Datos de Carácter Personal:</b> con la firma del presente usted presta su consentimiento para que sus datos sean tratados mientras que no comunique lo contrario por este taller, con la finalidad de gestión contable/administrativa de los servicios. Podrá ejercitar sus derechos de acceso, rectificación, supresión, oposición, y los demás reconocidos en esta norma, enviando solicitud a la dirección indicada, remitiendo copia de su DNI. Puede ejercitar el derecho a presentar una reclamación ante la Agencia Española de Protección de Datos.</p>
+  </div>`;
+
+  const html = `<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Resguardo ${esc(orden.numero || "")}</title>
+  <style>
+    *{box-sizing:border-box;font-family:'IBM Plex Sans',-apple-system,Segoe UI,Roboto,Arial,sans-serif}
+    body{margin:0;padding:7mm;color:#18181b;background:#fff;font-size:9px}
+    @page{size:A4 landscape;margin:6mm}
+    @media print{body{padding:0}}
+    .accent{color:${ACCENT}}
+    .lbl{font-size:6.5px;text-transform:uppercase;letter-spacing:.06em;color:#71717a}
+    .val{font-weight:700}
+    .box{border:1px solid #a1a1aa;border-radius:6px;padding:7px 9px}
+    .fld{border-bottom:1px solid #d4d4d8;min-height:13px;font-weight:700;font-size:10px;padding:1px 0}
+    table.rep{width:100%;border-collapse:collapse}
+    table.rep th{font-size:7.5px;text-transform:uppercase;color:#71717a;padding:3px}
+    table.rep td{border:1px solid #e4e4e7;font-size:8.5px;height:15px}
+    table.rep th{border:1px solid #d4d4d8}
+    .chk{display:flex;gap:6px;margin-bottom:5px;font-size:8px;line-height:1.3}
+    .sec{font-weight:800;font-size:9px;color:${ACCENT};text-transform:uppercase;letter-spacing:.05em}
+  </style></head><body>${body}
+  <script>window.onload=function(){setTimeout(function(){window.print()},400)}</script>
+  </body></html>`;
+  open(html);
 }
 
 export function imprimirInformePeritaje({ empresa = {}, peritaje = {}, vehiculo = {} }) {
