@@ -3,7 +3,7 @@ import { Plus, PencilSimple, Trash, MagnifyingGlass, Wrench } from "@phosphor-ic
 import { toast } from "sonner";
 import {
   getOrdenes, createOrden, updateOrden, deleteOrden, estadoOrden,
-  getVehiculos, getContactos, getArticulos, eur,
+  getVehiculos, getContactos, getArticulos, createVehiculo, createContacto, eur,
 } from "@/lib/api";
 import PageHeader from "@/components/PageHeader";
 import LineasEditor from "@/components/LineasEditor";
@@ -38,6 +38,10 @@ export default function OrdenesTrabajo() {
   const [lineas, setLineas] = useState([]);
   const [editId, setEditId] = useState(null);
   const [delId, setDelId] = useState(null);
+  const [vehOpen, setVehOpen] = useState(false);
+  const [vehForm, setVehForm] = useState({ matricula: "", marca: "", modelo: "", cliente_id: "", tipo: "cliente" });
+  const [cliOpen, setCliOpen] = useState(false);
+  const [cliForm, setCliForm] = useState({ nombre: "", nif: "", telefono: "", email: "" });
 
   const load = () => {
     setLoading(true);
@@ -73,6 +77,28 @@ export default function OrdenesTrabajo() {
   };
 
   const remove = async () => { await deleteOrden(delId); setDelId(null); toast.success("Orden eliminada"); load(); };
+
+  const guardarVehiculo = async () => {
+    if (!vehForm.matricula.trim() && !vehForm.marca.trim()) return toast.error("Indica al menos la matrícula");
+    try {
+      const v = await createVehiculo({ ...vehForm, matricula: vehForm.matricula.toUpperCase() });
+      setVehiculos(await getVehiculos());
+      setForm((f) => ({ ...f, vehiculo_id: v.id }));
+      setVehOpen(false); setVehForm({ matricula: "", marca: "", modelo: "", cliente_id: "", tipo: "cliente" });
+      toast.success("Vehículo dado de alta");
+    } catch { toast.error("Error al crear el vehículo"); }
+  };
+
+  const guardarCliente = async () => {
+    if (!cliForm.nombre.trim()) return toast.error("El nombre es obligatorio");
+    try {
+      const c = await createContacto({ ...cliForm, tipo: "cliente" });
+      setClientes(await getContactos("cliente"));
+      setForm((f) => ({ ...f, cliente_id: c.id }));
+      setCliOpen(false); setCliForm({ nombre: "", nif: "", telefono: "", email: "" });
+      toast.success("Cliente dado de alta");
+    } catch { toast.error("Error al crear el cliente"); }
+  };
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
@@ -140,14 +166,20 @@ export default function OrdenesTrabajo() {
           <DialogHeader><DialogTitle className="font-heading">{editId ? `Orden ${form.numero || ""}${form.vehiculo_matricula ? " · " + form.vehiculo_matricula : ""}` : "Nueva orden de trabajo"}</DialogTitle></DialogHeader>
           <div className="grid grid-cols-2 gap-4 py-2">
             <div>
-              <Label className="text-xs">Vehículo *</Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">Vehículo *</Label>
+                <button type="button" data-testid="orden-nuevo-vehiculo" onClick={() => setVehOpen(true)} className="text-[11px] text-primary hover:underline inline-flex items-center gap-0.5"><Plus size={12} /> Nuevo</button>
+              </div>
               <select data-testid="orden-vehiculo" value={form.vehiculo_id} onChange={(e) => setForm({ ...form, vehiculo_id: e.target.value })} className={selectCls}>
                 <option value="">— Selecciona vehículo —</option>
-                {vehiculos.map((v) => <option key={v.id} value={v.id}>{v.matricula} · {[v.marca, v.modelo].filter(Boolean).join(" ")}</option>)}
+                {vehiculos.map((v) => <option key={v.id} value={v.id}>{`${v.matricula} · ${[v.marca, v.modelo].filter(Boolean).join(" ")}`}</option>)}
               </select>
             </div>
             <div>
-              <Label className="text-xs">Cliente</Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">Cliente</Label>
+                <button type="button" data-testid="orden-nuevo-cliente" onClick={() => setCliOpen(true)} className="text-[11px] text-primary hover:underline inline-flex items-center gap-0.5"><Plus size={12} /> Nuevo</button>
+              </div>
               <select data-testid="orden-cliente" value={form.cliente_id} onChange={(e) => setForm({ ...form, cliente_id: e.target.value })} className={selectCls}>
                 <option value="">— Del vehículo —</option>
                 {clientes.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
@@ -194,6 +226,74 @@ export default function OrdenesTrabajo() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpen(false)} className="rounded-sm">Cancelar</Button>
             <Button data-testid="guardar-orden-button" onClick={save} className="rounded-sm bg-primary">Guardar orden</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Alta rápida de vehículo */}
+      <Dialog open={vehOpen} onOpenChange={setVehOpen}>
+        <DialogContent className="sm:max-w-md rounded-sm" data-testid="orden-vehiculo-dialog">
+          <DialogHeader><DialogTitle className="font-heading">Nuevo vehículo</DialogTitle></DialogHeader>
+          <div className="grid grid-cols-2 gap-4 py-2">
+            <div>
+              <Label className="text-xs">Matrícula</Label>
+              <Input data-testid="quick-veh-matricula" value={vehForm.matricula} onChange={(e) => setVehForm({ ...vehForm, matricula: e.target.value.toUpperCase() })} className="rounded-sm mt-1 font-mono-plex" />
+            </div>
+            <div>
+              <Label className="text-xs">Tipo</Label>
+              <select value={vehForm.tipo} onChange={(e) => setVehForm({ ...vehForm, tipo: e.target.value })} className={selectCls}>
+                <option value="cliente">Del cliente</option>
+                <option value="cortesia">De cortesía</option>
+              </select>
+            </div>
+            <div>
+              <Label className="text-xs">Marca</Label>
+              <Input value={vehForm.marca} onChange={(e) => setVehForm({ ...vehForm, marca: e.target.value })} className="rounded-sm mt-1" />
+            </div>
+            <div>
+              <Label className="text-xs">Modelo</Label>
+              <Input value={vehForm.modelo} onChange={(e) => setVehForm({ ...vehForm, modelo: e.target.value })} className="rounded-sm mt-1" />
+            </div>
+            <div className="col-span-2">
+              <Label className="text-xs">Cliente</Label>
+              <select value={vehForm.cliente_id} onChange={(e) => setVehForm({ ...vehForm, cliente_id: e.target.value })} className={selectCls}>
+                <option value="">— Sin asignar —</option>
+                {clientes.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+              </select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setVehOpen(false)} className="rounded-sm">Cancelar</Button>
+            <Button data-testid="guardar-quick-vehiculo" onClick={guardarVehiculo} className="rounded-sm bg-primary">Dar de alta</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Alta rápida de cliente */}
+      <Dialog open={cliOpen} onOpenChange={setCliOpen}>
+        <DialogContent className="sm:max-w-md rounded-sm" data-testid="orden-cliente-dialog">
+          <DialogHeader><DialogTitle className="font-heading">Nuevo cliente</DialogTitle></DialogHeader>
+          <div className="grid grid-cols-2 gap-4 py-2">
+            <div className="col-span-2">
+              <Label className="text-xs">Nombre / Razón social *</Label>
+              <Input data-testid="quick-cli-nombre" value={cliForm.nombre} onChange={(e) => setCliForm({ ...cliForm, nombre: e.target.value })} className="rounded-sm mt-1" />
+            </div>
+            <div>
+              <Label className="text-xs">NIF / CIF</Label>
+              <Input value={cliForm.nif} onChange={(e) => setCliForm({ ...cliForm, nif: e.target.value })} className="rounded-sm mt-1 font-mono-plex" />
+            </div>
+            <div>
+              <Label className="text-xs">Teléfono</Label>
+              <Input value={cliForm.telefono} onChange={(e) => setCliForm({ ...cliForm, telefono: e.target.value })} className="rounded-sm mt-1" />
+            </div>
+            <div className="col-span-2">
+              <Label className="text-xs">Email</Label>
+              <Input value={cliForm.email} onChange={(e) => setCliForm({ ...cliForm, email: e.target.value })} className="rounded-sm mt-1" />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCliOpen(false)} className="rounded-sm">Cancelar</Button>
+            <Button data-testid="guardar-quick-cliente" onClick={guardarCliente} className="rounded-sm bg-primary">Dar de alta</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
