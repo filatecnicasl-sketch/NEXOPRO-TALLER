@@ -1,7 +1,7 @@
 import { NavLink, Outlet, Link, useLocation, useNavigate } from "react-router-dom";
 import {
   UsersThree, Truck, Package, ClipboardText, FileText, Receipt, FileArrowDown,
-  ShieldCheck, Gear, FileDashed, Wrench, Car, MagnifyingGlass, CalendarCheck,
+  ShieldCheck, Gear, FileDashed, Wrench, Car, MagnifyingGlass, CalendarCheck, Gauge,
 } from "@phosphor-icons/react";
 
 const LOGO = "https://customer-assets.emergentagent.com/job_invoice-hub-861/artifacts/7wiurgv7_favicom.png";
@@ -43,6 +43,7 @@ const MODULES = [
     label: "Taller",
     icon: Wrench,
     items: [
+      { to: "/taller", label: "Panel", icon: Gauge, testid: "nav-taller-panel", end: true },
       { to: "/taller/vehiculos", label: "Vehículos", icon: Car, testid: "nav-taller-vehiculos" },
       { to: "/taller/ordenes", label: "Órdenes de trabajo", icon: Wrench, testid: "nav-taller-ordenes" },
       { to: "/taller/peritajes", label: "Peritajes", icon: MagnifyingGlass, testid: "nav-taller-peritajes" },

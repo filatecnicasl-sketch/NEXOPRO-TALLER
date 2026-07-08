@@ -148,6 +148,9 @@ export const subirContrato = (id, file) => {
   return client.post(`/taller/prestamos/${id}/contrato`, fd, { headers: { "Content-Type": "multipart/form-data" } }).then((r) => r.data);
 };
 
+// Taller — Panel / resumen
+export const getTallerResumen = () => client.get("/taller/resumen").then((r) => r.data);
+
 // Dashboard
 export const getResumen = () => client.get("/dashboard/resumen").then((r) => r.data);
 

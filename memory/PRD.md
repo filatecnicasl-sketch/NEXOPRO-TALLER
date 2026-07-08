@@ -35,6 +35,12 @@ Autónomos y pymes españolas que gestionan compras/ventas y facturación con ob
   Admin: admin@nexopro.com / Admin1234!. Licencia demo: NEXO-DEMO-0001 (frontend/.env REACT_APP_LICENSE_KEY).
 
 ## Estado / Bloqueos
+- TALLER — PANEL/DASHBOARD (2026-07-08):
+  · Endpoint GET /api/taller/resumen (KPIs: total vehículos, órdenes abiertas y por estado,
+    peritajes pendientes, cortesías activas, citas de hoy/próximas, últimas órdenes).
+  · Frontend TallerDashboard.jsx en ruta /taller (primer icono "Panel" del ribbon de Taller).
+    KPIs con enlaces, tablero de órdenes por estado, citas de hoy, últimas órdenes, cortesías.
+  · Verificado por curl + screenshot (read-only). Módulo Taller: Panel + Fases 1-4 COMPLETO.
 - MÓDULO TALLER — FASE 4 + INFORMES (2026-07-08):
   · Imputación de costes: pedidos/albaranes de COMPRA y facturas recibidas admiten vehiculo_id +
     vehiculo_matricula (DocumentoInput, FacturaRecibidaInput). Ficha de vehículo agrega compras[]

@@ -13,6 +13,7 @@ import Ajustes from "@/pages/Ajustes";
 import Vehiculos from "@/pages/Vehiculos";
 import OrdenesTrabajo from "@/pages/OrdenesTrabajo";
 import Peritajes from "@/pages/Peritajes";
+import TallerDashboard from "@/pages/TallerDashboard";
 import Citas from "@/pages/Citas";
 import Cortesia from "@/pages/Cortesia";
 import SubirFotos from "@/pages/SubirFotos";
@@ -53,6 +54,7 @@ function App() {
             <Route path="/ajustes" element={<Ajustes />} />
 
             {/* Módulo Taller (sectorial) */}
+            <Route path="/taller" element={<TallerDashboard />} />
             <Route path="/taller/vehiculos" element={<Vehiculos />} />
             <Route path="/taller/ordenes" element={<OrdenesTrabajo />} />
             <Route path="/taller/peritajes" element={<Peritajes />} />

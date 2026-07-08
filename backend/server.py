@@ -2126,6 +2126,39 @@ async def eliminar_prestamo(pid: str):
     return {"ok": True}
 
 
+@api_router.get("/taller/resumen")
+async def taller_resumen():
+    hoy = date.today().isoformat()
+    ordenes = await db.ordenes_trabajo.find({}, {"_id": 0}).to_list(5000)
+    por_estado = {e: 0 for e in ESTADOS_OT}
+    for o in ordenes:
+        est = o.get("estado", "recepcion")
+        por_estado[est] = por_estado.get(est, 0) + 1
+    abiertas = len([o for o in ordenes if o.get("estado") in ("recepcion", "en_curso")])
+    citas_hoy = await db.citas.find(
+        {"fecha": {"$gte": hoy + "T00:00", "$lte": hoy + "T23:59"}}, {"_id": 0}
+    ).sort("fecha", 1).to_list(200)
+    proximas = await db.citas.find(
+        {"fecha": {"$gt": hoy + "T23:59"}}, {"_id": 0}
+    ).sort("fecha", 1).to_list(6)
+    peritajes_pend = await db.peritajes.count_documents({"estado": {"$in": ["pendiente", "valorado"]}})
+    cortesias = await db.prestamos.find({"estado": "activo"}, {"_id": 0}).sort("created_at", -1).to_list(200)
+    total_vehiculos = await db.vehiculos.count_documents({})
+    ultimas = sorted(ordenes, key=lambda x: x.get("created_at", ""), reverse=True)[:6]
+    return {
+        "total_vehiculos": total_vehiculos,
+        "ordenes_por_estado": por_estado,
+        "ordenes_abiertas": abiertas,
+        "citas_hoy": citas_hoy,
+        "proximas_citas": proximas,
+        "peritajes_pendientes": peritajes_pend,
+        "cortesias_activas": cortesias,
+        "ultimas_ordenes": ultimas,
+    }
+
+
+
+
 
 
 
