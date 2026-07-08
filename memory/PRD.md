@@ -17,13 +17,18 @@ Autónomos y pymes españolas que gestionan compras/ventas y facturación con ob
 
 ## Implementado (2026-07-08)
 - CRUD Clientes y Proveedores (búsqueda, editar, eliminar).
-- CRUD Artículos/Productos (referencia, precio, IVA) seleccionables en las líneas de documentos.
+- CRUD Artículos/Productos + alta automática de artículos desde albaranes/facturas de ENTRADA
+  (marca AUTO y guarda a qué documento(s) corresponde cada artículo).
 - Pedidos y Albaranes con líneas + totales. Albaranes con pestañas Recibidos (IA)/Emitidos.
 - Facturas Emitidas con Verifactu: numeración por serie, huella SHA-256 encadenada, QR AEAT, estado cobro.
 - Facturas Recibidas: alta manual o por IA desde PDF; estado de pago.
 - Extracción IA de PDF (proveedor, nº, fecha, líneas, totales) con emparejado de proveedor por NIF.
-- Dashboard "Panel de control" con KPIs, gráfico de facturación mensual y últimas facturas.
+- Panel "Panel de control" con KPIs, gráfico de facturación mensual y últimas facturas.
 - Menú superior con marca NexoPro + logo.
+- LICENCIAS + PANEL CENTRAL (2026-07-08): auth admin JWT (email+password), panel oculto en /admin
+  para gestionar clientes/licencias (crear, activar/suspender, registrar pago manual, cuota mensual).
+  Gate de licencia en el ERP: si la licencia del cliente se suspende, la app se bloquea con aviso.
+  Admin: admin@nexopro.com / Admin1234!. Licencia demo: NEXO-DEMO-0001 (frontend/.env REACT_APP_LICENSE_KEY).
 
 ## Estado / Bloqueos
 - La extracción IA está IMPLEMENTADA pero BLOQUEADA: el Emergent LLM Key tiene saldo 0 ("Budget exceeded").
