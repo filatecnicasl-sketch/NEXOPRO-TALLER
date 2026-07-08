@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
-import { Plus, ArrowUUpLeft, Sparkle, FileArrowDown, Robot, Printer, CheckCircle, XCircle } from "@phosphor-icons/react";
+import { Plus, ArrowUUpLeft, Sparkle, FileArrowDown, Robot, Printer, CheckCircle, XCircle, FilePdf, Paperclip, Eye } from "@phosphor-icons/react";
 import { toast } from "sonner";
 import {
   getFacturasRecibidas, createFacturaRecibida, rectificarFacturaRecibida, estadoFacturaRecibida,
-  getContactos, getArticulos, getAjustes, getAlbaranesCompraPendientes, eur,
+  getContactos, getArticulos, getAjustes, getAlbaranesCompraPendientes, uploadArchivo, eur,
 } from "@/lib/api";
 import { imprimirDocumento, imprimirListado } from "@/lib/print";
+import PdfPreview from "@/components/PdfPreview";
 import PageHeader from "@/components/PageHeader";
 import Initials from "@/components/Initials";
 import Pill from "@/components/Pill";
@@ -25,7 +26,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 const emptyForm = () => ({
   numero_proveedor: "", proveedor_id: "", proveedor_nombre: "", proveedor_nif: "",
   fecha: new Date().toISOString().slice(0, 10), estado: "pendiente", origen: "manual",
-  forma_pago: "Transferencia", lineas: [], albaranes_ids: [], notas: "",
+  forma_pago: "Transferencia", lineas: [], albaranes_ids: [], pdf_path: "", pdf_filename: "", notas: "",
 });
 const FORMA_PAGO = ["Transferencia", "Efectivo", "Tarjeta", "Domiciliación", "Recibo", "Confirming", "Otro"];
 
@@ -40,6 +41,8 @@ export default function FacturasRecibidas() {
   const [importOpen, setImportOpen] = useState(false);
   const [form, setForm] = useState(emptyForm());
   const [rectId, setRectId] = useState(null);
+  const [preview, setPreview] = useState(null);
+  const [subiendo, setSubiendo] = useState(false);
 
   const load = () => { setLoading(true); getFacturasRecibidas().then((d) => { setItems(d); setLoading(false); }); };
   useEffect(() => {
@@ -106,10 +109,22 @@ export default function FacturasRecibidas() {
         descripcion: l.descripcion, cantidad: l.cantidad, precio_unitario: l.precio_unitario,
         descuento: l.descuento || 0, tipo_iva: l.tipo_iva ?? 21,
       })),
-      albaranes_ids: [], notas: "",
+      albaranes_ids: [], pdf_path: datos.pdf_path || "", pdf_filename: datos.pdf_filename || "", notas: "",
     });
     cargarAlbaranes(prov || { nombre: datos.proveedor?.nombre });
     setOpen(true);
+  };
+
+  const adjuntarPdf = async (file) => {
+    if (!file) return;
+    if (!file.name.toLowerCase().endsWith(".pdf")) return toast.error("Solo se admiten archivos PDF");
+    setSubiendo(true);
+    try {
+      const res = await uploadArchivo(file);
+      setForm((f) => ({ ...f, pdf_path: res.pdf_path, pdf_filename: res.pdf_filename }));
+      toast.success("PDF adjuntado");
+    } catch { toast.error("No se pudo subir el PDF"); }
+    finally { setSubiendo(false); }
   };
 
   const totales = calcTotales(form.lineas);
@@ -213,6 +228,9 @@ export default function FacturasRecibidas() {
                   )}
                 </TableCell>
                 <TableCell className="text-right">
+                  {f.pdf_path && (
+                    <button data-testid={`preview-${f.id}`} onClick={() => setPreview({ path: f.pdf_path, filename: f.pdf_filename })} title="Vista previa del original" className="text-zinc-400 hover:text-rose-500 p-1.5 transition-colors"><FilePdf size={16} weight="fill" /></button>
+                  )}
                   <button data-testid={`imprimir-${f.id}`} onClick={() => printRecibida(f)} title="Imprimir" className="text-zinc-400 hover:text-primary p-1.5 transition-colors"><Printer size={16} /></button>
                   {f.tipo_factura !== "rectificativa" && f.estado !== "rectificada" && (
                     <button data-testid={`rectificar-${f.id}`} onClick={() => setRectId(f.id)} title="Registrar rectificativa (abono)" className="text-zinc-400 hover:text-orange-500 p-1.5 transition-colors"><ArrowUUpLeft size={16} /></button>
@@ -269,6 +287,19 @@ export default function FacturasRecibidas() {
             </div>
           </div>
 
+          <div className="flex items-center gap-3 flex-wrap" data-testid="adjuntar-pdf">
+            <label className={`inline-flex items-center gap-2 text-sm cursor-pointer border border-zinc-200 rounded-md px-3 py-1.5 hover:bg-zinc-50 transition-colors ${subiendo ? "opacity-60 pointer-events-none" : ""}`}>
+              <Paperclip size={15} /> {subiendo ? "Subiendo..." : (form.pdf_path ? "Cambiar PDF original" : "Adjuntar PDF original")}
+              <input type="file" accept="application/pdf" className="hidden" data-testid="input-adjuntar-pdf" onChange={(e) => adjuntarPdf(e.target.files[0])} />
+            </label>
+            {form.pdf_path && (
+              <>
+                <span className="text-xs text-zinc-500 inline-flex items-center gap-1"><FilePdf size={14} weight="fill" className="text-rose-500" /> {form.pdf_filename || "documento.pdf"}</span>
+                <button type="button" data-testid="preview-form-pdf" onClick={() => setPreview({ path: form.pdf_path, filename: form.pdf_filename })} className="text-xs text-primary hover:underline inline-flex items-center gap-1"><Eye size={13} /> Vista previa</button>
+              </>
+            )}
+          </div>
+
           {form.proveedor_nombre && albaranesPend.length > 0 && (
             <div className="border border-zinc-200 rounded-lg p-3 bg-zinc-50/50" data-testid="conciliacion-albaranes">
               <div className="flex items-center justify-between mb-2">
@@ -321,6 +352,7 @@ export default function FacturasRecibidas() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      <PdfPreview open={!!preview} onOpenChange={(o) => !o && setPreview(null)} path={preview?.path} filename={preview?.filename} />
     </div>
   );
 }

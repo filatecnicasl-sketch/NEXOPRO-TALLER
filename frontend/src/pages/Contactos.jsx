@@ -188,23 +188,23 @@ export default function Contactos({ tipo }) {
               <Label className="text-xs">Código postal</Label>
               <Input value={form.codigo_postal} onChange={(e) => setForm({ ...form, codigo_postal: e.target.value })} className="rounded-sm mt-1" />
             </div>
+            <div className="col-span-2 pt-2 border-t border-slate-100">
+              <div className="text-[10px] uppercase tracking-widest text-slate-400 mt-1">Datos bancarios</div>
+            </div>
+            <div className="col-span-2">
+              <Label className="text-xs">IBAN</Label>
+              <Input data-testid="input-iban" value={form.iban} onChange={(e) => setForm({ ...form, iban: e.target.value })} className="rounded-sm mt-1 font-mono-plex" placeholder="ES00 0000 0000 0000 0000 0000" />
+            </div>
+            <div>
+              <Label className="text-xs">Banco</Label>
+              <Input value={form.banco} onChange={(e) => setForm({ ...form, banco: e.target.value })} className="rounded-sm mt-1" />
+            </div>
+            <div>
+              <Label className="text-xs">BIC / SWIFT</Label>
+              <Input value={form.swift} onChange={(e) => setForm({ ...form, swift: e.target.value })} className="rounded-sm mt-1 font-mono-plex" />
+            </div>
             {tipo === "cliente" && (
               <>
-                <div className="col-span-2 pt-2 border-t border-slate-100">
-                  <div className="text-[10px] uppercase tracking-widest text-slate-400 mt-1">Datos bancarios</div>
-                </div>
-                <div className="col-span-2">
-                  <Label className="text-xs">IBAN</Label>
-                  <Input data-testid="input-iban" value={form.iban} onChange={(e) => setForm({ ...form, iban: e.target.value })} className="rounded-sm mt-1 font-mono-plex" placeholder="ES00 0000 0000 0000 0000 0000" />
-                </div>
-                <div>
-                  <Label className="text-xs">Banco</Label>
-                  <Input value={form.banco} onChange={(e) => setForm({ ...form, banco: e.target.value })} className="rounded-sm mt-1" />
-                </div>
-                <div>
-                  <Label className="text-xs">BIC / SWIFT</Label>
-                  <Input value={form.swift} onChange={(e) => setForm({ ...form, swift: e.target.value })} className="rounded-sm mt-1 font-mono-plex" />
-                </div>
                 <div className="col-span-2 pt-2 border-t border-slate-100">
                   <div className="text-[10px] uppercase tracking-widest text-slate-400 mt-1">Dirección de entrega</div>
                 </div>

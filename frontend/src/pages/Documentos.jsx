@@ -1,14 +1,15 @@
 import { useEffect, useState } from "react";
 import {
   Plus, PencilSimple, Trash, Sparkle, FileText, FileDashed, ClipboardText,
-  Printer, ArrowBendDownRight, CaretDown, CheckCircle,
+  Printer, ArrowBendDownRight, CaretDown, CheckCircle, FilePdf, Paperclip, Eye,
 } from "@phosphor-icons/react";
 import { toast } from "sonner";
 import {
   getDocumentos, createDocumento, updateDocumento, deleteDocumento, convertirDocumento,
-  getContactos, getArticulos, getAjustes, eur,
+  getContactos, getArticulos, getAjustes, uploadArchivo, eur,
 } from "@/lib/api";
 import { imprimirDocumento, imprimirListado } from "@/lib/print";
+import PdfPreview from "@/components/PdfPreview";
 import PageHeader from "@/components/PageHeader";
 import Initials from "@/components/Initials";
 import Pill from "@/components/Pill";
@@ -50,7 +51,7 @@ const estadoTone = (e) => ({
 
 const emptyForm = (op) => ({
   tipo_operacion: op, serie: "", contacto_id: "", contacto_nombre: "", contacto_nif: "",
-  fecha: new Date().toISOString().slice(0, 10), estado: "borrador", lineas: [], notas: "",
+  fecha: new Date().toISOString().slice(0, 10), estado: "borrador", lineas: [], pdf_path: "", pdf_filename: "", notas: "",
 });
 
 export default function Documentos({ entidad, operacion }) {
@@ -68,6 +69,8 @@ export default function Documentos({ entidad, operacion }) {
   const [form, setForm] = useState(emptyForm(operacion));
   const [editId, setEditId] = useState(null);
   const [delId, setDelId] = useState(null);
+  const [preview, setPreview] = useState(null);
+  const [subiendo, setSubiendo] = useState(false);
 
   const load = () => { setLoading(true); getDocumentos(entidad).then((d) => { setItems(d); setLoading(false); }); };
   useEffect(() => {
@@ -140,8 +143,21 @@ export default function Documentos({ entidad, operacion }) {
         descuento: l.descuento || 0, tipo_iva: l.tipo_iva ?? 21,
       })),
       notas: `Importado por IA. Nº origen: ${datos.numero || "—"}`,
+      pdf_path: datos.pdf_path || "", pdf_filename: datos.pdf_filename || "",
     });
     setEditId(null); setOpen(true);
+  };
+
+  const adjuntarPdf = async (file) => {
+    if (!file) return;
+    if (!file.name.toLowerCase().endsWith(".pdf")) return toast.error("Solo se admiten archivos PDF");
+    setSubiendo(true);
+    try {
+      const res = await uploadArchivo(file);
+      setForm((f) => ({ ...f, pdf_path: res.pdf_path, pdf_filename: res.pdf_filename }));
+      toast.success("PDF adjuntado");
+    } catch { toast.error("No se pudo subir el PDF"); }
+    finally { setSubiendo(false); }
   };
 
   const totales = calcTotales(form.lineas);
@@ -232,6 +248,9 @@ export default function Documentos({ entidad, operacion }) {
                     </DropdownMenu>
                   )}
                   <button data-testid={`imprimir-${d.id}`} onClick={() => printDoc(d)} title="Imprimir" className="text-zinc-400 hover:text-primary p-1.5 transition-colors"><Printer size={16} /></button>
+                  {d.pdf_path && (
+                    <button data-testid={`preview-${d.id}`} onClick={() => setPreview({ path: d.pdf_path, filename: d.pdf_filename })} title="Vista previa del original" className="text-zinc-400 hover:text-rose-500 p-1.5 transition-colors"><FilePdf size={16} weight="fill" /></button>
+                  )}
                   <button data-testid={`editar-${d.id}`} onClick={() => openEdit(d)} title="Editar" className="text-zinc-400 hover:text-primary p-1.5 transition-colors"><PencilSimple size={16} /></button>
                   <button data-testid={`eliminar-${d.id}`} onClick={() => setDelId(d.id)} title="Eliminar" className="text-zinc-400 hover:text-red-500 p-1.5 transition-colors"><Trash size={16} /></button>
                 </TableCell>
@@ -293,6 +312,20 @@ export default function Documentos({ entidad, operacion }) {
               </select>
             </div>
           </div>
+          {esCompra && (
+            <div className="flex items-center gap-3 flex-wrap" data-testid="adjuntar-pdf">
+              <label className={`inline-flex items-center gap-2 text-sm cursor-pointer border border-zinc-200 rounded-md px-3 py-1.5 hover:bg-zinc-50 transition-colors ${subiendo ? "opacity-60 pointer-events-none" : ""}`}>
+                <Paperclip size={15} /> {subiendo ? "Subiendo..." : (form.pdf_path ? "Cambiar PDF original" : "Adjuntar PDF original")}
+                <input type="file" accept="application/pdf" className="hidden" data-testid="input-adjuntar-pdf" onChange={(e) => adjuntarPdf(e.target.files[0])} />
+              </label>
+              {form.pdf_path && (
+                <>
+                  <span className="text-xs text-zinc-500 inline-flex items-center gap-1"><FilePdf size={14} weight="fill" className="text-rose-500" /> {form.pdf_filename || "documento.pdf"}</span>
+                  <button type="button" data-testid="preview-form-pdf" onClick={() => setPreview({ path: form.pdf_path, filename: form.pdf_filename })} className="text-xs text-primary hover:underline inline-flex items-center gap-1"><Eye size={13} /> Vista previa</button>
+                </>
+              )}
+            </div>
+          )}
           <LineasEditor lineas={form.lineas} setLineas={(l) => setForm({ ...form, lineas: l })} articulos={articulos} />
           <DialogFooter className="mt-2">
             <div className="mr-auto text-sm text-zinc-500">Total: <span className="font-semibold text-primary">{eur(totales.total)}</span></div>
@@ -319,6 +352,7 @@ export default function Documentos({ entidad, operacion }) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      <PdfPreview open={!!preview} onOpenChange={(o) => !o && setPreview(null)} path={preview?.path} filename={preview?.filename} />
     </div>
   );
 }

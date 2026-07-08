@@ -30,6 +30,55 @@ EMERGENT_LLM_KEY = os.environ.get('EMERGENT_LLM_KEY')
 JWT_SECRET = os.environ.get('JWT_SECRET', 'change-me')
 JWT_ALGORITHM = "HS256"
 
+# --- Almacenamiento de objetos (PDFs originales de documentos) ---
+import requests as _requests
+STORAGE_URL = "https://integrations.emergentagent.com/objstore/api/v1/storage"
+APP_NAME = "nexopro"
+_storage_key = None
+
+
+def init_storage():
+    global _storage_key
+    if _storage_key:
+        return _storage_key
+    resp = _requests.post(f"{STORAGE_URL}/init", json={"emergent_key": EMERGENT_LLM_KEY}, timeout=30)
+    resp.raise_for_status()
+    _storage_key = resp.json()["storage_key"]
+    return _storage_key
+
+
+def storage_put(path: str, data: bytes, content_type: str) -> dict:
+    key = init_storage()
+    resp = _requests.put(f"{STORAGE_URL}/objects/{path}",
+                         headers={"X-Storage-Key": key, "Content-Type": content_type},
+                         data=data, timeout=120)
+    if resp.status_code == 403:
+        globals()['_storage_key'] = None
+        key = init_storage()
+        resp = _requests.put(f"{STORAGE_URL}/objects/{path}",
+                             headers={"X-Storage-Key": key, "Content-Type": content_type},
+                             data=data, timeout=120)
+    resp.raise_for_status()
+    return resp.json()
+
+
+def storage_get(path: str):
+    key = init_storage()
+    resp = _requests.get(f"{STORAGE_URL}/objects/{path}", headers={"X-Storage-Key": key}, timeout=60)
+    if resp.status_code == 403:
+        globals()['_storage_key'] = None
+        key = init_storage()
+        resp = _requests.get(f"{STORAGE_URL}/objects/{path}", headers={"X-Storage-Key": key}, timeout=60)
+    resp.raise_for_status()
+    return resp.content, resp.headers.get("Content-Type", "application/octet-stream")
+
+
+async def _guardar_pdf(contenido: bytes, filename: str) -> dict:
+    """Sube un PDF a object storage y devuelve {pdf_path, pdf_filename}."""
+    path = f"{APP_NAME}/pdfs/{new_id()}.pdf"
+    res = storage_put(path, contenido, "application/pdf")
+    return {"pdf_path": res["path"], "pdf_filename": filename or "documento.pdf"}
+
 # Coste aproximado Gemini 2.5 Flash (USD por token) para estimar el gasto de IA
 PRECIO_INPUT_TOKEN = 0.30 / 1_000_000
 PRECIO_OUTPUT_TOKEN = 2.50 / 1_000_000
@@ -316,6 +365,8 @@ class DocumentoInput(BaseModel):
     fecha: str = Field(default_factory=lambda: date.today().isoformat())
     estado: str = "borrador"
     lineas: List[LineaItem] = []
+    pdf_path: str = ""
+    pdf_filename: str = ""
     notas: str = ""
 
 
@@ -344,6 +395,8 @@ class FacturaRecibidaInput(BaseModel):
     origen: str = "manual"
     forma_pago: str = "Transferencia"
     pdf_base64: str = ""
+    pdf_path: str = ""
+    pdf_filename: str = ""
     albaranes_ids: List[str] = []
     notas: str = ""
 
@@ -647,6 +700,8 @@ def _build_documento(data: DocumentoInput, numero: str):
         "base_total": base,
         "iva_total": iva,
         "total": total,
+        "pdf_path": data.pdf_path,
+        "pdf_filename": data.pdf_filename,
         "notas": data.notas,
         "created_at": now_iso(),
     }
@@ -1068,6 +1123,8 @@ async def crear_factura_recibida(data: FacturaRecibidaInput):
         "origen": data.origen,
         "forma_pago": data.forma_pago,
         "pdf_base64": data.pdf_base64,
+        "pdf_path": data.pdf_path,
+        "pdf_filename": data.pdf_filename,
         "albaranes_ids": data.albaranes_ids,
         "conciliacion": conciliacion,
         "notas": data.notas,
@@ -1275,6 +1332,30 @@ def _parse_json(text: str) -> dict:
     return json.loads(text)
 
 
+@api_router.post("/archivos/subir")
+async def subir_archivo(file: UploadFile = File(...)):
+    contenido = await file.read()
+    if not (file.filename or "").lower().endswith(".pdf"):
+        raise HTTPException(400, "Solo se admiten archivos PDF")
+    if len(contenido) > 15 * 1024 * 1024:
+        raise HTTPException(400, "El PDF no debe superar 15 MB")
+    try:
+        return await _guardar_pdf(contenido, file.filename)
+    except Exception as e:
+        logger.exception("Error subiendo PDF")
+        raise HTTPException(500, f"No se pudo guardar el archivo: {e}")
+
+
+@api_router.get("/archivos/{path:path}")
+async def obtener_archivo(path: str):
+    try:
+        data, _ = storage_get(path)
+    except Exception:
+        raise HTTPException(404, "Archivo no encontrado")
+    return Response(content=data, media_type="application/pdf",
+                    headers={"Content-Disposition": f'inline; filename="{path.split("/")[-1]}"'})
+
+
 @api_router.post("/extraccion/pdf")
 async def extraer_pdf(file: UploadFile = File(...), licencia: str = Form("")):
     if not EMERGENT_LLM_KEY:
@@ -1309,6 +1390,11 @@ async def extraer_pdf(file: UploadFile = File(...), licencia: str = Form("")):
             match = await db.contactos.find_one({"tipo": "proveedor", "nif": nif}, {"_id": 0})
             if match:
                 datos["proveedor_existente"] = match
+        # guarda el PDF original para vista previa / gestión documental
+        try:
+            datos.update(await _guardar_pdf(contenido, file.filename))
+        except Exception:
+            logger.warning("No se pudo guardar el PDF original en object storage")
         # registro de consumo de IA (tokens + coste estimado)
         u = resp.usage
         input_tokens = getattr(u, "input_tokens", 0) or 0

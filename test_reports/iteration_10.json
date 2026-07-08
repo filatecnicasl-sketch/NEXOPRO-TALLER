@@ -1,0 +1,30 @@
+{
+  "summary": "Iteration 10 tested: (1) proveedor bank fields (IBAN/Banco/BIC-SWIFT), (2) PDF attach + preview on facturas recibidas and albaranes compra, (3) object storage endpoints, (4) venta albarán does NOT show attach. Backend: 6/6 pytest passing. Frontend: all critical flows verified via Playwright including create, save, persistence on edit, and preview dialog with iframe.",
+  "backend_issues": { "critical": [], "minor": [] },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Proveedor dialog", "issues": ["Dialog missing aria-describedby (React console warning). Non-blocking accessibility warning."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter10_pdf_storage.py",
+    "/app/test_reports/pytest/iter10.xml"
+  ],
+  "action_items": [
+    "Optional: add DialogDescription/aria-describedby to the Nuevo/Editar proveedor dialog to silence Radix a11y warning."
+  ],
+  "critical_code_review_comments": [
+    "Contactos schema uses field name 'swift' internally while UI label shows 'BIC / SWIFT' — testid input-swift used; consistent across backend/frontend.",
+    "POST /api/archivos/subir rejects non-PDF with 400 as expected; GET /api/archivos/{path:path} returns application/pdf inline (68 bytes body starts with %PDF).",
+    "Iframe rendering of PDF is blank in headless browser (Chromium PDF viewer disabled). Per task guidance, this is acceptable — iframe src correctly points at /api/archivos/... and backend GET returns application/pdf."
+  ],
+  "updated_files": ["/app/backend/tests/test_iter10_pdf_storage.py"],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "test_credentials": "License key only (REACT_APP_LICENSE_KEY=NEXO-DEMO-0001)",
+  "seed_data_creation": "Created via tests: proveedor TEST_ProvBanco (backend), TEST_ProvUI (frontend), TEST_ProvFR, TEST_ProvAlb; a manual factura recibida with pdf; a compra albarán with pdf.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Backend test env: pytest picks REACT_APP_BACKEND_URL from /app/frontend/.env if not exported. Documentos endpoints are /api/{entidad} (presupuestos|pedidos|albaranes) with tipo_operacion venta|compra in body. Contact bank field is 'swift'. PDF iframe visually blank in headless — validate by iframe src + backend content-type."
+}
