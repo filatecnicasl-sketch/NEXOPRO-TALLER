@@ -35,20 +35,23 @@ Autónomos y pymes españolas que gestionan compras/ventas y facturación con ob
   Admin: admin@nexopro.com / Admin1234!. Licencia demo: NEXO-DEMO-0001 (frontend/.env REACT_APP_LICENSE_KEY).
 
 ## Estado / Bloqueos
-- REDISEÑO UI/UX COMPLETO (2026-07-08): estética profesional indigo/zinc con sidebar aplicada a TODAS
-  las páginas (Dashboard, Clientes/Proveedores, Artículos, Pedidos, Albaranes, Facturas Emitidas/Recibidas,
-  ImportPdfDialog). Nuevo componente reutilizable Pill (estados). LineasEditor con anchos CSS-grid alineados.
-- AJUSTES + SERIES (2026-07-08): nueva sección "Ajustes" (nav "Sistema" → /ajustes). Gestiona datos de
-  empresa y numeración de series de VENTA (facturas/pedidos/albaranes) y COMPRA (pedidos/albaranes) con
-  "próximo número" editable por tipo de documento y serie por defecto (estrella). Backend: singleton
-  db.ajustes {empresa, series_venta, series_compra}; GET/PUT /api/ajustes; _siguiente_contador ($inc atómico);
-  la numeración de facturas emitidas y documentos (pedidos/albaranes) se genera desde estos contadores.
-  Selectores de serie conectados en FacturasEmitidas (input-serie) y Documentos (input-serie-doc).
-  Verificado por testing_agent (iteration_6): backend 5/5, frontend 100% flujos probados.
+- FAMILIAS VENTAS/COMPRAS + PRESUPUESTOS (2026-07-08): navegación reorganizada en dos familias.
+  Artículos arriba (sin "Catálogo"). VENTAS: Clientes, Presupuestos (NUEVO), Pedidos, Albaranes, Facturas.
+  COMPRAS: Proveedores, Pedidos, Albaranes, Facturas. Documentos.jsx ahora recibe props entidad+operacion
+  (rutas /ventas/* y /compras/*, sin pestañas). Backend: nueva colección "presupuestos" (prefijo PRE),
+  contador "presupuestos" añadido a series_venta. Verificado testing_agent iteration_7 (backend 7/7, frontend 100%).
+- CONSUMO IA MOVIDO AL PANEL ADMIN (2026-07-08): se quitó el widget de Facturas Recibidas. Nuevo endpoint
+  GET /api/admin/consumos-ia (auth) que agrega el consumo POR cliente/licencia (join con licencias).
+  Sección "Consumo de IA" en /admin con KPIs + tabla por cliente. POST /extraccion/pdf ahora recibe y
+  guarda el license_key de cada lectura (los consumos históricos sin licencia salen como "Sin identificar").
+- REDISEÑO UI/UX COMPLETO (2026-07-08): estética profesional indigo/zinc con sidebar en TODAS las páginas.
+  Componente Pill reutilizable. LineasEditor con anchos CSS-grid alineados.
+- AJUSTES + SERIES (2026-07-08): sección "Ajustes" (/ajustes). Datos de empresa + numeración de series de
+  VENTA (presupuestos/pedidos/albaranes/facturas) y COMPRA (pedidos/albaranes) con "próximo número" editable
+  por tipo y serie por defecto. Numeración generada desde estos contadores (_siguiente_contador, $inc atómico).
 
 ## Backlog / Próximos pasos (P1/P2)
-- (P1) Añadir en el Panel Admin central el consumo de tokens/créditos de IA POR licencia/cliente.
-- (P1) Primer módulo sectorial (taller/hostelería/construcción) sobre este módulo base de facturación.
+- (P1) Flujo enlazado: presupuesto → pedido → albarán → factura (venta) y pedido → albarán → factura (compra).
 - Convertir pedido→albarán→factura (flujo enlazado).
 - Conexión real a Verifactu/AEAT (certificado digital, entorno producción).
 - Exportar factura a PDF y envío por email (Resend/SendGrid).
