@@ -35,6 +35,16 @@ Autónomos y pymes españolas que gestionan compras/ventas y facturación con ob
   Admin: admin@nexopro.com / Admin1234!. Licencia demo: NEXO-DEMO-0001 (frontend/.env REACT_APP_LICENSE_KEY).
 
 ## Estado / Bloqueos
+- NAVEGACIÓN SUPERIOR + MÓDULO TALLER (scaffold) (2026-07-08):
+  · Layout.jsx rediseñado: se sustituyó el sidebar izquierdo por una BARRA SUPERIOR estilo ribbon
+    (referencia del usuario: Visionwin Gestión). Fila 1 = marca + pestañas de módulo
+    (Panel, Ventas, Compras, Taller, Ajustes); Fila 2 = ribbon de iconos del módulo activo.
+    main pasó de ml-64 a pt-[7.25rem]. Se QUITÓ el título "Panel de control" del Dashboard.
+  · Nuevo módulo sectorial "Taller" con iconos: Vehículos, Órdenes de trabajo, Peritajes, Citas.
+    Páginas provisionales (TallerPlaceholder.jsx) a la espera del FORMATO de formulario del usuario.
+  · Rutas nuevas: /taller/vehiculos, /taller/ordenes, /taller/peritajes, /taller/citas.
+  · CONFIRMADO usuario: fotos vía QR + subida web desde móvil; clientes = reutilizar contactos.
+  · PENDIENTE: Fase 1 Taller (Vehículos CRUD + ficha, Órdenes de trabajo) tras recibir el formato.
 - GESTIÓN DOCUMENTAL + BANCO PROVEEDOR (2026-07-08):
   · Datos bancarios (IBAN/Banco/BIC-SWIFT) ahora también en la ficha de PROVEEDOR (antes solo clientes).
   · Object storage (emergent): helpers init_storage/storage_put/storage_get/_guardar_pdf; POST /api/archivos/subir

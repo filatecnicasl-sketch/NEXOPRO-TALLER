@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 import { TrendUp, TrendDown, UsersThree, Truck, Receipt, FileArrowDown, Package } from "@phosphor-icons/react";
 import { getResumen, eur } from "@/lib/api";
-import PageHeader from "@/components/PageHeader";
 import { Skeleton } from "@/components/ui/skeleton";
 
 const Kpi = ({ label, value, sub, icon: Icon, accent = "text-indigo-600", accentBg = "bg-indigo-50" }) => (
@@ -26,7 +25,6 @@ export default function Dashboard() {
   if (!data)
     return (
       <div className="p-8 max-w-[1400px]">
-        <PageHeader title="Panel de control" subtitle="Resumen de tu actividad" />
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-28 rounded-lg" />)}
         </div>
@@ -35,8 +33,6 @@ export default function Dashboard() {
 
   return (
     <div className="p-8 max-w-[1400px]" data-testid="dashboard-page">
-      <PageHeader title="Panel de control" subtitle="Resumen de tu actividad comercial y financiera" />
-
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
         <Kpi label="Facturado" value={eur(data.total_facturado)} sub={`${data.num_facturas_emitidas} facturas emitidas`} icon={TrendUp} accent="text-emerald-600" accentBg="bg-emerald-50" />
         <Kpi label="Pendiente cobro" value={eur(data.pendiente_cobro)} sub="Facturas sin cobrar" icon={Receipt} accent="text-amber-600" accentBg="bg-amber-50" />

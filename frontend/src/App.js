@@ -10,6 +10,7 @@ import Documentos from "@/pages/Documentos";
 import FacturasEmitidas from "@/pages/FacturasEmitidas";
 import FacturasRecibidas from "@/pages/FacturasRecibidas";
 import Ajustes from "@/pages/Ajustes";
+import TallerPlaceholder from "@/pages/TallerPlaceholder";
 import AdminLogin from "@/pages/AdminLogin";
 import AdminPanel from "@/pages/AdminPanel";
 
@@ -42,6 +43,12 @@ function App() {
             <Route path="/facturas-emitidas" element={<FacturasEmitidas />} />
             <Route path="/facturas-recibidas" element={<FacturasRecibidas />} />
             <Route path="/ajustes" element={<Ajustes />} />
+
+            {/* Módulo Taller (sectorial) */}
+            <Route path="/taller/vehiculos" element={<TallerPlaceholder title="Vehículos" subtitle="Ficha de vehículos vinculados a clientes" />} />
+            <Route path="/taller/ordenes" element={<TallerPlaceholder title="Órdenes de trabajo" subtitle="Chapa, pintura y mecánica" />} />
+            <Route path="/taller/peritajes" element={<TallerPlaceholder title="Peritajes" subtitle="Daños, compañía de seguros y fotos" />} />
+            <Route path="/taller/citas" element={<TallerPlaceholder title="Citas" subtitle="Agenda de citas por vehículo" />} />
           </Route>
         </Routes>
       </BrowserRouter>
