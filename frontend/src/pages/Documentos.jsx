@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import {
   Plus, PencilSimple, Trash, Sparkle, FileText, FileDashed, ClipboardText,
   Printer, ArrowBendDownRight, CaretDown, CheckCircle, FilePdf, Paperclip, Eye,
@@ -57,6 +58,8 @@ const emptyForm = (op) => ({
 export default function Documentos({ entidad, operacion }) {
   const cfg = CFG[entidad];
   const esCompra = operacion === "compra";
+  const permiteVehiculo = esCompra || entidad === "presupuestos";
+  const [searchParams] = useSearchParams();
   const permiteIA = esCompra && entidad !== "presupuestos";
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -313,9 +316,9 @@ export default function Documentos({ entidad, operacion }) {
                 {ESTADOS.map((s) => <option key={s} value={s}>{s}</option>)}
               </select>
             </div>
-            {esCompra && (
+            {permiteVehiculo && (
               <div>
-                <Label className="text-xs">Vehículo (imputar coste)</Label>
+                <Label className="text-xs">{esCompra ? "Vehículo (imputar coste)" : "Vehículo"}</Label>
                 <select data-testid="doc-vehiculo" value={form.vehiculo_id}
                   onChange={(e) => { const v = vehiculos.find((x) => x.id === e.target.value); setForm({ ...form, vehiculo_id: e.target.value, vehiculo_matricula: v?.matricula || "" }); }}
                   className="w-full h-10 mt-1 border border-input rounded-md bg-white px-2 text-sm">

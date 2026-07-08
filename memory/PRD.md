@@ -35,6 +35,15 @@ Autónomos y pymes españolas que gestionan compras/ventas y facturación con ob
   Admin: admin@nexopro.com / Admin1234!. Licencia demo: NEXO-DEMO-0001 (frontend/.env REACT_APP_LICENSE_KEY).
 
 ## Estado / Bloqueos
+- TALLER — HISTORIAL DE VEHÍCULO + PRESUPUESTOS VINCULADOS (2026-07-08):
+  · Presupuestos de venta admiten vehiculo_id (selector "Vehículo" también en presupuestos;
+    Documentos.jsx abre el formulario con el vehículo preseleccionado vía ?vehiculo=ID).
+  · ficha_vehiculo agrega presupuestos, prestamos y citas además de ordenes/peritajes/compras.
+  · Ficha del vehículo con pestañas "Resumen" / "Historial": el Historial es una LÍNEA DE TIEMPO
+    cronológica (presupuestos, órdenes, peritajes, citas, compras y cortesías) con importe.
+    Botón "Nuevo presupuesto" en la ficha → /ventas/presupuestos?vehiculo=ID.
+  · Verificado por curl + screenshot. NOTA: hay datos REALES del usuario (vehículo 7765HGJ) —
+    no borrar. Persisten presupuestos TEST de iteraciones antiguas (A-2026-0001..0004).
 - TALLER — PANEL/DASHBOARD (2026-07-08):
   · Endpoint GET /api/taller/resumen (KPIs: total vehículos, órdenes abiertas y por estado,
     peritajes pendientes, cortesías activas, citas de hoy/próximas, últimas órdenes).

@@ -1586,6 +1586,9 @@ async def ficha_vehiculo(vid: str):
         raise HTTPException(404, "Vehículo no encontrado")
     ordenes = await db.ordenes_trabajo.find({"vehiculo_id": vid}, {"_id": 0}).sort("created_at", -1).to_list(500)
     peritajes = await db.peritajes.find({"vehiculo_id": vid}, {"_id": 0}).sort("created_at", -1).to_list(500)
+    presupuestos = await db.presupuestos.find({"vehiculo_id": vid}, {"_id": 0}).sort("created_at", -1).to_list(500)
+    prestamos = await db.prestamos.find({"vehiculo_id": vid}, {"_id": 0}).sort("created_at", -1).to_list(500)
+    citas = await db.citas.find({"vehiculo_id": vid}, {"_id": 0}).sort("fecha", -1).to_list(500)
     compras = []
     for col, etiqueta in [("pedidos", "Pedido"), ("albaranes", "Albarán"), ("facturas_recibidas", "Factura")]:
         docs = await db[col].find({"vehiculo_id": vid}, {"_id": 0}).sort("created_at", -1).to_list(500)
@@ -1599,8 +1602,8 @@ async def ficha_vehiculo(vid: str):
                 "total": d.get("total", 0),
             })
     coste_compras = round(sum(c["total"] for c in compras), 2)
-    return {"vehiculo": v, "ordenes": ordenes, "peritajes": peritajes,
-            "compras": compras, "coste_compras": coste_compras}
+    return {"vehiculo": v, "ordenes": ordenes, "peritajes": peritajes, "presupuestos": presupuestos,
+            "prestamos": prestamos, "citas": citas, "compras": compras, "coste_compras": coste_compras}
 
 
 @api_router.put("/taller/vehiculos/{vid}")

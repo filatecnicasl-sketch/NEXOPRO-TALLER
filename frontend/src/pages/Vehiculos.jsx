@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Plus, PencilSimple, Trash, MagnifyingGlass, Car, ClipboardText } from "@phosphor-icons/react";
 import { toast } from "sonner";
 import {
@@ -36,6 +37,20 @@ export default function Vehiculos() {
   const [editId, setEditId] = useState(null);
   const [delId, setDelId] = useState(null);
   const [ficha, setFicha] = useState(null);
+  const [vistaFicha, setVistaFicha] = useState("resumen");
+
+  const eventosHistorial = (f) => {
+    if (!f) return [];
+    const ev = [];
+    (f.presupuestos || []).forEach((p) => ev.push({ k: "pre" + p.id, fecha: p.fecha || p.created_at, tipo: "Presupuesto", label: `${p.numero} · ${p.contacto_nombre || ""}`, importe: p.total, color: "bg-indigo-500" }));
+    (f.ordenes || []).forEach((o) => ev.push({ k: "ord" + o.id, fecha: o.fecha_entrada || o.created_at, tipo: "Orden", label: `${o.numero} · ${o.estado}`, importe: o.total, color: "bg-blue-500" }));
+    (f.peritajes || []).forEach((p) => ev.push({ k: "per" + p.id, fecha: p.fecha || p.created_at, tipo: "Peritaje", label: `${p.numero} · ${p.compania || ""}`, importe: p.importe_total, color: "bg-amber-500" }));
+    (f.citas || []).forEach((c) => ev.push({ k: "cit" + c.id, fecha: c.fecha, tipo: "Cita", label: c.motivo || c.tipo_trabajo || "Cita", importe: null, color: "bg-violet-500" }));
+    (f.compras || []).forEach((c) => ev.push({ k: "com" + c.tipo + c.id, fecha: c.fecha, tipo: c.tipo, label: `${c.numero || ""} · ${c.proveedor || ""}`, importe: c.total, color: "bg-zinc-400" }));
+    (f.prestamos || []).forEach((p) => ev.push({ k: "prest" + p.id, fecha: p.fecha_entrega || p.created_at, tipo: "Cortesía", label: p.cliente_nombre || "Préstamo", importe: null, color: "bg-emerald-500" }));
+    return ev.filter((e) => e.fecha).sort((a, b) => String(b.fecha).localeCompare(String(a.fecha)));
+  };
+  const fmtFechaHist = (iso) => (iso ? new Date(iso).toLocaleDateString("es-ES", { day: "2-digit", month: "short", year: "numeric" }) : "—");
 
   const load = () => {
     setLoading(true);
@@ -70,6 +85,7 @@ export default function Vehiculos() {
   };
 
   const openFicha = async (v) => {
+    setVistaFicha("resumen");
     setFicha({ loading: true, vehiculo: v, ordenes: [], peritajes: [] });
     try { const d = await getVehiculoFicha(v.id); setFicha({ loading: false, ...d }); }
     catch { setFicha(null); toast.error("No se pudo abrir la ficha"); }
@@ -220,6 +236,38 @@ export default function Vehiculos() {
                   <span className="text-zinc-400 font-normal text-base">{[ficha.vehiculo.marca, ficha.vehiculo.modelo].filter(Boolean).join(" ")}</span>
                 </DialogTitle>
               </DialogHeader>
+              <div className="flex gap-1 border-b border-zinc-100 -mt-1 mb-1">
+                {[["resumen", "Resumen"], ["historial", "Historial"]].map(([v, l]) => (
+                  <button key={v} data-testid={`ficha-tab-${v}`} onClick={() => setVistaFicha(v)}
+                    className={`px-3 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${vistaFicha === v ? "border-primary text-primary" : "border-transparent text-zinc-500 hover:text-zinc-800"}`}>{l}</button>
+                ))}
+              </div>
+              {vistaFicha === "historial" ? (
+                <div className="py-2" data-testid="ficha-historial">
+                  {ficha.loading ? <p className="text-sm text-zinc-400">Cargando...</p>
+                    : eventosHistorial(ficha).length === 0 ? <p className="text-sm text-zinc-400 py-6 text-center">Sin actividad registrada para este vehículo todavía.</p>
+                      : (
+                        <ol className="relative border-l-2 border-zinc-100 ml-2 pl-5 space-y-4">
+                          {eventosHistorial(ficha).map((e) => (
+                            <li key={e.k} className="relative" data-testid="historial-item">
+                              <span className={`absolute -left-[27px] top-1 h-3 w-3 rounded-full ring-4 ring-white ${e.color}`} />
+                              <div className="flex items-center justify-between gap-3">
+                                <div className="min-w-0">
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-[10px] uppercase tracking-wider font-semibold text-zinc-400">{e.tipo}</span>
+                                    <span className="text-xs text-zinc-400">{fmtFechaHist(e.fecha)}</span>
+                                  </div>
+                                  <div className="text-sm text-zinc-800 truncate">{e.label}</div>
+                                </div>
+                                {e.importe != null && <span className="tabular-nums text-sm font-medium text-zinc-900 shrink-0">{eur(e.importe)}</span>}
+                              </div>
+                            </li>
+                          ))}
+                        </ol>
+                      )}
+                </div>
+              ) : (
+              <>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-3 py-2 text-sm">
                 {[
                   ["Cliente", ficha.vehiculo.cliente_nombre || "—"],
@@ -233,6 +281,28 @@ export default function Vehiculos() {
                 ))}
               </div>
               {ficha.vehiculo.notas && <p className="text-sm text-zinc-500 border-t border-zinc-100 pt-3">{ficha.vehiculo.notas}</p>}
+              <div className="border-t border-zinc-100 pt-4">
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="font-heading font-semibold text-zinc-900 text-sm">Presupuestos</h4>
+                  <button data-testid="nuevo-presupuesto-vehiculo" onClick={() => navigate(`/ventas/presupuestos?vehiculo=${ficha.vehiculo.id}`)} className="text-xs text-primary hover:underline inline-flex items-center gap-1"><Plus size={13} /> Nuevo presupuesto</button>
+                </div>
+                {ficha.loading ? <p className="text-sm text-zinc-400">Cargando...</p>
+                  : (ficha.presupuestos || []).length === 0 ? <p className="text-sm text-zinc-400">Sin presupuestos para este vehículo.</p>
+                    : (
+                      <div className="space-y-2">
+                        {ficha.presupuestos.map((p) => (
+                          <div key={p.id} className="flex items-center justify-between border border-zinc-100 rounded-md px-3 py-2 text-sm">
+                            <div className="flex items-center gap-3 min-w-0">
+                              <span className="font-mono-plex text-xs text-zinc-500">{p.numero}</span>
+                              <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium bg-zinc-100 text-zinc-600 capitalize">{p.estado}</span>
+                              <span className="text-zinc-600 truncate">{p.contacto_nombre || "—"}</span>
+                            </div>
+                            <span className="tabular-nums font-medium text-zinc-900">{eur(p.total)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+              </div>
               <div className="border-t border-zinc-100 pt-4">
                 <h4 className="font-heading font-semibold text-zinc-900 mb-2 text-sm">Órdenes de trabajo</h4>
                 {ficha.loading ? <p className="text-sm text-zinc-400">Cargando...</p>
@@ -296,6 +366,8 @@ export default function Vehiculos() {
               <div className="border-t border-zinc-100 pt-4">
                 <FotosGaleria tipo="vehiculos" id={ficha.vehiculo.id} fotos={ficha.vehiculo.fotos || []} onChange={refreshFicha} titulo="Documentos y fotos (peritaciones, contratos…)" />
               </div>
+              </>
+              )}
             </>
           )}
         </DialogContent>
