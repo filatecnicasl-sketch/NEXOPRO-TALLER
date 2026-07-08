@@ -198,7 +198,7 @@ export default function Ajustes() {
     const sc = seriesCompra.filter((s) => (s.nombre || "").trim());
     setSaving(true);
     try {
-      const d = await updateAjustes({ empresa, series_venta: sv, series_compra: sc, notificaciones: notif });
+      const d = await updateAjustes({ empresa, series_venta: sv, series_compra: sc, notificaciones: notif, app_url: window.location.origin });
       setEmpresa(d.empresa || {});
       setSeriesVenta(d.series_venta || []);
       setSeriesCompra(d.series_compra || []);

@@ -139,10 +139,17 @@ export const deleteCita = (id) => client.delete(`/taller/citas/${id}`).then((r) 
 export const enviarRecordatorioCita = (id, canal) => {
   const fd = new FormData();
   if (canal) fd.append("canal", canal);
+  fd.append("base_url", window.location.origin);
   return client.post(`/taller/citas/${id}/recordatorio`, fd).then((r) => r.data);
 };
 export const probarNotificacion = (canal, destino) =>
   client.post("/notificaciones/test", { canal, destino }).then((r) => r.data);
+export const getCitaPublica = (token) => client.get(`/public/cita/${token}`).then((r) => r.data);
+export const responderCita = (token, accion) => {
+  const fd = new FormData();
+  fd.append("accion", accion);
+  return client.post(`/public/cita/${token}/responder`, fd).then((r) => r.data);
+};
 
 // Taller — Préstamos de cortesía
 export const getPrestamos = (estado) => client.get("/taller/prestamos", { params: { estado } }).then((r) => r.data);

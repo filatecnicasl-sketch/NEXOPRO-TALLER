@@ -693,9 +693,10 @@ DEFAULT_NOTIF = {
         "canal": "email",  # email | whatsapp | ambos
         "email_asunto": "Recordatorio de su cita en {empresa}",
         "email_cuerpo": ("Hola {cliente},\n\nLe recordamos su cita en {empresa} el {fecha} a las {hora}.\n"
-                         "Vehículo: {matricula}\nMotivo: {motivo}\n\nUn saludo."),
+                         "Vehículo: {matricula}\nMotivo: {motivo}\n\n"
+                         "Puede confirmar o cancelar su cita aquí: {enlace}\n\nUn saludo."),
         "whatsapp_texto": ("Hola {cliente}, le recordamos su cita en {empresa} el {fecha} a las {hora}. "
-                           "Vehículo: {matricula}. {motivo}"),
+                           "Vehículo: {matricula}. {motivo}\nConfirmar o cancelar: {enlace}"),
     },
 }
 NOTIF_SECRETOS = [("email", "api_key"), ("whatsapp", "auth_token")]
@@ -751,6 +752,7 @@ class AjustesInput(BaseModel):
     series_venta: List[dict] = []
     series_compra: List[dict] = []
     notificaciones: Optional[dict] = None
+    app_url: Optional[str] = None
 
 
 def _norm_series(series: list, tipos: list) -> list:
@@ -798,6 +800,8 @@ async def guardar_ajustes(data: AjustesInput):
         sc = [{"id": new_id(), "nombre": "C", "por_defecto": True,
                "contadores": {"pedidos": 1, "albaranes": 1}}]
     set_doc = {"empresa": empresa, "series_venta": sv, "series_compra": sc, "updated_at": now_iso()}
+    if data.app_url:
+        set_doc["app_url"] = data.app_url.rstrip("/")
     if data.notificaciones is not None:
         prev_notif = _merge_notif(prev)
         notif = {}
@@ -2118,6 +2122,7 @@ class CitaInput(BaseModel):
 
 class Cita(CitaInput):
     id: str = Field(default_factory=new_id)
+    token: str = Field(default_factory=lambda: secrets.token_urlsafe(9))
     created_at: str = Field(default_factory=now_iso)
 
 
@@ -2259,6 +2264,12 @@ async def _enviar_recordatorio_cita(cita: dict, canal: Optional[str] = None, mar
     tel_dest = _fmt_tel_e164((cli or {}).get("telefono") or "")
 
     f, h = _fecha_hora_cita(cita.get("fecha", ""))
+    token = cita.get("token")
+    if not token:
+        token = secrets.token_urlsafe(9)
+        await db.citas.update_one({"id": cita["id"]}, {"$set": {"token": token}})
+    app_url = cfg.get("app_url") or ""
+    enlace = f"{app_url}/cita/{token}" if app_url else ""
     ctx = {
         "cliente": cita.get("cliente_nombre") or (cli or {}).get("nombre") or "cliente",
         "empresa": empresa.get("nombre") or "nuestro taller",
@@ -2266,6 +2277,7 @@ async def _enviar_recordatorio_cita(cita: dict, canal: Optional[str] = None, mar
         "matricula": cita.get("vehiculo_matricula") or "—",
         "motivo": cita.get("motivo") or "",
         "telefono": empresa.get("telefono") or "",
+        "enlace": enlace,
     }
 
     canal = canal or rec.get("canal") or "email"
@@ -2281,7 +2293,10 @@ async def _enviar_recordatorio_cita(cita: dict, canal: Optional[str] = None, mar
         else:
             try:
                 asunto = _rellena_plantilla(rec.get("email_asunto"), ctx)
-                cuerpo = _rellena_plantilla(rec.get("email_cuerpo"), ctx)
+                cuerpo_tpl = rec.get("email_cuerpo") or ""
+                cuerpo = _rellena_plantilla(cuerpo_tpl, ctx)
+                if enlace and "{enlace}" not in cuerpo_tpl:
+                    cuerpo += f"\n\nConfirmar o cancelar su cita: {enlace}"
                 r = await _enviar_email(email_cfg, email_dest, asunto, cuerpo)
                 resultados["email"] = {"ok": True, "id": (r or {}).get("id"), "destino": email_dest}
                 enviado = True
@@ -2295,7 +2310,10 @@ async def _enviar_recordatorio_cita(cita: dict, canal: Optional[str] = None, mar
             resultados["whatsapp"] = {"ok": False, "error": "El cliente no tiene teléfono"}
         else:
             try:
-                texto = _rellena_plantilla(rec.get("whatsapp_texto"), ctx)
+                texto_tpl = rec.get("whatsapp_texto") or ""
+                texto = _rellena_plantilla(texto_tpl, ctx)
+                if enlace and "{enlace}" not in texto_tpl:
+                    texto += f"\nConfirmar o cancelar: {enlace}"
                 sid = await _enviar_whatsapp(wa_cfg, tel_dest, texto)
                 resultados["whatsapp"] = {"ok": True, "sid": sid, "destino": tel_dest}
                 enviado = True
@@ -2313,12 +2331,47 @@ async def _enviar_recordatorio_cita(cita: dict, canal: Optional[str] = None, mar
 
 
 @api_router.post("/taller/citas/{cid}/recordatorio")
-async def enviar_recordatorio(cid: str, canal: Optional[str] = Form(None)):
+async def enviar_recordatorio(cid: str, canal: Optional[str] = Form(None), base_url: Optional[str] = Form(None)):
     cita = await db.citas.find_one({"id": cid}, {"_id": 0})
     if not cita:
         raise HTTPException(404, "Cita no encontrada")
+    if base_url:
+        await db.ajustes.update_one({"_id": "config"}, {"$set": {"app_url": base_url.rstrip("/")}}, upsert=True)
     res = await _enviar_recordatorio_cita(cita, canal=canal)
     return res
+
+
+# --- Confirmación pública de citas (enlace del recordatorio, sin login) ---
+@api_router.get("/public/cita/{token}")
+async def cita_publica(token: str):
+    cita = await db.citas.find_one({"token": token}, {"_id": 0})
+    if not cita:
+        raise HTTPException(404, "Cita no encontrada")
+    cfg = await _get_ajustes()
+    f, h = _fecha_hora_cita(cita.get("fecha", ""))
+    return {
+        "fecha": f, "hora": h,
+        "vehiculo_matricula": cita.get("vehiculo_matricula") or "",
+        "cliente_nombre": cita.get("cliente_nombre") or "",
+        "motivo": cita.get("motivo") or "",
+        "estado": cita.get("estado") or "pendiente",
+        "empresa_nombre": (cfg.get("empresa", {}) or {}).get("nombre") or "el taller",
+        "empresa_telefono": (cfg.get("empresa", {}) or {}).get("telefono") or "",
+    }
+
+
+@api_router.post("/public/cita/{token}/responder")
+async def responder_cita(token: str, accion: str = Form(...)):
+    if accion not in ("confirmar", "cancelar"):
+        raise HTTPException(400, "Acción inválida")
+    nuevo = "confirmada" if accion == "confirmar" else "cancelada"
+    res = await db.citas.update_one(
+        {"token": token},
+        {"$set": {"estado": nuevo, "respuesta_cliente_at": now_iso(), "respuesta_cliente": nuevo}},
+    )
+    if res.matched_count == 0:
+        raise HTTPException(404, "Cita no encontrada")
+    return {"ok": True, "estado": nuevo}
 
 
 class TestNotifInput(BaseModel):
