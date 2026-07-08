@@ -126,6 +126,28 @@ export const subirFotoToken = (token, file) => {
   return client.post(`/taller/subida/${token}`, fd, { headers: { "Content-Type": "multipart/form-data" } }).then((r) => r.data);
 };
 
+// Taller — Citas
+export const getCitas = (params) => client.get("/taller/citas", { params }).then((r) => r.data);
+export const createCita = (data) => client.post("/taller/citas", data).then((r) => r.data);
+export const updateCita = (id, data) => client.put(`/taller/citas/${id}`, data).then((r) => r.data);
+export const estadoCita = (id, estado) => {
+  const fd = new FormData();
+  fd.append("estado", estado);
+  return client.patch(`/taller/citas/${id}/estado`, fd).then((r) => r.data);
+};
+export const deleteCita = (id) => client.delete(`/taller/citas/${id}`).then((r) => r.data);
+
+// Taller — Préstamos de cortesía
+export const getPrestamos = (estado) => client.get("/taller/prestamos", { params: { estado } }).then((r) => r.data);
+export const createPrestamo = (data) => client.post("/taller/prestamos", data).then((r) => r.data);
+export const updatePrestamo = (id, data) => client.put(`/taller/prestamos/${id}`, data).then((r) => r.data);
+export const deletePrestamo = (id) => client.delete(`/taller/prestamos/${id}`).then((r) => r.data);
+export const subirContrato = (id, file) => {
+  const fd = new FormData();
+  fd.append("file", file);
+  return client.post(`/taller/prestamos/${id}/contrato`, fd, { headers: { "Content-Type": "multipart/form-data" } }).then((r) => r.data);
+};
+
 // Dashboard
 export const getResumen = () => client.get("/dashboard/resumen").then((r) => r.data);
 

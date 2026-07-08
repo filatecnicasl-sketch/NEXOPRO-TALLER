@@ -10,10 +10,11 @@ import Documentos from "@/pages/Documentos";
 import FacturasEmitidas from "@/pages/FacturasEmitidas";
 import FacturasRecibidas from "@/pages/FacturasRecibidas";
 import Ajustes from "@/pages/Ajustes";
-import TallerPlaceholder from "@/pages/TallerPlaceholder";
 import Vehiculos from "@/pages/Vehiculos";
 import OrdenesTrabajo from "@/pages/OrdenesTrabajo";
 import Peritajes from "@/pages/Peritajes";
+import Citas from "@/pages/Citas";
+import Cortesia from "@/pages/Cortesia";
 import SubirFotos from "@/pages/SubirFotos";
 import AdminLogin from "@/pages/AdminLogin";
 import AdminPanel from "@/pages/AdminPanel";
@@ -55,7 +56,8 @@ function App() {
             <Route path="/taller/vehiculos" element={<Vehiculos />} />
             <Route path="/taller/ordenes" element={<OrdenesTrabajo />} />
             <Route path="/taller/peritajes" element={<Peritajes />} />
-            <Route path="/taller/citas" element={<TallerPlaceholder title="Citas" subtitle="Agenda de citas por vehículo" />} />
+            <Route path="/taller/citas" element={<Citas />} />
+            <Route path="/taller/cortesia" element={<Cortesia />} />
           </Route>
         </Routes>
       </BrowserRouter>

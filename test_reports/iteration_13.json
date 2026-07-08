@@ -1,0 +1,31 @@
+{
+  "summary": "Testing TALLER Fase 3 (Citas + Préstamos de cortesía). Backend: 17/17 pytest verdes (CRUD citas con herencia de cliente desde vehículo, filtros vehiculo_id/desde/hasta, orden asc por fecha, PATCH estado válido/invalido; CRUD préstamos, filtro estado, subida contrato PDF+imagen, validación tipo inválido→400, préstamo inexistente→404). Frontend: flujo E2E completo verificado en /taller/citas y /taller/cortesia con altas rápidas anidadas (vehículo→cliente), cambio de estado desde la fila, edición y borrado. Ribbon Taller muestra los 5 iconos incluido nav-taller-cortesia. Select vehículo en Cortesía filtra correctamente a tipo=cortesia (solo 1 opción cortesia + placeholder). Diálogo permanece abierto tras crear préstamo permitiendo subir contrato; enlace 'Ver' aparece en la tabla.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Dialogs (Citas/Cortesía y altas rápidas)", "issues": ["Radix warning: Missing Description or aria-describedby en DialogContent (a11y menor, no bloquea)"]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter13_taller_fase3.py",
+    "/app/test_reports/pytest/iter13.xml"
+  ],
+  "action_items": [
+    "(Opcional a11y) Añadir <DialogDescription> o aria-describedby en los DialogContent de Citas.jsx y Cortesia.jsx para eliminar warnings de Radix"
+  ],
+  "critical_code_review_comments": [
+    "server.py DELETE /taller/citas y /taller/prestamos no devuelven 404 cuando el id no existe (silencioso). Consistencia con PUT (que sí devuelve 404) sería recomendable.",
+    "actualizar_prestamo/crear_prestamo duplican lógica de resolver vehiculo_matricula/cliente_nombre — se podría extraer un helper _rellena_prestamo análogo a _rellena_cita.",
+    "PrestamoInput.km_devolucion admite Optional[int] pero el frontend envía null cuando vacío — OK. Sin embargo no hay validación de que km_devolucion >= km_entrega ni de que fecha_devolucion_real >= fecha_entrega.",
+    "El filtro por tipo=cortesia se hace SOLO en el frontend (useMemo); si en el futuro se accede vía API, un query param en /taller/vehiculos?tipo=cortesia evitaría cargar todos los vehículos."
+  ],
+  "updated_files": ["/app/backend/tests/test_iter13_taller_fase3.py"],
+  "success_rate": {"backend": "100% (17/17)", "frontend": "100% (flujos E2E OK)"},
+  "test_credentials": "Licencia REACT_APP_LICENSE_KEY=NEXO-DEMO-0001 (sin login usuario).",
+  "seed_data_creation": "Los tests crean datos con prefijo TEST_F3_ y los borran en test_99_cleanup. Los datos UI (UITEST-01, COR-UI-1, TEST_UI_Cliente) también fueron eliminados vía API tras la prueba. BD limpia.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Fase 3 verificada al 100%. Fases 1-2 en iter11/12. Endpoints usan /api/taller/* y /api/contactos. Vehículos vive en /api/taller/vehiculos (NO /api/vehiculos)."
+}

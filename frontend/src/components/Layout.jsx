@@ -47,6 +47,7 @@ const MODULES = [
       { to: "/taller/ordenes", label: "Órdenes de trabajo", icon: Wrench, testid: "nav-taller-ordenes" },
       { to: "/taller/peritajes", label: "Peritajes", icon: MagnifyingGlass, testid: "nav-taller-peritajes" },
       { to: "/taller/citas", label: "Citas", icon: CalendarCheck, testid: "nav-taller-citas" },
+      { to: "/taller/cortesia", label: "Cortesía", icon: Car, testid: "nav-taller-cortesia" },
     ],
   },
   {

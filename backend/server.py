@@ -1930,6 +1930,182 @@ async def eliminar_peritaje(pid: str):
     return {"ok": True}
 
 
+# ---------------------------------------------------------------------------
+# TALLER — FASE 3: Citas + Vehículos de cortesía (préstamos)
+# ---------------------------------------------------------------------------
+ESTADOS_CITA = ['pendiente', 'confirmada', 'realizada', 'cancelada']
+
+
+class CitaInput(BaseModel):
+    vehiculo_id: str = ""
+    vehiculo_matricula: str = ""
+    cliente_id: str = ""
+    cliente_nombre: str = ""
+    fecha: str = ""          # ISO datetime-local (YYYY-MM-DDTHH:MM)
+    duracion_min: int = 60
+    motivo: str = ""
+    tipo_trabajo: str = ""   # chapa / pintura / mecanica / revision
+    estado: Literal['pendiente', 'confirmada', 'realizada', 'cancelada'] = 'pendiente'
+    notas: str = ""
+
+
+class Cita(CitaInput):
+    id: str = Field(default_factory=new_id)
+    created_at: str = Field(default_factory=now_iso)
+
+
+async def _rellena_cita(d: dict) -> dict:
+    if d.get("vehiculo_id"):
+        v = await db.vehiculos.find_one({"id": d["vehiculo_id"]}, {"_id": 0})
+        if v:
+            d["vehiculo_matricula"] = v.get("matricula", "")
+            if not d.get("cliente_id"):
+                d["cliente_id"] = v.get("cliente_id", "")
+                d["cliente_nombre"] = v.get("cliente_nombre", "")
+    if d.get("cliente_id") and not d.get("cliente_nombre"):
+        cli = await db.contactos.find_one({"id": d["cliente_id"]}, {"_id": 0})
+        if cli:
+            d["cliente_nombre"] = cli.get("nombre", "")
+    return d
+
+
+@api_router.post("/taller/citas")
+async def crear_cita(data: CitaInput):
+    d = await _rellena_cita(data.model_dump())
+    c = Cita(**d)
+    await db.citas.insert_one(c.model_dump())
+    return c.model_dump()
+
+
+@api_router.get("/taller/citas")
+async def listar_citas(vehiculo_id: Optional[str] = None, desde: Optional[str] = None, hasta: Optional[str] = None):
+    q = {}
+    if vehiculo_id:
+        q["vehiculo_id"] = vehiculo_id
+    if desde or hasta:
+        rng = {}
+        if desde:
+            rng["$gte"] = desde
+        if hasta:
+            rng["$lte"] = hasta
+        q["fecha"] = rng
+    return await db.citas.find(q, {"_id": 0}).sort("fecha", 1).to_list(3000)
+
+
+@api_router.put("/taller/citas/{cid}")
+async def actualizar_cita(cid: str, data: CitaInput):
+    d = await _rellena_cita(data.model_dump())
+    res = await db.citas.update_one({"id": cid}, {"$set": d})
+    if res.matched_count == 0:
+        raise HTTPException(404, "Cita no encontrada")
+    return await db.citas.find_one({"id": cid}, {"_id": 0})
+
+
+@api_router.patch("/taller/citas/{cid}/estado")
+async def estado_cita(cid: str, estado: str = Form(...)):
+    if estado not in ESTADOS_CITA:
+        raise HTTPException(400, "Estado inválido")
+    res = await db.citas.update_one({"id": cid}, {"$set": {"estado": estado}})
+    if res.matched_count == 0:
+        raise HTTPException(404, "Cita no encontrada")
+    return await db.citas.find_one({"id": cid}, {"_id": 0})
+
+
+@api_router.delete("/taller/citas/{cid}")
+async def eliminar_cita(cid: str):
+    await db.citas.delete_one({"id": cid})
+    return {"ok": True}
+
+
+# ---- Vehículos de cortesía: préstamos ----
+class PrestamoInput(BaseModel):
+    vehiculo_id: str = ""            # vehículo de cortesía (tipo=cortesia)
+    vehiculo_matricula: str = ""
+    cliente_id: str = ""
+    cliente_nombre: str = ""
+    vehiculo_cliente_id: str = ""    # vehículo del cliente que está en reparación (opcional)
+    fecha_entrega: str = ""
+    fecha_devolucion_prevista: str = ""
+    fecha_devolucion_real: str = ""
+    km_entrega: Optional[int] = None
+    km_devolucion: Optional[int] = None
+    estado: Literal['activo', 'devuelto'] = 'activo'
+    notas: str = ""
+
+
+class Prestamo(PrestamoInput):
+    id: str = Field(default_factory=new_id)
+    contrato_path: str = ""
+    contrato_filename: str = ""
+    created_at: str = Field(default_factory=now_iso)
+
+
+@api_router.post("/taller/prestamos")
+async def crear_prestamo(data: PrestamoInput):
+    d = data.model_dump()
+    if d.get("vehiculo_id"):
+        v = await db.vehiculos.find_one({"id": d["vehiculo_id"]}, {"_id": 0})
+        if v:
+            d["vehiculo_matricula"] = v.get("matricula", "")
+    if d.get("cliente_id") and not d.get("cliente_nombre"):
+        cli = await db.contactos.find_one({"id": d["cliente_id"]}, {"_id": 0})
+        if cli:
+            d["cliente_nombre"] = cli.get("nombre", "")
+    p = Prestamo(**d)
+    await db.prestamos.insert_one(p.model_dump())
+    return p.model_dump()
+
+
+@api_router.get("/taller/prestamos")
+async def listar_prestamos(estado: Optional[str] = None):
+    q = {}
+    if estado:
+        q["estado"] = estado
+    return await db.prestamos.find(q, {"_id": 0}).sort("created_at", -1).to_list(2000)
+
+
+@api_router.put("/taller/prestamos/{pid}")
+async def actualizar_prestamo(pid: str, data: PrestamoInput):
+    existing = await db.prestamos.find_one({"id": pid}, {"_id": 0})
+    if not existing:
+        raise HTTPException(404, "Préstamo no encontrado")
+    d = data.model_dump()
+    if d.get("vehiculo_id"):
+        v = await db.vehiculos.find_one({"id": d["vehiculo_id"]}, {"_id": 0})
+        if v:
+            d["vehiculo_matricula"] = v.get("matricula", "")
+    if d.get("cliente_id") and not d.get("cliente_nombre"):
+        cli = await db.contactos.find_one({"id": d["cliente_id"]}, {"_id": 0})
+        if cli:
+            d["cliente_nombre"] = cli.get("nombre", "")
+    await db.prestamos.update_one({"id": pid}, {"$set": d})
+    return await db.prestamos.find_one({"id": pid}, {"_id": 0})
+
+
+@api_router.post("/taller/prestamos/{pid}/contrato")
+async def subir_contrato(pid: str, file: UploadFile = File(...)):
+    contenido = await file.read()
+    ct = file.content_type or ""
+    if not (ct.startswith("image/") or ct == "application/pdf"):
+        raise HTTPException(400, "El contrato debe ser una imagen o PDF")
+    if len(contenido) > 15 * 1024 * 1024:
+        raise HTTPException(400, "El archivo no debe superar 15 MB")
+    media = await _guardar_media(contenido, file.filename, ct)
+    res = await db.prestamos.update_one({"id": pid}, {"$set": {
+        "contrato_path": media["path"], "contrato_filename": media["filename"]}})
+    if res.matched_count == 0:
+        raise HTTPException(404, "Préstamo no encontrado")
+    return {"contrato_path": media["path"], "contrato_filename": media["filename"]}
+
+
+@api_router.delete("/taller/prestamos/{pid}")
+async def eliminar_prestamo(pid: str):
+    await db.prestamos.delete_one({"id": pid})
+    return {"ok": True}
+
+
+
+
 
 
 
