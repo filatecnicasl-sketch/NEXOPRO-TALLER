@@ -5,6 +5,26 @@ const esc = (v) => String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").
 const money = (n) => new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR" }).format(Number(n || 0));
 const ACCENT = "#4338ca";
 
+const PRINT_UI = `<style>@media print{.__bar{display:none!important}}</style>
+<div class="__bar" style="position:sticky;top:0;left:0;right:0;background:#4338ca;color:#fff;padding:12px 18px;display:flex;gap:14px;align-items:center;font-family:Arial,sans-serif;font-size:14px;z-index:99999;box-shadow:0 2px 8px rgba(0,0,0,.2)">
+  <button onclick="__print()" style="background:#fff;color:#4338ca;border:0;border-radius:9px;padding:10px 22px;font-weight:800;font-size:15px;cursor:pointer">🖨 IMPRIMIR</button>
+  <span style="opacity:.95">Si no se abre solo, pulsa <b>IMPRIMIR</b>. En el diálogo elige orientación <b>Horizontal</b>.</span>
+  <button onclick="window.close()" style="margin-left:auto;background:transparent;color:#fff;border:1px solid rgba(255,255,255,.5);border-radius:9px;padding:8px 16px;cursor:pointer">Cerrar</button>
+</div>`;
+
+const PRINT_SCRIPT = `<script>
+function __print(){try{window.focus();window.print();}catch(e){}}
+window.addEventListener('load',function(){
+  var imgs=[].slice.call(document.images);
+  var pending=imgs.filter(function(i){return !i.complete}).length;
+  function go(){setTimeout(__print,350);}
+  if(pending===0){go();return;}
+  imgs.forEach(function(i){i.addEventListener('load',dec);i.addEventListener('error',dec);});
+  function dec(){pending--;if(pending<=0)go();}
+  setTimeout(go,2500);
+});
+</script>`;
+
 function empresaHeader(empresa = {}) {
   const logo = empresa.logo
     ? `<img src="${esc(empresa.logo)}" alt="logo" style="max-height:60px;max-width:190px;object-fit:contain" />`
@@ -33,30 +53,18 @@ function shell(title, body) {
 }
 
 function open(html) {
-  const iframe = document.createElement("iframe");
-  iframe.setAttribute("aria-hidden", "true");
-  iframe.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0;";
-  let printed = false;
-  const doPrint = () => {
-    if (printed) return;
-    printed = true;
-    try {
-      window.__printTriggered = (window.__printTriggered || 0) + 1;
-      const w = iframe.contentWindow;
-      w.focus();
-      w.print();
-    } catch (e) {
-      const win = window.open("", "_blank");
-      if (win) { win.document.open(); win.document.write(html); win.document.close(); }
-      else alert("Permite las ventanas emergentes para imprimir.");
-    }
-    setTimeout(() => { try { iframe.remove(); } catch (e) {} }, 60000);
-  };
-  iframe.onload = () => setTimeout(doPrint, 250);
-  document.body.appendChild(iframe);
-  iframe.srcdoc = html;
-  // Seguridad: si onload no dispara (algún navegador), imprime igualmente
-  setTimeout(doPrint, 1500);
+  const doc = html
+    .replace("<body>", "<body>" + PRINT_UI)
+    .replace("</body>", PRINT_SCRIPT + "</body>");
+  const w = window.open("", "_blank");
+  if (!w) {
+    alert("Tu navegador ha bloqueado la ventana de impresión. Permite las ventanas emergentes de este sitio (icono en la barra de direcciones) y vuelve a pulsar Imprimir.");
+    return;
+  }
+  w.document.open();
+  w.document.write(doc);
+  w.document.close();
+  w.focus();
 }
 
 function cabecera(empresa, titulo, ref, fecha) {
