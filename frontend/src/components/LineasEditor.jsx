@@ -6,7 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { eur } from "@/lib/api";
 
 const IVA_OPCIONES = [21, 10, 4, 0];
-const GRID = { display: "grid", gridTemplateColumns: "2.4fr 6fr 1.8fr 1.6fr 2.6fr 1.6fr 1.6fr 2.4fr 1.2fr", gap: "0.5rem" };
+const GRID = { display: "grid", gridTemplateColumns: "1.9fr 3.4fr 1.1fr 1fr 1.6fr 1.1fr 1.4fr 1.8fr 0.8fr", gap: "0.5rem" };
 
 export function calcTotales(lineas) {
   let base = 0;
@@ -22,8 +22,8 @@ export function calcTotales(lineas) {
 const inputCls = "h-9 text-sm rounded-md border-zinc-200 focus-visible:ring-indigo-600";
 
 const articuloToLinea = (a) => ({
-  codigo_proveedor: a.codigo_proveedor || "",
-  descripcion: a.referencia ? `${a.referencia} · ${a.nombre}` : a.nombre,
+  codigo_proveedor: a.codigo_proveedor || a.referencia || "",
+  descripcion: a.nombre || "",
   cantidad: 1, unidad: a.unidad || "ud", precio_unitario: a.precio || 0, descuento: 0, tipo_iva: a.tipo_iva ?? 21,
 });
 

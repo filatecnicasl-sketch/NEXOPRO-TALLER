@@ -35,6 +35,18 @@ Autónomos y pymes españolas que gestionan compras/ventas y facturación con ob
   Admin: admin@nexopro.com / Admin1234!. Licencia demo: NEXO-DEMO-0001 (frontend/.env REACT_APP_LICENSE_KEY).
 
 ## Estado / Bloqueos
+- TALLER/UI — RECEPCIÓN RÁPIDA + BUSCADOR LÍNEAS + MENÚ COLOR (2026-07-08):
+  · Recepción rápida (RecepcionRapida.jsx): botón en cabecera de Órdenes. Flujo 2 pasos pensado para
+    tablet junto al coche: paso 1 (matrícula + marca/modelo + cliente existente o alta rápida + tipos +
+    motivo) crea/reutiliza vehículo por matrícula y crea la orden; paso 2 muestra fotos (Cámara/Subir/QR)
+    + firma en pantalla + "Imprimir hoja de entrada". Verificado E2E (crea OT, reutiliza 7765HGJ).
+  · FotosGaleria: añadido botón "Cámara" (input capture=environment) para foto directa en tablet/móvil.
+  · LineasEditor: al elegir artículo el CÓDIGO va en la columna izquierda (codigo_proveedor||referencia)
+    y la descripción solo el nombre (antes "ref · nombre"). Columnas del grid reequilibradas (descripción
+    ya no ocupa 6fr). Verificado por captura.
+  · Layout.jsx: iconos del menú (ribbon) grandes (chip 56px, icono 32, duotone) y con COLOR propio por
+    ítem (violet/emerald/blue/amber/cyan/teal/rose/indigo/slate vía mapa TONES con clases literales).
+    Iconos de módulos (fila 1) también coloreados. Aprobado por el usuario.
 - TALLER — RECEPCIÓN DIGITAL (firma en pantalla + fotos del estado) (2026-07-08):
   · Sección "Recepción digital" en el diálogo de Órdenes de trabajo (solo al editar una orden guardada):
     FotosGaleria tipo="ordenes" (subida directa + QR móvil, reutiliza infra existente) + SignaturePad.jsx

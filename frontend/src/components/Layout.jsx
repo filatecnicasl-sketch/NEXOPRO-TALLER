@@ -6,57 +6,60 @@ import {
 
 const LOGO = "https://customer-assets.emergentagent.com/job_invoice-hub-861/artifacts/7wiurgv7_favicom.png";
 
+const TONES = {
+  indigo:  { chip: "bg-indigo-100 text-indigo-600",   solid: "bg-indigo-600 text-white",  txt: "text-indigo-600",  ring: "ring-indigo-200" },
+  violet:  { chip: "bg-violet-100 text-violet-600",   solid: "bg-violet-600 text-white",  txt: "text-violet-600",  ring: "ring-violet-200" },
+  emerald: { chip: "bg-emerald-100 text-emerald-600", solid: "bg-emerald-600 text-white", txt: "text-emerald-600", ring: "ring-emerald-200" },
+  blue:    { chip: "bg-blue-100 text-blue-600",       solid: "bg-blue-600 text-white",    txt: "text-blue-600",    ring: "ring-blue-200" },
+  amber:   { chip: "bg-amber-100 text-amber-600",     solid: "bg-amber-500 text-white",   txt: "text-amber-600",   ring: "ring-amber-200" },
+  orange:  { chip: "bg-orange-100 text-orange-600",   solid: "bg-orange-500 text-white",  txt: "text-orange-600",  ring: "ring-orange-200" },
+  cyan:    { chip: "bg-cyan-100 text-cyan-600",       solid: "bg-cyan-600 text-white",    txt: "text-cyan-600",    ring: "ring-cyan-200" },
+  teal:    { chip: "bg-teal-100 text-teal-600",       solid: "bg-teal-600 text-white",    txt: "text-teal-600",    ring: "ring-teal-200" },
+  rose:    { chip: "bg-rose-100 text-rose-600",       solid: "bg-rose-600 text-white",    txt: "text-rose-600",    ring: "ring-rose-200" },
+  slate:   { chip: "bg-slate-200 text-slate-600",     solid: "bg-slate-600 text-white",   txt: "text-slate-600",   ring: "ring-slate-200" },
+};
+
 const MODULES = [
   {
-    id: "articulos",
-    label: "Artículos",
-    icon: Package,
+    id: "articulos", label: "Artículos", icon: Package, tone: "violet",
     items: [
-      { to: "/articulos", label: "Artículos", icon: Package, testid: "nav-articulos" },
+      { to: "/articulos", label: "Artículos", icon: Package, tone: "violet", testid: "nav-articulos" },
     ],
   },
   {
-    id: "ventas",
-    label: "Ventas",
-    icon: Receipt,
+    id: "ventas", label: "Ventas", icon: Receipt, tone: "emerald",
     items: [
-      { to: "/clientes", label: "Clientes", icon: UsersThree, testid: "nav-clientes" },
-      { to: "/ventas/presupuestos", label: "Presupuestos", icon: FileDashed, testid: "nav-presupuestos" },
-      { to: "/ventas/pedidos", label: "Pedidos", icon: ClipboardText, testid: "nav-pedidos-venta" },
-      { to: "/ventas/albaranes", label: "Albaranes", icon: FileText, testid: "nav-albaranes-venta" },
-      { to: "/facturas-emitidas", label: "Facturas", icon: Receipt, testid: "nav-facturas-emitidas" },
+      { to: "/clientes", label: "Clientes", icon: UsersThree, tone: "emerald", testid: "nav-clientes" },
+      { to: "/ventas/presupuestos", label: "Presupuestos", icon: FileDashed, tone: "cyan", testid: "nav-presupuestos" },
+      { to: "/ventas/pedidos", label: "Pedidos", icon: ClipboardText, tone: "blue", testid: "nav-pedidos-venta" },
+      { to: "/ventas/albaranes", label: "Albaranes", icon: FileText, tone: "teal", testid: "nav-albaranes-venta" },
+      { to: "/facturas-emitidas", label: "Facturas", icon: Receipt, tone: "indigo", testid: "nav-facturas-emitidas" },
     ],
   },
   {
-    id: "compras",
-    label: "Compras",
-    icon: Truck,
+    id: "compras", label: "Compras", icon: Truck, tone: "amber",
     items: [
-      { to: "/proveedores", label: "Proveedores", icon: Truck, testid: "nav-proveedores" },
-      { to: "/compras/pedidos", label: "Pedidos", icon: ClipboardText, testid: "nav-pedidos-compra" },
-      { to: "/compras/albaranes", label: "Albaranes", icon: FileText, testid: "nav-albaranes-compra" },
-      { to: "/facturas-recibidas", label: "Facturas", icon: FileArrowDown, testid: "nav-facturas-recibidas" },
+      { to: "/proveedores", label: "Proveedores", icon: Truck, tone: "amber", testid: "nav-proveedores" },
+      { to: "/compras/pedidos", label: "Pedidos", icon: ClipboardText, tone: "blue", testid: "nav-pedidos-compra" },
+      { to: "/compras/albaranes", label: "Albaranes", icon: FileText, tone: "teal", testid: "nav-albaranes-compra" },
+      { to: "/facturas-recibidas", label: "Facturas", icon: FileArrowDown, tone: "orange", testid: "nav-facturas-recibidas" },
     ],
   },
   {
-    id: "taller",
-    label: "Taller",
-    icon: Wrench,
+    id: "taller", label: "Taller", icon: Wrench, tone: "blue",
     items: [
-      { to: "/taller", label: "Panel", icon: Gauge, testid: "nav-taller-panel", end: true },
-      { to: "/taller/vehiculos", label: "Vehículos", icon: Car, testid: "nav-taller-vehiculos" },
-      { to: "/taller/ordenes", label: "Órdenes de trabajo", icon: Wrench, testid: "nav-taller-ordenes" },
-      { to: "/taller/peritajes", label: "Peritajes", icon: MagnifyingGlass, testid: "nav-taller-peritajes" },
-      { to: "/taller/citas", label: "Citas", icon: CalendarCheck, testid: "nav-taller-citas" },
-      { to: "/taller/cortesia", label: "Cortesía", icon: Car, testid: "nav-taller-cortesia" },
+      { to: "/taller", label: "Panel", icon: Gauge, tone: "indigo", testid: "nav-taller-panel", end: true },
+      { to: "/taller/vehiculos", label: "Vehículos", icon: Car, tone: "blue", testid: "nav-taller-vehiculos" },
+      { to: "/taller/ordenes", label: "Órdenes de trabajo", icon: Wrench, tone: "violet", testid: "nav-taller-ordenes" },
+      { to: "/taller/peritajes", label: "Peritajes", icon: MagnifyingGlass, tone: "amber", testid: "nav-taller-peritajes" },
+      { to: "/taller/citas", label: "Citas", icon: CalendarCheck, tone: "emerald", testid: "nav-taller-citas" },
+      { to: "/taller/cortesia", label: "Cortesía", icon: Car, tone: "rose", testid: "nav-taller-cortesia" },
     ],
   },
   {
-    id: "ajustes",
-    label: "Ajustes",
-    icon: Gear,
+    id: "ajustes", label: "Ajustes", icon: Gear, tone: "slate",
     items: [
-      { to: "/ajustes", label: "Ajustes", icon: Gear, testid: "nav-ajustes" },
+      { to: "/ajustes", label: "Ajustes", icon: Gear, tone: "slate", testid: "nav-ajustes" },
     ],
   },
 ];
@@ -87,18 +90,19 @@ export default function Layout() {
             {MODULES.map((m) => {
               const Icon = m.icon;
               const isActive = activeModule?.id === m.id;
+              const tone = TONES[m.tone] || TONES.indigo;
               return (
                 <button
                   key={m.id}
                   data-testid={`module-tab-${m.id}`}
                   onClick={() => navigate(m.items[0].to)}
-                  className={`inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-colors duration-150 ${
+                  className={`inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-sm font-semibold whitespace-nowrap transition-colors duration-150 ${
                     isActive
                       ? "bg-primary text-white shadow-sm"
                       : "text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900"
                   }`}
                 >
-                  <Icon size={17} weight={isActive ? "fill" : "regular"} />
+                  <Icon size={19} weight={isActive ? "fill" : "duotone"} className={isActive ? "" : tone.txt} />
                   {m.label}
                 </button>
               );
@@ -113,9 +117,10 @@ export default function Layout() {
 
         {/* Fila 2: ribbon de iconos del módulo activo */}
         <div className="bg-zinc-50 border-t border-zinc-100 px-3">
-          <div className="flex items-stretch gap-1 py-1.5 overflow-x-auto" data-testid={`ribbon-${ribbonModule.id}`}>
+          <div className="flex items-stretch gap-1.5 py-2 overflow-x-auto" data-testid={`ribbon-${ribbonModule.id}`}>
             {ribbonModule.items.map((item) => {
               const Icon = item.icon;
+              const tone = TONES[item.tone] || TONES.indigo;
               return (
                 <NavLink
                   key={item.to}
@@ -123,17 +128,17 @@ export default function Layout() {
                   end={item.end}
                   data-testid={item.testid}
                   className={({ isActive }) =>
-                    `group flex flex-col items-center justify-center gap-1 min-w-[80px] px-3 py-1.5 rounded-md transition-colors duration-150 ${
-                      isActive
-                        ? "bg-white text-primary shadow-sm ring-1 ring-indigo-100"
-                        : "text-zinc-600 hover:bg-white/70 hover:text-zinc-900"
+                    `group flex flex-col items-center justify-center gap-1.5 min-w-[104px] px-3 py-1.5 rounded-xl transition-all duration-150 ${
+                      isActive ? `bg-white shadow-sm ring-1 ${tone.ring}` : "hover:bg-white/70"
                     }`
                   }
                 >
                   {({ isActive }) => (
                     <>
-                      <Icon size={22} weight={isActive ? "fill" : "regular"} className={isActive ? "text-primary" : "text-zinc-400 group-hover:text-zinc-600"} />
-                      <span className="text-[11px] font-medium leading-tight text-center">{item.label}</span>
+                      <span className={`h-14 w-14 rounded-2xl flex items-center justify-center transition-colors duration-150 ${isActive ? `${tone.solid} shadow` : `${tone.chip} group-hover:brightness-95`}`}>
+                        <Icon size={32} weight="duotone" />
+                      </span>
+                      <span className={`text-xs font-semibold leading-tight text-center ${isActive ? tone.txt : "text-zinc-600"}`}>{item.label}</span>
                     </>
                   )}
                 </NavLink>
@@ -143,7 +148,7 @@ export default function Layout() {
         </div>
       </header>
 
-      <main className="pt-[7.25rem] min-h-screen">
+      <main className="pt-[10.75rem] min-h-screen">
         <Outlet />
       </main>
     </div>

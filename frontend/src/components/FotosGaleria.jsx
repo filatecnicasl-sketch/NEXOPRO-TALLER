@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import { QRCodeCanvas } from "qrcode.react";
-import { UploadSimple, QrCode, Trash, FilePdf, DeviceMobile, ArrowClockwise } from "@phosphor-icons/react";
+import { UploadSimple, QrCode, Trash, FilePdf, DeviceMobile, ArrowClockwise, Camera } from "@phosphor-icons/react";
 import { toast } from "sonner";
 import { mediaUrl, subirFoto, borrarFoto, crearFotoSesion } from "@/lib/api";
 import { Button } from "@/components/ui/button";
@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 
 export default function FotosGaleria({ tipo, id, fotos = [], onChange, titulo = "Fotos y adjuntos" }) {
   const fileRef = useRef(null);
+  const camRef = useRef(null);
   const [uploading, setUploading] = useState(false);
   const [qrOpen, setQrOpen] = useState(false);
   const [token, setToken] = useState(null);
@@ -42,6 +43,10 @@ export default function FotosGaleria({ tipo, id, fotos = [], onChange, titulo = 
         <h4 className="font-heading font-semibold text-zinc-900 text-sm">{titulo} <span className="text-zinc-400 font-normal">({fotos.length})</span></h4>
         <div className="flex items-center gap-2">
           <input ref={fileRef} type="file" accept="image/*,application/pdf" multiple className="hidden" data-testid="foto-input" onChange={(e) => upload(Array.from(e.target.files))} />
+          <input ref={camRef} type="file" accept="image/*" capture="environment" className="hidden" data-testid="foto-camara-input" onChange={(e) => upload(Array.from(e.target.files))} />
+          <Button variant="outline" size="sm" className="rounded-md" data-testid="camara-foto-button" disabled={uploading} onClick={() => camRef.current?.click()}>
+            <Camera size={15} className="mr-1.5" /> Cámara
+          </Button>
           <Button variant="outline" size="sm" className="rounded-md" data-testid="subir-foto-button" disabled={uploading} onClick={() => fileRef.current?.click()}>
             <UploadSimple size={15} className="mr-1.5" /> {uploading ? "Subiendo..." : "Subir"}
           </Button>

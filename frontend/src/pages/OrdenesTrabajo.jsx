@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Plus, PencilSimple, Trash, MagnifyingGlass, Wrench, Printer, ClipboardText } from "@phosphor-icons/react";
+import { Plus, PencilSimple, Trash, MagnifyingGlass, Wrench, Printer, ClipboardText, Lightning } from "@phosphor-icons/react";
 import { toast } from "sonner";
 import {
   getOrdenes, createOrden, updateOrden, deleteOrden, estadoOrden,
@@ -11,6 +11,7 @@ import PageHeader from "@/components/PageHeader";
 import LineasEditor from "@/components/LineasEditor";
 import FotosGaleria from "@/components/FotosGaleria";
 import SignaturePad from "@/components/SignaturePad";
+import RecepcionRapida from "@/components/RecepcionRapida";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -48,6 +49,7 @@ export default function OrdenesTrabajo() {
   const [cliOpen, setCliOpen] = useState(false);
   const [cliForm, setCliForm] = useState({ nombre: "", nif: "", telefono: "", email: "" });
   const [firmando, setFirmando] = useState(false);
+  const [recepOpen, setRecepOpen] = useState(false);
 
   const load = () => {
     setLoading(true);
@@ -145,6 +147,9 @@ export default function OrdenesTrabajo() {
   return (
     <div className="p-8 max-w-[1400px]" data-testid="ordenes-page">
       <PageHeader title="Órdenes de trabajo" subtitle="Chapa, pintura y mecánica" chip={`${items.length} ${items.length === 1 ? "orden" : "órdenes"}`}>
+        <Button data-testid="recepcion-rapida-button" onClick={() => setRecepOpen(true)} variant="outline" className="rounded-md border-amber-300 text-amber-700 hover:bg-amber-50">
+          <Lightning size={16} weight="fill" className="mr-1.5 text-amber-500" /> Recepción rápida
+        </Button>
         <Button data-testid="nueva-orden-button" onClick={openNew} className="rounded-md bg-primary hover:bg-indigo-700">
           <Plus size={16} className="mr-1.5" /> Nueva orden
         </Button>
@@ -374,6 +379,15 @@ export default function OrdenesTrabajo() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <RecepcionRapida
+        open={recepOpen}
+        onOpenChange={setRecepOpen}
+        vehiculos={vehiculos}
+        clientes={clientes}
+        empresa={empresa}
+        onCreated={() => { load(); getVehiculos().then(setVehiculos); getContactos("cliente").then(setClientes); }}
+      />
     </div>
   );
 }
