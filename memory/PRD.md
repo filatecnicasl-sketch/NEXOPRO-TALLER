@@ -35,6 +35,16 @@ Autónomos y pymes españolas que gestionan compras/ventas y facturación con ob
   Admin: admin@nexopro.com / Admin1234!. Licencia demo: NEXO-DEMO-0001 (frontend/.env REACT_APP_LICENSE_KEY).
 
 ## Estado / Bloqueos
+- MÓDULO TALLER — FASE 4 + INFORMES (2026-07-08):
+  · Imputación de costes: pedidos/albaranes de COMPRA y facturas recibidas admiten vehiculo_id +
+    vehiculo_matricula (DocumentoInput, FacturaRecibidaInput). Ficha de vehículo agrega compras[]
+    y coste_compras (suma con IVA). Selector "Vehículo (imputar coste)" en formularios de compra
+    (Documentos.jsx doc-vehiculo, FacturasRecibidas.jsx fr-vehiculo) — NO aparece en venta.
+  · Informes imprimibles: lib/taller_print.js con imprimirParteOrden (parte de trabajo por orden,
+    con fotos y firmas) e imprimirInformePeritaje (informe con daños valorados + reportaje
+    fotográfico). Botones en filas de Órdenes y Peritajes.
+  · Verificado testing_agent iteration_14 (backend 7/7, frontend 100%). MÓDULO TALLER COMPLETO (F1-F4).
+  · Deuda técnica: server.py ~2.190 líneas → conviene split por dominio (documentos/taller/facturas).
 - MÓDULO TALLER — FASE 3 (Citas + Vehículos de cortesía) (2026-07-08):
   · Backend: colecciones `citas` y `prestamos`. Endpoints /api/taller/citas (+ PATCH estado,
     filtros) y /api/taller/prestamos (+ POST /{id}/contrato img/PDF). Herencia matrícula/cliente.
