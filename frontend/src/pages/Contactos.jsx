@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
-import { Plus, PencilSimple, Trash, MagnifyingGlass, UsersThree, Printer } from "@phosphor-icons/react";
+import { Plus, PencilSimple, Trash, MagnifyingGlass, UsersThree, Printer, UploadSimple, DownloadSimple, CheckCircle } from "@phosphor-icons/react";
 import { toast } from "sonner";
-import { getContactos, createContacto, updateContacto, deleteContacto, getAjustes } from "@/lib/api";
+import { getContactos, createContacto, updateContacto, deleteContacto, getAjustes, importarContactos, plantillaContactosUrl } from "@/lib/api";
 import { imprimirListado } from "@/lib/print";
 import PageHeader from "@/components/PageHeader";
 import Initials from "@/components/Initials";
@@ -32,6 +32,23 @@ export default function Contactos({ tipo }) {
   const [editId, setEditId] = useState(null);
   const [delId, setDelId] = useState(null);
   const [empresa, setEmpresa] = useState({});
+  const [impOpen, setImpOpen] = useState(false);
+  const [impFile, setImpFile] = useState(null);
+  const [impResult, setImpResult] = useState(null);
+  const [importando, setImportando] = useState(false);
+
+  const importar = async () => {
+    if (!impFile) return toast.error("Selecciona un archivo Excel (.xlsx)");
+    setImportando(true); setImpResult(null);
+    try {
+      const r = await importarContactos(tipo, impFile);
+      setImpResult(r);
+      toast.success(`${r.creados} ${plural.toLowerCase()} importados`);
+      load();
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || "Error al importar el archivo");
+    } finally { setImportando(false); }
+  };
 
   const load = () => {
     setLoading(true);
@@ -80,6 +97,9 @@ export default function Contactos({ tipo }) {
       <PageHeader title={plural} subtitle={`Gestiona tu cartera de ${plural.toLowerCase()}`} chip={`${items.length} ${items.length === 1 ? "registro" : "registros"}`}>
         <Button data-testid="imprimir-listado-button" variant="outline" onClick={printList} className="rounded-md">
           <Printer size={16} className="mr-1.5" /> Imprimir
+        </Button>
+        <Button data-testid="importar-excel-button" variant="outline" onClick={() => { setImpOpen(true); setImpResult(null); setImpFile(null); }} className="rounded-md">
+          <UploadSimple size={16} className="mr-1.5" /> Importar Excel
         </Button>
         <Button data-testid="nuevo-contacto-button" onClick={openNew} className="rounded-md bg-primary hover:bg-indigo-700">
           <Plus size={16} className="mr-1.5" /> Nuevo {label.toLowerCase()}
@@ -258,6 +278,46 @@ export default function Contactos({ tipo }) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Importación Excel */}
+      <Dialog open={impOpen} onOpenChange={setImpOpen}>
+        <DialogContent className="sm:max-w-lg rounded-sm" data-testid="importar-dialog">
+          <DialogHeader>
+            <DialogTitle className="font-heading">Importar {plural.toLowerCase()} desde Excel</DialogTitle>
+          </DialogHeader>
+          <div className="py-2 space-y-4">
+            <div className="bg-indigo-50/60 border border-indigo-100 rounded-lg p-3 text-sm text-zinc-600">
+              Sube un archivo <b>.xlsx</b> con una fila de cabeceras. Se reconocen: <b>Nombre</b> (obligatorio), NIF/CIF, Email, Teléfono, Dirección, Ciudad, Código Postal, País, IBAN y Notas.
+              <a href={plantillaContactosUrl()} data-testid="descargar-plantilla" className="mt-2 inline-flex items-center gap-1.5 text-primary font-medium hover:underline">
+                <DownloadSimple size={15} /> Descargar plantilla
+              </a>
+            </div>
+            <div>
+              <Label className="text-xs">Archivo Excel (.xlsx)</Label>
+              <Input data-testid="importar-file-input" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                onChange={(e) => { setImpFile(e.target.files[0]); setImpResult(null); }} className="rounded-sm mt-1" />
+            </div>
+            {impResult && (
+              <div className="border border-emerald-100 bg-emerald-50/60 rounded-lg p-3 text-sm" data-testid="importar-resultado">
+                <div className="flex items-center gap-2 text-emerald-700 font-medium"><CheckCircle size={17} weight="fill" /> {impResult.creados} importados{impResult.omitidos ? ` · ${impResult.omitidos} omitidos (sin nombre)` : ""}</div>
+                {impResult.total_errores > 0 && (
+                  <ul className="mt-2 text-xs text-red-600 list-disc pl-5 max-h-32 overflow-y-auto">
+                    {impResult.errores.map((e, i) => <li key={i}>{e}</li>)}
+                    {impResult.total_errores > impResult.errores.length && <li>… y {impResult.total_errores - impResult.errores.length} más</li>}
+                  </ul>
+                )}
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setImpOpen(false)} className="rounded-sm">Cerrar</Button>
+            <Button data-testid="confirmar-importar-button" onClick={importar} disabled={importando} className="rounded-sm bg-primary">
+              {importando ? "Importando…" : "Importar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
 
       <AlertDialog open={!!delId} onOpenChange={(o) => !o && setDelId(null)}>
         <AlertDialogContent className="rounded-sm">

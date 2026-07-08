@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
-import { Plus, PencilSimple, Trash, CalendarBlank, Clock, Car } from "@phosphor-icons/react";
+import { useNavigate } from "react-router-dom";
+import { Plus, PencilSimple, Trash, CalendarBlank, Clock, Car, CaretLeft, CaretRight } from "@phosphor-icons/react";
 import { toast } from "sonner";
 import {
   getCitas, createCita, updateCita, estadoCita, deleteCita,
-  getVehiculos, getContactos, createVehiculo, createContacto,
+  getVehiculos, getContactos, createVehiculo, createContacto, getPeritajes, getPrestamos,
 } from "@/lib/api";
 import PageHeader from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
@@ -24,6 +25,7 @@ const ESTADOS = [
   { value: "cancelada", label: "Cancelada", cls: "bg-red-50 text-red-700 ring-red-200" },
 ];
 const TIPOS = ["", "Chapa", "Pintura", "Mecánica", "Revisión", "Peritaje", "Recepción", "Entrega"];
+const DIAS = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
 const selectCls = "h-10 w-full text-sm rounded-md border border-input bg-white px-3 mt-1";
 
 const fmtDay = (iso) => {
@@ -34,7 +36,10 @@ const fmtDay = (iso) => {
 const fmtHora = (iso) => (iso && iso.includes("T") ? iso.split("T")[1].slice(0, 5) : "—");
 
 export default function Citas() {
+  const navigate = useNavigate();
   const [items, setItems] = useState([]);
+  const [peritajes, setPeritajes] = useState([]);
+  const [prestamos, setPrestamos] = useState([]);
   const [vehiculos, setVehiculos] = useState([]);
   const [clientes, setClientes] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -46,10 +51,38 @@ export default function Citas() {
   const [vehForm, setVehForm] = useState({ matricula: "", marca: "", modelo: "", cliente_id: "", tipo: "cliente" });
   const [cliOpen, setCliOpen] = useState(false);
   const [cliForm, setCliForm] = useState({ nombre: "", nif: "", telefono: "", email: "" });
+  const [vista, setVista] = useState("agenda");
+  const [mes, setMes] = useState(() => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1); });
+
+  const isoDay = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  const citasPorDia = useMemo(() => {
+    const m = {};
+    items.forEach((c) => { if (c.fecha) { const k = c.fecha.split("T")[0]; (m[k] = m[k] || []).push(c); } });
+    Object.values(m).forEach((a) => a.sort((x, y) => (x.fecha || "").localeCompare(y.fecha || "")));
+    return m;
+  }, [items]);
+  const celdas = useMemo(() => {
+    const y = mes.getFullYear(), mo = mes.getMonth();
+    let start = new Date(y, mo, 1).getDay(); start = start === 0 ? 6 : start - 1;
+    const sd = new Date(y, mo, 1 - start);
+    return Array.from({ length: 42 }, (_, i) => { const d = new Date(sd); d.setDate(sd.getDate() + i); return d; });
+  }, [mes]);
+  const openNewFecha = (d) => { setForm({ ...EMPTY, fecha: isoDay(d) + "T09:00" }); setEditId(null); setOpen(true); };
+  const [semana, setSemana] = useState(() => new Date());
+  const diasSemana = useMemo(() => {
+    const d = new Date(semana); let wd = d.getDay(); wd = wd === 0 ? 6 : wd - 1;
+    const mon = new Date(d); mon.setDate(d.getDate() - wd); mon.setHours(0, 0, 0, 0);
+    return Array.from({ length: 7 }, (_, i) => { const x = new Date(mon); x.setDate(mon.getDate() + i); return x; });
+  }, [semana]);
 
   const load = () => { setLoading(true); getCitas().then((d) => { setItems(d); setLoading(false); }); };
   useEffect(load, []);
-  useEffect(() => { getVehiculos().then(setVehiculos); getContactos("cliente").then(setClientes); }, []);
+  useEffect(() => {
+    getVehiculos().then(setVehiculos);
+    getContactos("cliente").then(setClientes);
+    getPeritajes().then((ps) => setPeritajes(ps.filter((p) => ["pendiente", "valorado"].includes(p.estado)))).catch(() => {});
+    getPrestamos("activo").then(setPrestamos).catch(() => {});
+  }, []);
 
   const openNew = () => { setForm(EMPTY); setEditId(null); setOpen(true); };
   const openEdit = (c) => { setForm({ ...EMPTY, ...c }); setEditId(c.id); setOpen(true); };
@@ -100,13 +133,133 @@ export default function Citas() {
     return Object.entries(g).sort((a, b) => a[0].localeCompare(b[0]));
   }, [items]);
 
+  const eventosPorDia = useMemo(() => {
+    const m = {};
+    const push = (k, ev) => { if (k) (m[k] = m[k] || []).push(ev); };
+    items.forEach((c) => {
+      if (!c.fecha) return;
+      const e = ESTADOS.find((x) => x.value === c.estado) || ESTADOS[0];
+      push(c.fecha.split("T")[0], { key: "c" + c.id, hora: fmtHora(c.fecha), texto: c.vehiculo_matricula || c.motivo || "Cita", cls: e.cls, kind: "cita", ref: c });
+    });
+    peritajes.forEach((p) => {
+      if (!p.fecha) return;
+      push(p.fecha.split("T")[0], { key: "p" + p.id, hora: "", texto: `Peritaje ${p.vehiculo_matricula || ""}`.trim(), cls: "bg-amber-50 text-amber-700 ring-amber-200", kind: "peritaje", ref: p });
+    });
+    prestamos.forEach((pr) => {
+      const k = (pr.fecha_devolucion_prevista || pr.fecha_entrega || "").split("T")[0];
+      push(k, { key: "pr" + pr.id, hora: "", texto: `Cortesía ${pr.vehiculo_matricula || ""}`.trim(), cls: "bg-emerald-50 text-emerald-700 ring-emerald-200", kind: "cortesia", ref: pr });
+    });
+    Object.values(m).forEach((a) => a.sort((x, y) => (x.hora || "").localeCompare(y.hora || "")));
+    return m;
+  }, [items, peritajes, prestamos]);
+
+  const clickEvento = (e, ev) => {
+    e.stopPropagation();
+    if (ev.kind === "cita") openEdit(ev.ref);
+    else if (ev.kind === "peritaje") navigate("/taller/peritajes");
+    else navigate("/taller/cortesia");
+  };
+
+  const Leyenda = () => (
+    <div className="flex flex-wrap items-center gap-4 px-4 py-2 border-t border-zinc-100 text-[11px] text-zinc-500">
+      <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-blue-400" /> Citas</span>
+      <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-amber-400" /> Peritajes pendientes</span>
+      <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-emerald-400" /> Devolución cortesía</span>
+    </div>
+  );
+
+  const renderMes = () => {
+    const hoy = isoDay(new Date());
+    const mesActual = mes.getMonth();
+    return (
+      <div className="bg-white border border-zinc-200 rounded-lg shadow-sm overflow-hidden" data-testid="citas-mes">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-100">
+          <h3 className="font-heading font-semibold text-zinc-900 capitalize">{mes.toLocaleDateString("es-ES", { month: "long", year: "numeric" })}</h3>
+          <div className="flex items-center gap-1">
+            <button data-testid="mes-hoy" onClick={() => { const d = new Date(); setMes(new Date(d.getFullYear(), d.getMonth(), 1)); }} className="text-xs px-2.5 py-1 rounded-md border border-zinc-200 hover:bg-zinc-50">Hoy</button>
+            <button data-testid="mes-prev" onClick={() => setMes(new Date(mes.getFullYear(), mes.getMonth() - 1, 1))} className="p-1.5 rounded-md hover:bg-zinc-100"><CaretLeft size={16} /></button>
+            <button data-testid="mes-next" onClick={() => setMes(new Date(mes.getFullYear(), mes.getMonth() + 1, 1))} className="p-1.5 rounded-md hover:bg-zinc-100"><CaretRight size={16} /></button>
+          </div>
+        </div>
+        <div className="grid grid-cols-7 text-[11px] uppercase tracking-wider text-zinc-400 font-semibold border-b border-zinc-100">
+          {DIAS.map((d) => <div key={d} className="px-2 py-2 text-center">{d}</div>)}
+        </div>
+        <div className="grid grid-cols-7">
+          {celdas.map((d, i) => {
+            const k = isoDay(d); const evs = eventosPorDia[k] || []; const otro = d.getMonth() !== mesActual;
+            return (
+              <div key={i} onClick={() => openNewFecha(d)} data-testid={`mes-dia-${k}`} className={`min-h-[96px] border-b border-r border-zinc-100 p-1.5 cursor-pointer hover:bg-indigo-50/40 transition-colors ${otro ? "bg-zinc-50/60" : ""}`}>
+                <div className={`text-xs font-medium mb-1 w-5 h-5 flex items-center justify-center ${k === hoy ? "rounded-full bg-primary text-white" : otro ? "text-zinc-300" : "text-zinc-500"}`}>{d.getDate()}</div>
+                <div className="space-y-0.5">
+                  {evs.slice(0, 3).map((ev) => (
+                    <button key={ev.key} data-testid={`mes-ev-${ev.key}`} onClick={(e) => clickEvento(e, ev)} className={`w-full text-left truncate rounded px-1 py-0.5 text-[10px] font-medium ring-1 ring-inset ${ev.cls}`}>
+                      {ev.hora ? ev.hora + " " : ""}{ev.texto}
+                    </button>
+                  ))}
+                  {evs.length > 3 && <div className="text-[10px] text-zinc-400 px-1">+{evs.length - 3} más</div>}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        <Leyenda />
+      </div>
+    );
+  };
+
+  const renderSemana = () => {
+    const hoy = isoDay(new Date());
+    const ini = diasSemana[0], fin = diasSemana[6];
+    return (
+      <div className="bg-white border border-zinc-200 rounded-lg shadow-sm overflow-hidden" data-testid="citas-semana">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-100">
+          <h3 className="font-heading font-semibold text-zinc-900 capitalize">{ini.toLocaleDateString("es-ES", { day: "numeric", month: "short" })} – {fin.toLocaleDateString("es-ES", { day: "numeric", month: "short", year: "numeric" })}</h3>
+          <div className="flex items-center gap-1">
+            <button data-testid="sem-hoy" onClick={() => setSemana(new Date())} className="text-xs px-2.5 py-1 rounded-md border border-zinc-200 hover:bg-zinc-50">Hoy</button>
+            <button data-testid="sem-prev" onClick={() => { const d = new Date(semana); d.setDate(d.getDate() - 7); setSemana(d); }} className="p-1.5 rounded-md hover:bg-zinc-100"><CaretLeft size={16} /></button>
+            <button data-testid="sem-next" onClick={() => { const d = new Date(semana); d.setDate(d.getDate() + 7); setSemana(d); }} className="p-1.5 rounded-md hover:bg-zinc-100"><CaretRight size={16} /></button>
+          </div>
+        </div>
+        <div className="grid grid-cols-7 min-h-[440px]">
+          {diasSemana.map((d, i) => {
+            const k = isoDay(d); const evs = eventosPorDia[k] || [];
+            return (
+              <div key={i} onClick={() => openNewFecha(d)} data-testid={`sem-dia-${k}`} className="border-r last:border-r-0 border-zinc-100 p-2 cursor-pointer hover:bg-indigo-50/40 transition-colors">
+                <div className="text-center mb-2">
+                  <div className="text-[10px] uppercase tracking-wider text-zinc-400">{DIAS[i]}</div>
+                  <div className={`text-sm font-semibold mx-auto w-7 h-7 flex items-center justify-center ${k === hoy ? "rounded-full bg-primary text-white" : "text-zinc-700"}`}>{d.getDate()}</div>
+                </div>
+                <div className="space-y-1">
+                  {evs.map((ev) => (
+                    <button key={ev.key} data-testid={`sem-ev-${ev.key}`} onClick={(e) => clickEvento(e, ev)} className={`w-full text-left rounded px-1.5 py-1 text-[11px] ring-1 ring-inset ${ev.cls}`}>
+                      {ev.hora && <div className="font-mono-plex text-[10px] opacity-80">{ev.hora}</div>}
+                      <div className="truncate font-medium">{ev.texto}</div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        <Leyenda />
+      </div>
+    );
+  };
+
   return (
     <div className="p-8 max-w-[1100px]" data-testid="citas-page">
       <PageHeader title="Citas" subtitle="Agenda de citas vinculadas a los vehículos" chip={`${items.length} ${items.length === 1 ? "cita" : "citas"}`}>
+        <div className="inline-flex rounded-md border border-zinc-200 bg-white p-0.5 mr-1">
+          {[["agenda", "Agenda"], ["semana", "Semana"], ["mes", "Mes"]].map(([v, l]) => (
+            <button key={v} data-testid={`vista-${v}`} onClick={() => setVista(v)} className={`px-3 py-1.5 text-sm rounded-[5px] transition-colors ${vista === v ? "bg-primary text-white" : "text-zinc-600 hover:bg-zinc-100"}`}>{l}</button>
+          ))}
+        </div>
         <Button data-testid="nueva-cita-button" onClick={openNew} className="rounded-md bg-primary hover:bg-indigo-700"><Plus size={16} className="mr-1.5" /> Nueva cita</Button>
       </PageHeader>
 
-      {loading ? <p className="text-zinc-400">Cargando...</p>
+      {vista === "mes" ? renderMes()
+        : vista === "semana" ? renderSemana()
+        : loading ? <p className="text-zinc-400">Cargando...</p>
         : items.length === 0 ? (
           <div className="bg-white border border-dashed border-zinc-300 rounded-lg py-16 text-center">
             <div className="mx-auto h-14 w-14 rounded-full bg-zinc-100 flex items-center justify-center mb-3"><CalendarBlank size={26} className="text-zinc-400" /></div>

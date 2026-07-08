@@ -35,6 +35,15 @@ Autónomos y pymes españolas que gestionan compras/ventas y facturación con ob
   Admin: admin@nexopro.com / Admin1234!. Licencia demo: NEXO-DEMO-0001 (frontend/.env REACT_APP_LICENSE_KEY).
 
 ## Estado / Bloqueos
+- CITAS — AGENDA SEMANA/MES + IMPORTACIÓN CLIENTES EXCEL (2026-07-08):
+  · Citas.jsx: vistas Agenda (lista) / Semana / Mes con navegación (Hoy, ‹ ›). El calendario
+    fusiona citas (color por estado), PERITAJES pendientes (ámbar) y DEVOLUCIONES de cortesía
+    (verde). Clic en día vacío = nueva cita; clic en cita = editar; peritaje/cortesía = a su sección.
+    Reutiliza getPeritajes/getPrestamos; sin cambios de backend.
+  · Importación de clientes por Excel: POST /api/contactos/importar (openpyxl, cabeceras flexibles)
+    y GET /api/contactos/plantilla-excel (plantilla .xlsx). Botón "Importar Excel" + plantilla en
+    Contactos.jsx. Dependencia nueva: openpyxl (en requirements.txt).
+  · Verificado por curl + screenshots. NOTA: datos reales del usuario presentes (vehículo 7765HGJ).
 - TALLER — HISTORIAL DE VEHÍCULO + PRESUPUESTOS VINCULADOS (2026-07-08):
   · Presupuestos de venta admiten vehiculo_id (selector "Vehículo" también en presupuestos;
     Documentos.jsx abre el formulario con el vehículo preseleccionado vía ?vehiculo=ID).

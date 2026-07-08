@@ -148,6 +148,15 @@ export const subirContrato = (id, file) => {
   return client.post(`/taller/prestamos/${id}/contrato`, fd, { headers: { "Content-Type": "multipart/form-data" } }).then((r) => r.data);
 };
 
+// Contactos — importación Excel
+export const importarContactos = (tipo, file) => {
+  const fd = new FormData();
+  fd.append("tipo", tipo);
+  fd.append("file", file);
+  return client.post("/contactos/importar", fd, { headers: { "Content-Type": "multipart/form-data" } }).then((r) => r.data);
+};
+export const plantillaContactosUrl = () => `${API}/contactos/plantilla-excel`;
+
 // Taller — Panel / resumen
 export const getTallerResumen = () => client.get("/taller/resumen").then((r) => r.data);
 

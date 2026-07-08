@@ -415,6 +415,94 @@ async def crear_contacto(data: ContactoInput):
     return contacto.model_dump()
 
 
+_IMPORT_COLMAP = {
+    "nombre": ["nombre", "razon social", "razón social", "razonsocial", "cliente", "empresa", "denominacion"],
+    "nif": ["nif", "cif", "dni", "nif/cif", "nifcif", "documento", "nif cif"],
+    "email": ["email", "correo", "correo electronico", "correo electrónico", "e-mail", "mail"],
+    "telefono": ["telefono", "teléfono", "tel", "movil", "móvil", "telefono1", "movil1"],
+    "direccion": ["direccion", "dirección", "domicilio", "direccion fiscal"],
+    "ciudad": ["ciudad", "poblacion", "población", "localidad"],
+    "codigo_postal": ["cp", "codigo postal", "código postal", "c.p.", "codigopostal", "cod postal"],
+    "pais": ["pais", "país"],
+    "iban": ["iban", "cuenta", "cuenta bancaria"],
+    "notas": ["notas", "observaciones", "obs", "comentarios"],
+}
+
+
+def _norm_header(s):
+    import unicodedata
+    return "".join(c for c in unicodedata.normalize("NFKD", str(s or "").strip().lower()) if not unicodedata.combining(c))
+
+
+@api_router.post("/contactos/importar")
+async def importar_contactos(tipo: str = Form("cliente"), file: UploadFile = File(...)):
+    import io
+    from openpyxl import load_workbook
+    if tipo not in ("cliente", "proveedor"):
+        tipo = "cliente"
+    contenido = await file.read()
+    try:
+        wb = load_workbook(io.BytesIO(contenido), read_only=True, data_only=True)
+    except Exception:
+        raise HTTPException(400, "El archivo no es un Excel (.xlsx) válido")
+    ws = wb.active
+    rows = ws.iter_rows(values_only=True)
+    try:
+        headers = next(rows)
+    except StopIteration:
+        wb.close()
+        raise HTTPException(400, "El archivo está vacío")
+    idx = {}
+    for i, h in enumerate(headers or []):
+        hn = _norm_header(h)
+        for field, syn in _IMPORT_COLMAP.items():
+            if hn == field or hn in syn:
+                idx[i] = field
+                break
+    if "nombre" not in idx.values():
+        wb.close()
+        raise HTTPException(400, "No se encontró la columna 'Nombre'. Descarga la plantilla y respeta las cabeceras.")
+    creados, omitidos, errores = 0, 0, []
+    fila = 1
+    for row in rows:
+        fila += 1
+        d = {"tipo": tipo, "pais": "España"}
+        for i, val in enumerate(row):
+            f = idx.get(i)
+            if f and val is not None and str(val).strip():
+                d[f] = str(val).strip()
+        if not d.get("nombre"):
+            omitidos += 1
+            continue
+        try:
+            await db.contactos.insert_one(Contacto(**d).model_dump())
+            creados += 1
+        except Exception as e:
+            errores.append(f"Fila {fila}: {str(e)[:80]}")
+    wb.close()
+    return {"creados": creados, "omitidos": omitidos, "errores": errores[:20], "total_errores": len(errores)}
+
+
+@api_router.get("/contactos/plantilla-excel")
+async def plantilla_contactos_excel():
+    import io
+    from openpyxl import Workbook
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Clientes"
+    ws.append(["Nombre", "NIF/CIF", "Email", "Teléfono", "Dirección", "Ciudad", "Código Postal", "País", "IBAN", "Notas"])
+    ws.append(["Cliente Ejemplo SL", "B12345678", "cliente@ejemplo.com", "600123456", "Calle Mayor 1", "Madrid", "28001", "España", "", ""])
+    for i, w in enumerate([28, 14, 24, 14, 26, 16, 12, 12, 24, 20], start=1):
+        ws.column_dimensions[chr(64 + i)].width = w
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    return Response(content=buf.read(),
+                    media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    headers={"Content-Disposition": 'attachment; filename="plantilla_clientes.xlsx"'})
+
+
+
 @api_router.get("/contactos")
 async def listar_contactos(tipo: Optional[str] = None):
     q = {}
