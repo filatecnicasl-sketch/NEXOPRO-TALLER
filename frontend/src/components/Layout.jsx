@@ -1,18 +1,17 @@
 import { NavLink, Outlet, Link, useLocation, useNavigate } from "react-router-dom";
 import {
   UsersThree, Truck, Package, ClipboardText, FileText, Receipt, FileArrowDown,
-  ShieldCheck, Gear, FileDashed, House, Wrench, Car, MagnifyingGlass, CalendarCheck,
+  ShieldCheck, Gear, FileDashed, Wrench, Car, MagnifyingGlass, CalendarCheck,
 } from "@phosphor-icons/react";
 
 const LOGO = "https://customer-assets.emergentagent.com/job_invoice-hub-861/artifacts/7wiurgv7_favicom.png";
 
 const MODULES = [
   {
-    id: "panel",
-    label: "Panel",
-    icon: House,
+    id: "articulos",
+    label: "Artículos",
+    icon: Package,
     items: [
-      { to: "/", label: "Panel", icon: House, testid: "nav-dashboard", end: true },
       { to: "/articulos", label: "Artículos", icon: Package, testid: "nav-articulos" },
     ],
   },
@@ -66,14 +65,15 @@ const matchItem = (pathname, item) =>
 export default function Layout() {
   const { pathname } = useLocation();
   const navigate = useNavigate();
-  const activeModule = MODULES.find((m) => m.items.some((it) => matchItem(pathname, it))) || MODULES[0];
+  const activeModule = MODULES.find((m) => m.items.some((it) => matchItem(pathname, it)));
+  const ribbonModule = activeModule || MODULES[0];
 
   return (
     <div className="min-h-screen bg-background">
       <header className="fixed top-0 inset-x-0 z-30 bg-white border-b border-zinc-200 shadow-sm" data-testid="topbar">
         {/* Fila 1: marca + módulos */}
         <div className="flex items-center h-14 px-4 gap-6">
-          <Link to="/" data-testid="logo-home" className="flex items-center gap-2.5 shrink-0">
+          <Link to="/" data-testid="logo-home" title="Ir al Panel" className="flex items-center gap-2.5 shrink-0">
             <img src={LOGO} alt="NexoPro" className="h-8 w-8 object-contain" />
             <div className="leading-none hidden sm:block">
               <div className="font-heading font-bold text-[16px] text-zinc-900">NexoPro</div>
@@ -84,7 +84,7 @@ export default function Layout() {
           <nav className="flex items-center gap-1 flex-1 overflow-x-auto" data-testid="module-tabs">
             {MODULES.map((m) => {
               const Icon = m.icon;
-              const isActive = activeModule.id === m.id;
+              const isActive = activeModule?.id === m.id;
               return (
                 <button
                   key={m.id}
@@ -111,8 +111,8 @@ export default function Layout() {
 
         {/* Fila 2: ribbon de iconos del módulo activo */}
         <div className="bg-zinc-50 border-t border-zinc-100 px-3">
-          <div className="flex items-stretch gap-1 py-1.5 overflow-x-auto" data-testid={`ribbon-${activeModule.id}`}>
-            {activeModule.items.map((item) => {
+          <div className="flex items-stretch gap-1 py-1.5 overflow-x-auto" data-testid={`ribbon-${ribbonModule.id}`}>
+            {ribbonModule.items.map((item) => {
               const Icon = item.icon;
               return (
                 <NavLink
