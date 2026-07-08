@@ -73,6 +73,25 @@ export const extraerPdf = (file) => {
 export const getAjustes = () => client.get("/ajustes").then((r) => r.data);
 export const updateAjustes = (data) => client.put("/ajustes", data).then((r) => r.data);
 
+// Taller — Vehículos
+export const getVehiculos = (q) => client.get("/taller/vehiculos", { params: { q } }).then((r) => r.data);
+export const getVehiculoFicha = (id) => client.get(`/taller/vehiculos/${id}/ficha`).then((r) => r.data);
+export const createVehiculo = (data) => client.post("/taller/vehiculos", data).then((r) => r.data);
+export const updateVehiculo = (id, data) => client.put(`/taller/vehiculos/${id}`, data).then((r) => r.data);
+export const deleteVehiculo = (id) => client.delete(`/taller/vehiculos/${id}`).then((r) => r.data);
+
+// Taller — Órdenes de trabajo
+export const getOrdenes = (vehiculo_id) => client.get("/taller/ordenes", { params: { vehiculo_id } }).then((r) => r.data);
+export const getOrden = (id) => client.get(`/taller/ordenes/${id}`).then((r) => r.data);
+export const createOrden = (data) => client.post("/taller/ordenes", data).then((r) => r.data);
+export const updateOrden = (id, data) => client.put(`/taller/ordenes/${id}`, data).then((r) => r.data);
+export const estadoOrden = (id, estado) => {
+  const fd = new FormData();
+  fd.append("estado", estado);
+  return client.patch(`/taller/ordenes/${id}/estado`, fd).then((r) => r.data);
+};
+export const deleteOrden = (id) => client.delete(`/taller/ordenes/${id}`).then((r) => r.data);
+
 // Dashboard
 export const getResumen = () => client.get("/dashboard/resumen").then((r) => r.data);
 

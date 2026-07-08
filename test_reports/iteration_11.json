@@ -1,0 +1,37 @@
+{
+  "summary": "Iteración 11 (módulo TALLER Fase 1): probados vehículos + órdenes de trabajo. Backend: 14/14 pytest OK. Frontend: flujos CRUD y navegación funcionan correctamente end-to-end.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {
+        "screen": "Órdenes de trabajo (dropdown estado en fila)",
+        "issues": ["Warning React: In HTML, <span> cannot be a child of <option> (hidratación). Probable EstadoOTBadge/span dentro de <option> en select nativo. Cambiar labels a texto plano dentro de <option> (el <span> con color se puede mostrar como celda separada, no dentro del select)."]
+      }
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter11_taller.py",
+    "/app/test_reports/pytest/iter11.xml"
+  ],
+  "action_items": [
+    "Opcional: quitar <span> dentro de <option> en el select de estado de la fila (OrdenesTrabajo.jsx) para eliminar el warning de hidratación de React."
+  ],
+  "critical_code_review_comments": [
+    "server.py: _rellena_orden hereda cliente desde vehículo correctamente y calcula totales vía calcular_lineas. OK.",
+    "PATCH /api/taller/ordenes/{id}/estado usa Form(...): requiere Content-Type application/x-www-form-urlencoded (verificado).",
+    "server.py ya supera 1750 líneas: considerar dividir en módulos (routers separados por dominio: taller, facturación, contactos, etc.).",
+    "Nada bloqueante para Fase 1."
+  ],
+  "updated_files": ["/app/backend/tests/test_iter11_taller.py"],
+  "success_rate": {"backend": "100% (14/14)", "frontend": "100% flujos críticos"},
+  "seed_data_creation": "Todos los datos TEST_ creados durante pruebas se eliminaron al finalizar (contactos, vehículos y órdenes). Base de datos limpia.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Módulo Taller Fase 1 completamente verificado (backend + UI): CRUD vehículos con matrícula UPPER, ficha con órdenes, CRUD órdenes con autonumeración OT-000001, cálculo de totales (135/28.35/163.35 a 21% IVA), cambio de estado por PATCH Form, herencia cliente desde vehículo. Navegación Layout: module-tab-taller, ribbon (nav-taller-*), logo-home a Panel. Endpoints: /api/taller/vehiculos, /api/taller/vehiculos/{id}/ficha, /api/taller/ordenes, /api/taller/ordenes/{id}/estado.",
+  "rca_of_the_issue": "N/A - No se detectaron bugs."
+}

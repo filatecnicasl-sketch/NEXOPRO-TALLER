@@ -1511,6 +1511,189 @@ async def dashboard_resumen():
         "ultimas_recibidas": ultimas_recibidas,
     }
 
+# ---------------------------------------------------------------------------
+# MÓDULO TALLER (chapa, pintura y mecánica) — Fase 1: Vehículos + Órdenes
+# ---------------------------------------------------------------------------
+class VehiculoInput(BaseModel):
+    matricula: str = ""
+    marca: str = ""
+    modelo: str = ""
+    bastidor: str = ""
+    color: str = ""
+    kilometros: Optional[int] = None
+    combustible: str = ""
+    anio: Optional[int] = None
+    cliente_id: str = ""
+    cliente_nombre: str = ""
+    tipo: Literal['cliente', 'cortesia'] = 'cliente'
+    notas: str = ""
+
+
+class Vehiculo(VehiculoInput):
+    id: str = Field(default_factory=new_id)
+    created_at: str = Field(default_factory=now_iso)
+
+
+async def _normaliza_vehiculo(d: dict) -> dict:
+    if d.get("matricula"):
+        d["matricula"] = d["matricula"].upper().strip()
+    if d.get("cliente_id"):
+        cli = await db.contactos.find_one({"id": d["cliente_id"]}, {"_id": 0})
+        if cli:
+            d["cliente_nombre"] = cli.get("nombre", "")
+    return d
+
+
+@api_router.post("/taller/vehiculos")
+async def crear_vehiculo(data: VehiculoInput):
+    d = await _normaliza_vehiculo(data.model_dump())
+    v = Vehiculo(**d)
+    await db.vehiculos.insert_one(v.model_dump())
+    return v.model_dump()
+
+
+@api_router.get("/taller/vehiculos")
+async def listar_vehiculos(q: Optional[str] = None):
+    docs = await db.vehiculos.find({}, {"_id": 0}).sort("created_at", -1).to_list(2000)
+    if q:
+        ql = q.lower()
+        docs = [d for d in docs if ql in " ".join([
+            d.get("matricula", ""), d.get("marca", ""), d.get("modelo", ""),
+            d.get("bastidor", ""), d.get("cliente_nombre", "")]).lower()]
+    return docs
+
+
+@api_router.get("/taller/vehiculos/{vid}")
+async def obtener_vehiculo(vid: str):
+    doc = await db.vehiculos.find_one({"id": vid}, {"_id": 0})
+    if not doc:
+        raise HTTPException(404, "Vehículo no encontrado")
+    return doc
+
+
+@api_router.get("/taller/vehiculos/{vid}/ficha")
+async def ficha_vehiculo(vid: str):
+    v = await db.vehiculos.find_one({"id": vid}, {"_id": 0})
+    if not v:
+        raise HTTPException(404, "Vehículo no encontrado")
+    ordenes = await db.ordenes_trabajo.find({"vehiculo_id": vid}, {"_id": 0}).sort("created_at", -1).to_list(500)
+    return {"vehiculo": v, "ordenes": ordenes}
+
+
+@api_router.put("/taller/vehiculos/{vid}")
+async def actualizar_vehiculo(vid: str, data: VehiculoInput):
+    d = await _normaliza_vehiculo(data.model_dump())
+    res = await db.vehiculos.update_one({"id": vid}, {"$set": d})
+    if res.matched_count == 0:
+        raise HTTPException(404, "Vehículo no encontrado")
+    return await db.vehiculos.find_one({"id": vid}, {"_id": 0})
+
+
+@api_router.delete("/taller/vehiculos/{vid}")
+async def eliminar_vehiculo(vid: str):
+    await db.vehiculos.delete_one({"id": vid})
+    return {"ok": True}
+
+
+# ---- Órdenes de trabajo ----
+ESTADOS_OT = ['recepcion', 'en_curso', 'finalizado', 'entregado']
+
+
+class OrdenTrabajoInput(BaseModel):
+    vehiculo_id: str = ""
+    vehiculo_matricula: str = ""
+    cliente_id: str = ""
+    cliente_nombre: str = ""
+    tipos_trabajo: List[str] = []   # chapa / pintura / mecanica
+    descripcion: str = ""
+    estado: Literal['recepcion', 'en_curso', 'finalizado', 'entregado'] = 'recepcion'
+    fecha_entrada: str = ""
+    fecha_entrega_estimada: str = ""
+    lineas: List[LineaItem] = []
+    notas: str = ""
+
+
+class OrdenTrabajo(OrdenTrabajoInput):
+    id: str = Field(default_factory=new_id)
+    numero: str = ""
+    base: float = 0
+    cuota_iva: float = 0
+    total: float = 0
+    created_at: str = Field(default_factory=now_iso)
+
+
+async def _rellena_orden(d: dict) -> dict:
+    if d.get("vehiculo_id"):
+        v = await db.vehiculos.find_one({"id": d["vehiculo_id"]}, {"_id": 0})
+        if v:
+            d["vehiculo_matricula"] = v.get("matricula", "")
+            if not d.get("cliente_id"):
+                d["cliente_id"] = v.get("cliente_id", "")
+                d["cliente_nombre"] = v.get("cliente_nombre", "")
+    if d.get("cliente_id") and not d.get("cliente_nombre"):
+        cli = await db.contactos.find_one({"id": d["cliente_id"]}, {"_id": 0})
+        if cli:
+            d["cliente_nombre"] = cli.get("nombre", "")
+    lineas, base, iva, total = calcular_lineas(d.get("lineas", []))
+    d["lineas"] = lineas
+    d["base"], d["cuota_iva"], d["total"] = base, iva, total
+    return d
+
+
+@api_router.post("/taller/ordenes")
+async def crear_orden(data: OrdenTrabajoInput):
+    d = await _rellena_orden(data.model_dump())
+    n = await _next_seq("orden_trabajo")
+    d["numero"] = f"OT-{n:06d}"
+    o = OrdenTrabajo(**d)
+    await db.ordenes_trabajo.insert_one(o.model_dump())
+    return o.model_dump()
+
+
+@api_router.get("/taller/ordenes")
+async def listar_ordenes(vehiculo_id: Optional[str] = None):
+    q = {}
+    if vehiculo_id:
+        q["vehiculo_id"] = vehiculo_id
+    return await db.ordenes_trabajo.find(q, {"_id": 0}).sort("created_at", -1).to_list(2000)
+
+
+@api_router.get("/taller/ordenes/{oid}")
+async def obtener_orden(oid: str):
+    doc = await db.ordenes_trabajo.find_one({"id": oid}, {"_id": 0})
+    if not doc:
+        raise HTTPException(404, "Orden no encontrada")
+    return doc
+
+
+@api_router.put("/taller/ordenes/{oid}")
+async def actualizar_orden(oid: str, data: OrdenTrabajoInput):
+    existing = await db.ordenes_trabajo.find_one({"id": oid}, {"_id": 0})
+    if not existing:
+        raise HTTPException(404, "Orden no encontrada")
+    d = await _rellena_orden(data.model_dump())
+    d["numero"] = existing.get("numero", "")
+    await db.ordenes_trabajo.update_one({"id": oid}, {"$set": d})
+    return await db.ordenes_trabajo.find_one({"id": oid}, {"_id": 0})
+
+
+@api_router.patch("/taller/ordenes/{oid}/estado")
+async def estado_orden(oid: str, estado: str = Form(...)):
+    if estado not in ESTADOS_OT:
+        raise HTTPException(400, "Estado inválido")
+    res = await db.ordenes_trabajo.update_one({"id": oid}, {"$set": {"estado": estado}})
+    if res.matched_count == 0:
+        raise HTTPException(404, "Orden no encontrada")
+    return await db.ordenes_trabajo.find_one({"id": oid}, {"_id": 0})
+
+
+@api_router.delete("/taller/ordenes/{oid}")
+async def eliminar_orden(oid: str):
+    await db.ordenes_trabajo.delete_one({"id": oid})
+    return {"ok": True}
+
+
+
 
 @api_router.get("/")
 async def root():
