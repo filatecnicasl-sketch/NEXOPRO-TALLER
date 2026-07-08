@@ -335,6 +335,7 @@ class FacturaRecibidaInput(BaseModel):
     origen: str = "manual"
     forma_pago: str = "Transferencia"
     pdf_base64: str = ""
+    albaranes_ids: List[str] = []
     notas: str = ""
 
 
@@ -501,7 +502,7 @@ async def ensure_cliente(nombre: str, nif: str = "") -> Optional[dict]:
 # ---------------------------------------------------------------------------
 DEFAULT_EMPRESA = {
     "nombre": "", "nif": "", "direccion": "", "codigo_postal": "",
-    "ciudad": "", "telefono": "", "email": "", "iban": "",
+    "ciudad": "", "telefono": "", "email": "", "iban": "", "logo": "",
 }
 
 
@@ -795,9 +796,29 @@ async def rectificar_factura_emitida(doc_id: str):
 # ---------------------------------------------------------------------------
 # FACTURAS RECIBIDAS
 # ---------------------------------------------------------------------------
+@api_router.get("/albaranes-compra-pendientes")
+async def albaranes_compra_pendientes(proveedor_id: str = "", proveedor_nombre: str = ""):
+    """Albaranes de compra aún no facturados (para conciliar con una factura recibida)."""
+    q = {"tipo_operacion": "compra", "estado": {"$ne": "facturado"}}
+    if proveedor_id:
+        q["contacto_id"] = proveedor_id
+    elif proveedor_nombre:
+        q["contacto_nombre"] = {"$regex": f"^{re.escape(proveedor_nombre)}$", "$options": "i"}
+    return await db.albaranes.find(q, {"_id": 0}).sort("created_at", -1).to_list(500)
+
+
 @api_router.post("/facturas-recibidas")
 async def crear_factura_recibida(data: FacturaRecibidaInput):
     lineas, base, iva, total = calcular_lineas([l.model_dump() for l in data.lineas])
+    conciliacion = None
+    if data.albaranes_ids:
+        albs = await db.albaranes.find({"id": {"$in": data.albaranes_ids}}, {"_id": 0}).to_list(500)
+        suma = round(sum(a.get("total", 0) for a in albs), 2)
+        conciliacion = {
+            "albaranes": [{"id": a["id"], "numero": a.get("numero", ""), "total": a.get("total", 0)} for a in albs],
+            "suma_albaranes": suma,
+            "coincide": abs(suma - total) < 0.01,
+        }
     doc = {
         "id": new_id(),
         "numero_proveedor": data.numero_proveedor,
@@ -815,10 +836,16 @@ async def crear_factura_recibida(data: FacturaRecibidaInput):
         "origen": data.origen,
         "forma_pago": data.forma_pago,
         "pdf_base64": data.pdf_base64,
+        "albaranes_ids": data.albaranes_ids,
+        "conciliacion": conciliacion,
         "notas": data.notas,
         "created_at": now_iso(),
     }
     await db.facturas_recibidas.insert_one(dict(doc))
+    if data.albaranes_ids:
+        await db.albaranes.update_many({"id": {"$in": data.albaranes_ids}}, {"$set": {
+            "estado": "facturado", "factura_id": doc["id"],
+        }})
     await registrar_articulos_entrada(doc["lineas"], {
         "tipo": "factura_recibida", "numero": doc["numero_proveedor"] or doc["id"][:8],
         "id": doc["id"], "fecha": doc["fecha"], "proveedor": doc["proveedor_nombre"],
@@ -881,6 +908,91 @@ async def rectificar_factura_recibida(doc_id: str):
     await db.facturas_recibidas.insert_one(dict(doc))
     await db.facturas_recibidas.update_one({"id": doc_id}, {"$set": {"estado": "rectificada"}})
     return clean(doc)
+
+
+# ---------------------------------------------------------------------------
+# CONVERSIÓN entre documentos (presupuesto → pedido/albarán → factura)
+# ---------------------------------------------------------------------------
+_PREFIJOS = {"presupuestos": "PRE", "pedidos": "PED", "albaranes": "ALB"}
+_TRANSICIONES = {
+    "presupuestos": ["pedidos", "albaranes"],
+    "pedidos": ["albaranes"],
+    "albaranes": ["factura"],
+}
+
+
+class ConvertirInput(BaseModel):
+    destino: str  # "pedidos" | "albaranes" | "factura"
+
+
+@api_router.post("/documentos/{entidad}/{doc_id}/convertir")
+async def convertir_documento(entidad: str, doc_id: str, data: ConvertirInput):
+    if entidad not in _TRANSICIONES:
+        raise HTTPException(400, "Origen no válido")
+    if data.destino not in _TRANSICIONES[entidad]:
+        raise HTTPException(400, f"No se puede convertir {entidad} a {data.destino}")
+    src = await db[entidad].find_one({"id": doc_id}, {"_id": 0})
+    if not src:
+        raise HTTPException(404, "Documento no encontrado")
+    if src.get("convertido_a") == data.destino or src.get("estado") == "facturado":
+        raise HTTPException(400, "Este documento ya se ha convertido")
+    op = src.get("tipo_operacion", "venta")
+    lineas, base, iva, total = calcular_lineas(src.get("lineas", []))
+    serie = src.get("serie", "")
+
+    if data.destino in ("pedidos", "albaranes"):
+        numero = await _numero_documento(op, data.destino, _PREFIJOS[data.destino], serie)
+        nuevo = {
+            "id": new_id(), "numero": numero, "serie": serie, "tipo_operacion": op,
+            "contacto_id": src.get("contacto_id", ""), "contacto_nombre": src.get("contacto_nombre", ""),
+            "contacto_nif": src.get("contacto_nif", ""), "fecha": date.today().isoformat(),
+            "estado": "confirmado", "lineas": lineas, "base_total": base, "iva_total": iva, "total": total,
+            "notas": f"Generado desde {entidad[:-1]} {src.get('numero', '')}",
+            "origen_tipo": entidad, "origen_id": doc_id, "origen_numero": src.get("numero", ""),
+            "created_at": now_iso(),
+        }
+        await db[data.destino].insert_one(dict(nuevo))
+        if data.destino == "albaranes" and op == "compra":
+            await registrar_articulos_entrada(lineas, {
+                "tipo": "albaranes", "numero": numero, "id": nuevo["id"],
+                "fecha": nuevo["fecha"], "proveedor": nuevo["contacto_nombre"],
+            })
+        await db[entidad].update_one({"id": doc_id}, {"$set": {
+            "convertido_a": data.destino, "convertido_ref": numero, "estado": "confirmado",
+        }})
+        return clean(nuevo)
+
+    # destino == "factura"
+    if op == "venta":
+        cfg = await _get_ajustes()
+        sv = cfg.get("series_venta", [])
+        if not any(s["nombre"] == serie for s in sv):
+            serie = (next((s for s in sv if s.get("por_defecto")), sv[0])["nombre"] if sv else "A")
+        fact = await _emitir_factura(
+            serie, src.get("contacto_id", ""), src.get("contacto_nombre", ""), src.get("contacto_nif", ""),
+            date.today().isoformat(), lineas, base, iva, total, "emitida", "Transferencia",
+            f"Generada desde albarán {src.get('numero', '')}",
+        )
+        await db[entidad].update_one({"id": doc_id}, {"$set": {
+            "estado": "facturado", "factura_id": fact["id"], "factura_numero": fact["numero_completo"],
+        }})
+        return {"tipo": "emitida", **fact}
+
+    # compra → factura recibida
+    doc = {
+        "id": new_id(), "numero_proveedor": "", "tipo_factura": "ordinaria", "rectifica_a": "",
+        "proveedor_id": src.get("contacto_id", ""), "proveedor_nombre": src.get("contacto_nombre", ""),
+        "proveedor_nif": src.get("contacto_nif", ""), "fecha": date.today().isoformat(),
+        "lineas": lineas, "base_total": base, "iva_total": iva, "total": total,
+        "estado": "pendiente", "origen": "albaran", "forma_pago": "Transferencia", "pdf_base64": "",
+        "albaranes_ref": [src.get("numero", "")], "albaranes_ids": [doc_id],
+        "notas": f"Generada desde albarán {src.get('numero', '')}", "created_at": now_iso(),
+    }
+    await db.facturas_recibidas.insert_one(dict(doc))
+    await db[entidad].update_one({"id": doc_id}, {"$set": {
+        "estado": "facturado", "factura_id": doc["id"], "factura_numero": doc["numero_proveedor"] or doc["id"][:8],
+    }})
+    return {"tipo": "recibida", **clean(doc)}
 
 
 # ---------------------------------------------------------------------------

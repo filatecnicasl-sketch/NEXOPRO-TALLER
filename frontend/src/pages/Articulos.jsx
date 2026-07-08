@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
-import { Plus, PencilSimple, Trash, MagnifyingGlass, Package } from "@phosphor-icons/react";
+import { Plus, PencilSimple, Trash, MagnifyingGlass, Package, Printer } from "@phosphor-icons/react";
 import Barcode from "react-barcode";
 import { toast } from "sonner";
-import { getArticulos, createArticulo, updateArticulo, deleteArticulo, eur } from "@/lib/api";
+import { getArticulos, createArticulo, updateArticulo, deleteArticulo, getAjustes, eur } from "@/lib/api";
+import { imprimirListado } from "@/lib/print";
 import PageHeader from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -34,9 +35,17 @@ export default function Articulos() {
   const [form, setForm] = useState(EMPTY);
   const [editId, setEditId] = useState(null);
   const [delId, setDelId] = useState(null);
+  const [empresa, setEmpresa] = useState({});
 
   const load = () => { setLoading(true); getArticulos().then((d) => { setItems(d); setLoading(false); }); };
   useEffect(load, []);
+  useEffect(() => { getAjustes().then((a) => setEmpresa(a.empresa || {})); }, []);
+
+  const printList = () => imprimirListado({
+    empresa, titulo: "Artículos", familia: "neutral",
+    columnas: [{ label: "Referencia" }, { label: "Nombre" }, { label: "Cód. prov." }, { label: "Unidad" }, { label: "Precio", align: "right" }, { label: "IVA", align: "right" }],
+    filas: filtered.map((a) => [a.referencia || "—", a.nombre, a.codigo_proveedor || "—", a.unidad, eur(a.precio), `${a.tipo_iva}%`]),
+  });
 
   const openNew = () => { setForm(EMPTY); setEditId(null); setOpen(true); };
   const openEdit = (a) => { setForm(a); setEditId(a.id); setOpen(true); };
@@ -64,6 +73,9 @@ export default function Articulos() {
   return (
     <div className="p-8 max-w-[1400px]" data-testid="articulos-page">
       <PageHeader title="Artículos" subtitle="Catálogo de productos y servicios para usar en tus documentos" chip={`${items.length} ${items.length === 1 ? "artículo" : "artículos"}`}>
+        <Button data-testid="imprimir-listado-button" variant="outline" onClick={printList} className="rounded-md">
+          <Printer size={16} className="mr-1.5" /> Imprimir
+        </Button>
         <Button data-testid="nuevo-articulo-button" onClick={openNew} className="rounded-md bg-primary hover:bg-indigo-700">
           <Plus size={16} className="mr-1.5" /> Nuevo artículo
         </Button>

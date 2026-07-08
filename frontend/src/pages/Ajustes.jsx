@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Plus, Trash, FloppyDisk, Buildings, Stack, Star } from "@phosphor-icons/react";
+import { Plus, Trash, FloppyDisk, Buildings, Stack, Star, UploadSimple, Image as ImageIcon } from "@phosphor-icons/react";
 import { toast } from "sonner";
 import { getAjustes, updateAjustes } from "@/lib/api";
 import PageHeader from "@/components/PageHeader";
@@ -113,6 +113,15 @@ export default function Ajustes() {
 
   if (loading) return <div className="p-8 text-zinc-400">Cargando ajustes...</div>;
 
+  const onLogo = (file) => {
+    if (!file) return;
+    if (!/^image\/(png|jpe?g|webp)$/.test(file.type)) return toast.error("Sube una imagen PNG, JPG o WEBP");
+    if (file.size > 600 * 1024) return toast.error("La imagen no debe superar 600 KB");
+    const reader = new FileReader();
+    reader.onload = () => setEmpresa((e) => ({ ...e, logo: reader.result }));
+    reader.readAsDataURL(file);
+  };
+
   return (
     <div className="p-8 max-w-[1100px]" data-testid="ajustes-page">
       <PageHeader title="Ajustes" subtitle="Configura los datos de tu empresa y la numeración de series de compra y venta">
@@ -128,6 +137,25 @@ export default function Ajustes() {
             <div>
               <h3 className="font-heading font-semibold tracking-tight text-zinc-900">Datos de empresa</h3>
               <p className="text-xs text-zinc-500">Aparecerán en tus documentos y facturas</p>
+            </div>
+          </div>
+          <div className="p-5 pt-5 flex items-center gap-4 border-b border-zinc-100">
+            <div className="h-20 w-24 rounded-lg border border-zinc-200 bg-zinc-50 flex items-center justify-center overflow-hidden shrink-0" data-testid="empresa-logo-preview">
+              {empresa.logo
+                ? <img src={empresa.logo} alt="logo" className="max-h-full max-w-full object-contain" />
+                : <ImageIcon size={26} className="text-zinc-300" />}
+            </div>
+            <div>
+              <div className="flex items-center gap-3">
+                <label className="inline-flex items-center gap-2 text-sm cursor-pointer border border-zinc-200 rounded-md px-3 py-1.5 hover:bg-zinc-50 transition-colors">
+                  <UploadSimple size={16} /> {empresa.logo ? "Cambiar logo" : "Subir logo"}
+                  <input type="file" accept="image/png,image/jpeg,image/webp" className="hidden" data-testid="empresa-logo-input" onChange={(e) => onLogo(e.target.files[0])} />
+                </label>
+                {empresa.logo && (
+                  <button data-testid="empresa-logo-remove" onClick={() => setEmpresa({ ...empresa, logo: "" })} className="text-xs text-red-500 hover:underline">Quitar</button>
+                )}
+              </div>
+              <p className="text-xs text-zinc-400 mt-1.5">PNG, JPG o WEBP · máx 600 KB. Aparecerá en tus documentos.</p>
             </div>
           </div>
           <div className="p-5 grid grid-cols-2 gap-4">

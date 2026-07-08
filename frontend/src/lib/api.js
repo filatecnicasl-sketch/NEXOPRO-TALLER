@@ -22,6 +22,8 @@ export const getDocumentos = (entidad) => client.get(`/${entidad}`).then((r) => 
 export const createDocumento = (entidad, data) => client.post(`/${entidad}`, data).then((r) => r.data);
 export const updateDocumento = (entidad, id, data) => client.put(`/${entidad}/${id}`, data).then((r) => r.data);
 export const deleteDocumento = (entidad, id) => client.delete(`/${entidad}/${id}`).then((r) => r.data);
+export const convertirDocumento = (entidad, id, destino) => client.post(`/documentos/${entidad}/${id}/convertir`, { destino }).then((r) => r.data);
+export const getAlbaranesCompraPendientes = (params) => client.get("/albaranes-compra-pendientes", { params }).then((r) => r.data);
 
 // Facturas emitidas
 export const getFacturasEmitidas = () => client.get("/facturas-emitidas").then((r) => r.data);

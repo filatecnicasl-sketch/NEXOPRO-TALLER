@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
-import { Plus, PencilSimple, Trash, MagnifyingGlass, UsersThree } from "@phosphor-icons/react";
+import { Plus, PencilSimple, Trash, MagnifyingGlass, UsersThree, Printer } from "@phosphor-icons/react";
 import { toast } from "sonner";
-import { getContactos, createContacto, updateContacto, deleteContacto } from "@/lib/api";
+import { getContactos, createContacto, updateContacto, deleteContacto, getAjustes } from "@/lib/api";
+import { imprimirListado } from "@/lib/print";
 import PageHeader from "@/components/PageHeader";
 import Initials from "@/components/Initials";
 import { Button } from "@/components/ui/button";
@@ -29,12 +30,20 @@ export default function Contactos({ tipo }) {
   const [form, setForm] = useState(EMPTY);
   const [editId, setEditId] = useState(null);
   const [delId, setDelId] = useState(null);
+  const [empresa, setEmpresa] = useState({});
 
   const load = () => {
     setLoading(true);
     getContactos(tipo).then((d) => { setItems(d); setLoading(false); });
   };
   useEffect(load, [tipo]);
+  useEffect(() => { getAjustes().then((a) => setEmpresa(a.empresa || {})); }, []);
+
+  const printList = () => imprimirListado({
+    empresa, titulo: plural, familia: tipo === "cliente" ? "venta" : "compra",
+    columnas: [{ label: "Nombre" }, { label: "NIF/CIF" }, { label: "Email" }, { label: "Teléfono" }, { label: "Ciudad" }],
+    filas: filtered.map((c) => [c.nombre, c.nif || "—", c.email || "—", c.telefono || "—", c.ciudad || "—"]),
+  });
 
   const openNew = () => { setForm(EMPTY); setEditId(null); setOpen(true); };
   const openEdit = (c) => { setForm(c); setEditId(c.id); setOpen(true); };
@@ -68,6 +77,9 @@ export default function Contactos({ tipo }) {
   return (
     <div className="p-8 max-w-[1400px]" data-testid={`${tipo}-page`}>
       <PageHeader title={plural} subtitle={`Gestiona tu cartera de ${plural.toLowerCase()}`} chip={`${items.length} ${items.length === 1 ? "registro" : "registros"}`}>
+        <Button data-testid="imprimir-listado-button" variant="outline" onClick={printList} className="rounded-md">
+          <Printer size={16} className="mr-1.5" /> Imprimir
+        </Button>
         <Button data-testid="nuevo-contacto-button" onClick={openNew} className="rounded-md bg-primary hover:bg-indigo-700">
           <Plus size={16} className="mr-1.5" /> Nuevo {label.toLowerCase()}
         </Button>

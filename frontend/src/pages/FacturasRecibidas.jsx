@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
-import { Plus, ArrowUUpLeft, Sparkle, FileArrowDown, Robot } from "@phosphor-icons/react";
+import { Plus, ArrowUUpLeft, Sparkle, FileArrowDown, Robot, Printer, CheckCircle, XCircle } from "@phosphor-icons/react";
 import { toast } from "sonner";
 import {
-  getFacturasRecibidas, createFacturaRecibida, rectificarFacturaRecibida, estadoFacturaRecibida, getContactos, getArticulos, eur,
+  getFacturasRecibidas, createFacturaRecibida, rectificarFacturaRecibida, estadoFacturaRecibida,
+  getContactos, getArticulos, getAjustes, getAlbaranesCompraPendientes, eur,
 } from "@/lib/api";
+import { imprimirDocumento, imprimirListado } from "@/lib/print";
 import PageHeader from "@/components/PageHeader";
 import Initials from "@/components/Initials";
 import Pill from "@/components/Pill";
@@ -12,6 +14,7 @@ import ImportPdfDialog from "@/components/ImportPdfDialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -21,7 +24,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 
 const emptyForm = () => ({
   numero_proveedor: "", proveedor_id: "", proveedor_nombre: "", proveedor_nif: "",
-  fecha: new Date().toISOString().slice(0, 10), estado: "pendiente", origen: "manual", forma_pago: "Transferencia", lineas: [], notas: "",
+  fecha: new Date().toISOString().slice(0, 10), estado: "pendiente", origen: "manual",
+  forma_pago: "Transferencia", lineas: [], albaranes_ids: [], notas: "",
 });
 const FORMA_PAGO = ["Transferencia", "Efectivo", "Tarjeta", "Domiciliación", "Recibo", "Confirming", "Otro"];
 
@@ -30,18 +34,37 @@ export default function FacturasRecibidas() {
   const [loading, setLoading] = useState(true);
   const [proveedores, setProveedores] = useState([]);
   const [articulos, setArticulos] = useState([]);
+  const [empresa, setEmpresa] = useState({});
+  const [albaranesPend, setAlbaranesPend] = useState([]);
   const [open, setOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [form, setForm] = useState(emptyForm());
   const [rectId, setRectId] = useState(null);
 
   const load = () => { setLoading(true); getFacturasRecibidas().then((d) => { setItems(d); setLoading(false); }); };
-  useEffect(() => { load(); getContactos("proveedor").then(setProveedores); getArticulos().then(setArticulos); }, []);
+  useEffect(() => {
+    load();
+    getContactos("proveedor").then(setProveedores);
+    getArticulos().then(setArticulos);
+    getAjustes().then((a) => setEmpresa(a.empresa || {}));
+  }, []);
 
-  const openNew = () => { setForm(emptyForm()); setOpen(true); };
+  const cargarAlbaranes = (prov) => {
+    if (!prov?.nombre && !prov?.id) { setAlbaranesPend([]); return; }
+    getAlbaranesCompraPendientes({ proveedor_id: prov?.id || "", proveedor_nombre: prov?.nombre || "" })
+      .then(setAlbaranesPend).catch(() => setAlbaranesPend([]));
+  };
+
+  const openNew = () => { setForm(emptyForm()); setAlbaranesPend([]); setOpen(true); };
   const onProveedor = (id) => {
     const p = proveedores.find((x) => x.id === id);
-    setForm({ ...form, proveedor_id: id, proveedor_nombre: p?.nombre || "", proveedor_nif: p?.nif || "" });
+    setForm({ ...form, proveedor_id: id, proveedor_nombre: p?.nombre || "", proveedor_nif: p?.nif || "", albaranes_ids: [] });
+    cargarAlbaranes(p);
+  };
+
+  const toggleAlb = (albId) => {
+    const has = form.albaranes_ids.includes(albId);
+    setForm({ ...form, albaranes_ids: has ? form.albaranes_ids.filter((x) => x !== albId) : [...form.albaranes_ids, albId] });
   };
 
   const save = async () => {
@@ -74,28 +97,45 @@ export default function FacturasRecibidas() {
   const onExtracted = (datos) => {
     const prov = datos.proveedor_existente;
     setForm({
-      numero_proveedor: datos.numero || "",
-      proveedor_id: prov?.id || "",
+      numero_proveedor: datos.numero || "", proveedor_id: prov?.id || "",
       proveedor_nombre: prov?.nombre || datos.proveedor?.nombre || "",
       proveedor_nif: prov?.nif || datos.proveedor?.nif || "",
       fecha: datos.fecha || new Date().toISOString().slice(0, 10),
-      estado: "pendiente",
-      origen: "ai_pdf",
-      forma_pago: "Transferencia",
+      estado: "pendiente", origen: "ai_pdf", forma_pago: "Transferencia",
       lineas: (datos.lineas || []).map((l) => ({
         descripcion: l.descripcion, cantidad: l.cantidad, precio_unitario: l.precio_unitario,
         descuento: l.descuento || 0, tipo_iva: l.tipo_iva ?? 21,
       })),
-      notas: "",
+      albaranes_ids: [], notas: "",
     });
+    cargarAlbaranes(prov || { nombre: datos.proveedor?.nombre });
     setOpen(true);
   };
 
   const totales = calcTotales(form.lineas);
+  const sumaSel = albaranesPend.filter((a) => form.albaranes_ids.includes(a.id)).reduce((s, a) => s + Number(a.total || 0), 0);
+  const coincide = Math.abs(sumaSel - totales.total) < 0.01;
+
+  const printRecibida = (f) => imprimirDocumento({
+    empresa, tipoLabel: f.tipo_factura === "rectificativa" ? "Factura recibida (rectif.)" : "Factura recibida", familia: "compra",
+    numero: f.numero_proveedor || f.id.slice(0, 8), fecha: f.fecha,
+    contactoLabel: "Proveedor", contacto: { nombre: f.proveedor_nombre, nif: f.proveedor_nif },
+    lineas: f.lineas, base: f.base_total, iva: f.iva_total, total: f.total, forma_pago: f.forma_pago, notas: f.notas,
+    footer: f.conciliacion ? `Conciliada con albaranes: ${f.conciliacion.albaranes.map((a) => a.numero).join(", ")} · ${f.conciliacion.coincide ? "COINCIDE ✓" : "NO COINCIDE ✗"}` : "",
+  });
+
+  const printList = () => imprimirListado({
+    empresa, titulo: "Facturas Recibidas", familia: "compra",
+    columnas: [{ label: "Nº Prov." }, { label: "Proveedor" }, { label: "Fecha" }, { label: "Estado" }, { label: "Total", align: "right" }],
+    filas: items.map((f) => [f.numero_proveedor || "—", f.proveedor_nombre, f.fecha, f.estado, eur(f.total)]),
+  });
 
   return (
     <div className="p-8 max-w-[1400px]" data-testid="facturas-recibidas-page">
-      <PageHeader title="Facturas Recibidas" subtitle="Registra facturas de proveedores manualmente o automáticamente desde un PDF" chip={`${items.length} ${items.length === 1 ? "factura" : "facturas"}`}>
+      <PageHeader title="Facturas Recibidas" subtitle="Registra facturas de proveedores manualmente, desde un PDF o conciliando albaranes" chip={`${items.length} ${items.length === 1 ? "factura" : "facturas"}`}>
+        <Button data-testid="imprimir-listado-button" variant="outline" onClick={printList} className="rounded-md">
+          <Printer size={16} className="mr-1.5" /> Imprimir
+        </Button>
         <Button data-testid="importar-ia-button" onClick={() => setImportOpen(true)} className="rounded-md bg-primary hover:bg-indigo-700">
           <Sparkle size={16} className="mr-1.5" weight="fill" /> Importar PDF con IA
         </Button>
@@ -112,7 +152,7 @@ export default function FacturasRecibidas() {
               <TableHead>Proveedor</TableHead>
               <TableHead>Fecha</TableHead>
               <TableHead className="text-center">Origen</TableHead>
-              <TableHead className="text-right">Base</TableHead>
+              <TableHead className="text-center">Conciliación</TableHead>
               <TableHead className="text-right">Total</TableHead>
               <TableHead className="text-center">Estado</TableHead>
               <TableHead className="text-right">Acciones</TableHead>
@@ -149,11 +189,17 @@ export default function FacturasRecibidas() {
                 </TableCell>
                 <TableCell className="text-zinc-600 text-sm">{f.fecha}</TableCell>
                 <TableCell className="text-center">
-                  {f.origen === "ai_pdf"
-                    ? <Pill tone="indigo"><Robot size={12} /> IA</Pill>
+                  {f.origen === "ai_pdf" ? <Pill tone="indigo"><Robot size={12} /> IA</Pill>
+                    : f.origen === "albaran" ? <Pill tone="info">Albarán</Pill>
                     : <Pill tone="neutral">Manual</Pill>}
                 </TableCell>
-                <TableCell className="text-right tabular-nums text-zinc-600">{eur(f.base_total)}</TableCell>
+                <TableCell className="text-center">
+                  {f.conciliacion
+                    ? (f.conciliacion.coincide
+                        ? <Pill tone="success"><CheckCircle size={12} weight="fill" /> Coincide</Pill>
+                        : <Pill tone="danger"><XCircle size={12} weight="fill" /> Revisar</Pill>)
+                    : <span className="text-zinc-300 text-xs">—</span>}
+                </TableCell>
                 <TableCell className="text-right tabular-nums font-semibold text-zinc-900">{eur(f.total)}</TableCell>
                 <TableCell className="text-center">
                   {f.estado === "rectificada" ? (
@@ -167,6 +213,7 @@ export default function FacturasRecibidas() {
                   )}
                 </TableCell>
                 <TableCell className="text-right">
+                  <button data-testid={`imprimir-${f.id}`} onClick={() => printRecibida(f)} title="Imprimir" className="text-zinc-400 hover:text-primary p-1.5 transition-colors"><Printer size={16} /></button>
                   {f.tipo_factura !== "rectificativa" && f.estado !== "rectificada" && (
                     <button data-testid={`rectificar-${f.id}`} onClick={() => setRectId(f.id)} title="Registrar rectificativa (abono)" className="text-zinc-400 hover:text-orange-500 p-1.5 transition-colors"><ArrowUUpLeft size={16} /></button>
                   )}
@@ -221,6 +268,36 @@ export default function FacturasRecibidas() {
               </select>
             </div>
           </div>
+
+          {form.proveedor_nombre && albaranesPend.length > 0 && (
+            <div className="border border-zinc-200 rounded-lg p-3 bg-zinc-50/50" data-testid="conciliacion-albaranes">
+              <div className="flex items-center justify-between mb-2">
+                <div className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">Conciliar con albaranes de compra pendientes</div>
+                {form.albaranes_ids.length > 0 && (
+                  coincide
+                    ? <Pill tone="success"><CheckCircle size={12} weight="fill" /> Coincide</Pill>
+                    : <Pill tone="danger"><XCircle size={12} weight="fill" /> No coincide</Pill>
+                )}
+              </div>
+              <div className="space-y-0.5 max-h-40 overflow-y-auto">
+                {albaranesPend.map((a) => (
+                  <label key={a.id} className="flex items-center gap-2 text-sm py-1 px-1 rounded hover:bg-white cursor-pointer">
+                    <Checkbox data-testid={`alb-check-${a.id}`} checked={form.albaranes_ids.includes(a.id)} onCheckedChange={() => toggleAlb(a.id)} />
+                    <span className="font-mono-plex text-xs text-zinc-700">{a.numero}</span>
+                    <span className="text-zinc-400 text-xs">{a.fecha}</span>
+                    <span className="ml-auto tabular-nums text-zinc-800">{eur(a.total)}</span>
+                  </label>
+                ))}
+              </div>
+              {form.albaranes_ids.length > 0 && (
+                <div className="flex justify-between text-xs mt-2 pt-2 border-t border-zinc-200">
+                  <span className="text-zinc-500">Suma albaranes: <b className="text-zinc-800">{eur(sumaSel)}</b></span>
+                  <span className="text-zinc-500">Total factura: <b className="text-zinc-800">{eur(totales.total)}</b></span>
+                </div>
+              )}
+            </div>
+          )}
+
           <LineasEditor lineas={form.lineas} setLineas={(l) => setForm({ ...form, lineas: l })} articulos={articulos} />
           <DialogFooter className="mt-2">
             <div className="mr-auto text-sm text-zinc-500">Total: <span className="font-semibold text-primary">{eur(totales.total)}</span></div>

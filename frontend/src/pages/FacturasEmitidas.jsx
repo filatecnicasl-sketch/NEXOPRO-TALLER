@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
-import { Plus, ArrowUUpLeft, Eye, Receipt, ShieldCheck, CheckCircle } from "@phosphor-icons/react";
+import { Plus, ArrowUUpLeft, Eye, Receipt, ShieldCheck, CheckCircle, Printer, Warning } from "@phosphor-icons/react";
 import { toast } from "sonner";
 import {
   getFacturasEmitidas, createFacturaEmitida, rectificarFacturaEmitida, estadoFacturaEmitida, getContactos, getArticulos, getAjustes, eur,
 } from "@/lib/api";
+import { imprimirDocumento, imprimirListado } from "@/lib/print";
 import PageHeader from "@/components/PageHeader";
 import Initials from "@/components/Initials";
 import Pill from "@/components/Pill";
@@ -32,13 +33,15 @@ export default function FacturasEmitidas() {
   const [clientes, setClientes] = useState([]);
   const [articulos, setArticulos] = useState([]);
   const [series, setSeries] = useState([]);
+  const [empresa, setEmpresa] = useState({});
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState(emptyForm());
   const [detalle, setDetalle] = useState(null);
   const [rectId, setRectId] = useState(null);
+  const [confirmarEmitir, setConfirmarEmitir] = useState(false);
 
   const load = () => { setLoading(true); getFacturasEmitidas().then((d) => { setItems(d); setLoading(false); }); };
-  useEffect(() => { load(); getContactos("cliente").then(setClientes); getArticulos().then(setArticulos); getAjustes().then((a) => setSeries(a.series_venta || [])); }, []);
+  useEffect(() => { load(); getContactos("cliente").then(setClientes); getArticulos().then(setArticulos); getAjustes().then((a) => { setSeries(a.series_venta || []); setEmpresa(a.empresa || {}); }); }, []);
 
   const openNew = () => {
     const def = series.find((s) => s.por_defecto) || series[0];
@@ -50,9 +53,14 @@ export default function FacturasEmitidas() {
     setForm({ ...form, cliente_id: id, cliente_nombre: c?.nombre || "", cliente_nif: c?.nif || "" });
   };
 
-  const save = async () => {
+  const pedirConfirmacion = () => {
     if (!form.cliente_nombre) return toast.error("Selecciona un cliente");
     if (form.lineas.length === 0) return toast.error("Añade al menos una línea");
+    setConfirmarEmitir(true);
+  };
+
+  const save = async () => {
+    setConfirmarEmitir(false);
     try {
       await createFacturaEmitida(form);
       toast.success("Factura emitida y registrada en Verifactu");
@@ -78,13 +86,35 @@ export default function FacturasEmitidas() {
   };
   const totales = calcTotales(form.lineas);
 
+  const printFactura = (f) => imprimirDocumento({
+    empresa, tipoLabel: f.tipo_factura === "rectificativa" ? "Factura rectificativa" : "Factura", familia: "venta",
+    numero: f.numero_completo, fecha: f.fecha_expedicion, serie: f.serie,
+    contactoLabel: "Cliente", contacto: { nombre: f.cliente_nombre, nif: f.cliente_nif },
+    lineas: f.lineas, base: f.base_total, iva: f.iva_total, total: f.total, forma_pago: f.forma_pago, notas: f.notas,
+    footer: `Documento con registro compatible <b>Verifactu</b>.${f.verifactu?.huella ? ` Huella: ${f.verifactu.huella}` : ""}${f.rectifica_a ? ` · Rectifica a ${f.rectifica_a}` : ""}`,
+  });
+
+  const printList = () => imprimirListado({
+    empresa, titulo: "Facturas Emitidas", familia: "venta",
+    columnas: [{ label: "Número" }, { label: "Cliente" }, { label: "Fecha" }, { label: "Estado" }, { label: "Total", align: "right" }],
+    filas: items.map((f) => [f.numero_completo, f.cliente_nombre, f.fecha_expedicion, f.estado, eur(f.total)]),
+  });
+
   return (
     <div className="p-8 max-w-[1400px]" data-testid="facturas-emitidas-page">
       <PageHeader title="Facturas Emitidas" subtitle="Facturas de venta con registro compatible Verifactu" chip={`${items.length} ${items.length === 1 ? "factura" : "facturas"}`}>
+        <Button data-testid="imprimir-listado-button" variant="outline" onClick={printList} className="rounded-md">
+          <Printer size={16} className="mr-1.5" /> Imprimir
+        </Button>
         <Button data-testid="nueva-factura-button" onClick={openNew} className="rounded-md bg-primary hover:bg-indigo-700">
           <Plus size={16} className="mr-1.5" /> Nueva factura
         </Button>
       </PageHeader>
+
+      <div className="mb-4 flex items-start gap-2.5 rounded-lg border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-800" data-testid="aviso-facturas">
+        <Warning size={17} weight="fill" className="text-amber-500 mt-0.5 shrink-0" />
+        <span>Las facturas <b>no se pueden eliminar</b> (Verifactu). Lo ideal es generarlas convirtiendo un <b>albarán de venta</b> para evitar errores.</span>
+      </div>
 
       <div className="bg-white border border-zinc-200 rounded-lg shadow-sm overflow-hidden">
         <Table>
@@ -152,6 +182,7 @@ export default function FacturasEmitidas() {
                   </span>
                 </TableCell>
                 <TableCell className="text-right">
+                  <button data-testid={`imprimir-${f.id}`} onClick={() => printFactura(f)} title="Imprimir" className="text-zinc-400 hover:text-primary p-1.5 transition-colors"><Printer size={16} /></button>
                   <button data-testid={`ver-${f.id}`} onClick={() => setDetalle(f)} title="Ver" className="text-zinc-400 hover:text-primary p-1.5 transition-colors"><Eye size={16} /></button>
                   {f.tipo_factura !== "rectificativa" && f.estado !== "rectificada" && (
                     <button data-testid={`rectificar-${f.id}`} onClick={() => setRectId(f.id)} title="Emitir rectificativa (abono)" className="text-zinc-400 hover:text-orange-500 p-1.5 transition-colors"><ArrowUUpLeft size={16} /></button>
@@ -212,10 +243,26 @@ export default function FacturasEmitidas() {
           <DialogFooter className="mt-2">
             <div className="mr-auto text-sm text-zinc-500">Total: <span className="font-semibold text-primary">{eur(totales.total)}</span></div>
             <Button variant="outline" onClick={() => setOpen(false)} className="rounded-md">Cancelar</Button>
-            <Button data-testid="emitir-factura-button" onClick={save} className="rounded-md bg-primary hover:bg-indigo-700">Emitir factura</Button>
+            <Button data-testid="emitir-factura-button" onClick={pedirConfirmacion} className="rounded-md bg-primary hover:bg-indigo-700">Emitir factura</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Aviso antes de emitir directamente */}
+      <AlertDialog open={confirmarEmitir} onOpenChange={setConfirmarEmitir}>
+        <AlertDialogContent className="rounded-lg" data-testid="confirmar-emitir-dialog">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2"><Warning size={20} weight="fill" className="text-amber-500" /> Emitir factura directa</AlertDialogTitle>
+            <AlertDialogDescription>
+              Estás creando una factura <b>directamente</b> (sin partir de un albarán). Recuerda que una vez emitida <b>no podrá eliminarse</b> (Verifactu); solo podrás rectificarla con un abono. ¿Deseas continuar?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="rounded-md">Revisar</AlertDialogCancel>
+            <AlertDialogAction data-testid="confirmar-emitir-button" onClick={save} className="rounded-md bg-primary hover:bg-indigo-700">Sí, emitir</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Detalle Verifactu */}
       <Dialog open={!!detalle} onOpenChange={(o) => !o && setDetalle(null)}>

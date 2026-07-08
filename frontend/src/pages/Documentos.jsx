@@ -1,9 +1,14 @@
 import { useEffect, useState } from "react";
-import { Plus, PencilSimple, Trash, Sparkle, FileText, FileDashed, ClipboardText } from "@phosphor-icons/react";
+import {
+  Plus, PencilSimple, Trash, Sparkle, FileText, FileDashed, ClipboardText,
+  Printer, ArrowBendDownRight, CaretDown, CheckCircle,
+} from "@phosphor-icons/react";
 import { toast } from "sonner";
 import {
-  getDocumentos, createDocumento, updateDocumento, deleteDocumento, getContactos, getArticulos, getAjustes, eur,
+  getDocumentos, createDocumento, updateDocumento, deleteDocumento, convertirDocumento,
+  getContactos, getArticulos, getAjustes, eur,
 } from "@/lib/api";
+import { imprimirDocumento, imprimirListado } from "@/lib/print";
 import PageHeader from "@/components/PageHeader";
 import Initials from "@/components/Initials";
 import Pill from "@/components/Pill";
@@ -13,6 +18,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import {
+  DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
+} from "@/components/ui/dropdown-menu";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -26,6 +34,13 @@ const CFG = {
     venta: { sub: "Pedidos de tus clientes" }, compra: { sub: "Pedidos que haces a proveedores" } },
   albaranes: { label: "Albarán", plural: "Albaranes", icon: FileText,
     venta: { sub: "Albaranes de salida (entregas a clientes)" }, compra: { sub: "Albaranes recibidos de proveedores" } },
+};
+
+// destinos de conversión permitidos por tipo de documento
+const CONV = {
+  presupuestos: [{ d: "pedidos", label: "Pedido" }, { d: "albaranes", label: "Albarán" }],
+  pedidos: [{ d: "albaranes", label: "Albarán" }],
+  albaranes: [{ d: "factura", label: "Factura" }],
 };
 
 const ESTADOS = ["borrador", "confirmado", "entregado", "facturado"];
@@ -47,6 +62,7 @@ export default function Documentos({ entidad, operacion }) {
   const [contactos, setContactos] = useState([]);
   const [articulos, setArticulos] = useState([]);
   const [series, setSeries] = useState([]);
+  const [empresa, setEmpresa] = useState({});
   const [open, setOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [form, setForm] = useState(emptyForm(operacion));
@@ -58,7 +74,7 @@ export default function Documentos({ entidad, operacion }) {
     load();
     getContactos(esCompra ? "proveedor" : "cliente").then(setContactos);
     getArticulos().then(setArticulos);
-    getAjustes().then((a) => setSeries((esCompra ? a.series_compra : a.series_venta) || []));
+    getAjustes().then((a) => { setSeries((esCompra ? a.series_compra : a.series_venta) || []); setEmpresa(a.empresa || {}); });
   }, [entidad, operacion]);
 
   const visibles = items.filter((d) => d.tipo_operacion === operacion);
@@ -83,24 +99,49 @@ export default function Documentos({ entidad, operacion }) {
 
   const remove = async () => { await deleteDocumento(entidad, delId); setDelId(null); toast.success("Eliminado"); load(); };
 
+  const convertir = async (d, destino) => {
+    try {
+      const res = await convertirDocumento(entidad, d.id, destino);
+      if (destino === "factura") {
+        toast.success(res.tipo === "emitida" ? `Factura ${res.numero_completo} emitida` : "Factura recibida generada");
+      } else {
+        const lbl = destino === "pedidos" ? "Pedido" : "Albarán";
+        toast.success(`${lbl} ${res.numero} creado`);
+      }
+      load();
+    } catch (e) { toast.error(e?.response?.data?.detail || "No se pudo convertir"); }
+  };
+
+  const printDoc = (d) => imprimirDocumento({
+    empresa, tipoLabel: cfg.label, familia: operacion, numero: d.numero, fecha: d.fecha, serie: d.serie,
+    contactoLabel: esCompra ? "Proveedor" : "Cliente",
+    contacto: { nombre: d.contacto_nombre, nif: d.contacto_nif },
+    lineas: d.lineas, base: d.base_total, iva: d.iva_total, total: d.total, notas: d.notas,
+  });
+
+  const printList = () => imprimirListado({
+    empresa, titulo: cfg.plural, familia: operacion,
+    columnas: [
+      { label: "Número" }, { label: esCompra ? "Proveedor" : "Cliente" }, { label: "Fecha" },
+      { label: "Estado" }, { label: "Total", align: "right" },
+    ],
+    filas: visibles.map((d) => [d.numero, d.contacto_nombre || "—", d.fecha, d.estado, eur(d.total)]),
+  });
+
   const onExtracted = (datos) => {
     const prov = datos.proveedor_existente;
     setForm({
-      tipo_operacion: "compra",
-      serie: defSerie(),
-      contacto_id: prov?.id || "",
-      contacto_nombre: prov?.nombre || datos.proveedor?.nombre || "",
+      tipo_operacion: "compra", serie: defSerie(),
+      contacto_id: prov?.id || "", contacto_nombre: prov?.nombre || datos.proveedor?.nombre || "",
       contacto_nif: prov?.nif || datos.proveedor?.nif || "",
-      fecha: datos.fecha || new Date().toISOString().slice(0, 10),
-      estado: "confirmado",
+      fecha: datos.fecha || new Date().toISOString().slice(0, 10), estado: "confirmado",
       lineas: (datos.lineas || []).map((l) => ({
         descripcion: l.descripcion, cantidad: l.cantidad, precio_unitario: l.precio_unitario,
         descuento: l.descuento || 0, tipo_iva: l.tipo_iva ?? 21,
       })),
       notas: `Importado por IA. Nº origen: ${datos.numero || "—"}`,
     });
-    setEditId(null);
-    setOpen(true);
+    setEditId(null); setOpen(true);
   };
 
   const totales = calcTotales(form.lineas);
@@ -110,6 +151,9 @@ export default function Documentos({ entidad, operacion }) {
   return (
     <div className="p-8 max-w-[1400px]" data-testid={`${entidad}-${operacion}-page`}>
       <PageHeader title={cfg.plural} subtitle={cfg[operacion]?.sub} chip={`${visibles.length} ${esCompra ? "de compra" : "de venta"}`}>
+        <Button data-testid="imprimir-listado-button" variant="outline" onClick={printList} className="rounded-md">
+          <Printer size={16} className="mr-1.5" /> Imprimir
+        </Button>
         {permiteIA && (
           <Button data-testid="importar-ia-button" variant="outline" onClick={() => setImportOpen(true)} className="rounded-md">
             <Sparkle size={16} className="mr-1.5 text-primary" /> Importar PDF (IA)
@@ -143,9 +187,17 @@ export default function Documentos({ entidad, operacion }) {
                 {permiteIA && <Button variant="link" onClick={() => setImportOpen(true)} className="text-primary mt-1">Importar desde un PDF</Button>}
               </TableCell></TableRow>
             )}
-            {visibles.map((d, i) => (
+            {visibles.map((d, i) => {
+              const facturado = d.estado === "facturado" || !!d.factura_numero;
+              const convertido = !!d.convertido_a;
+              return (
               <TableRow key={d.id} className="animate-row border-zinc-100 hover:bg-zinc-50/70 transition-colors" style={{ animationDelay: `${i * 25}ms` }} data-testid={`documento-row-${d.id}`}>
-                <TableCell className="py-2.5 font-mono-plex text-xs font-medium text-zinc-800">{d.numero}</TableCell>
+                <TableCell className="py-2.5 font-mono-plex text-xs font-medium text-zinc-800">
+                  <div className="flex items-center gap-2">{d.numero}
+                    {d.origen_numero && <ArrowBendDownRight size={12} className="text-zinc-300" />}
+                  </div>
+                  {d.origen_numero && <div className="text-[10px] text-zinc-400 mt-0.5">de {d.origen_numero}</div>}
+                </TableCell>
                 <TableCell>
                   <div className="flex items-center gap-3">
                     <Initials name={d.contacto_nombre || "—"} size={30} />
@@ -156,14 +208,35 @@ export default function Documentos({ entidad, operacion }) {
                   </div>
                 </TableCell>
                 <TableCell className="text-zinc-600 text-sm">{d.fecha}</TableCell>
-                <TableCell className="text-center"><Pill tone={estadoTone(d.estado)} className="capitalize">{d.estado}</Pill></TableCell>
+                <TableCell className="text-center">
+                  {facturado
+                    ? <Pill tone="violet"><CheckCircle size={12} weight="fill" /> Facturado</Pill>
+                    : <Pill tone={estadoTone(d.estado)} className="capitalize">{d.estado}</Pill>}
+                </TableCell>
                 <TableCell className="text-right font-semibold tabular-nums text-zinc-900">{eur(d.total)}</TableCell>
-                <TableCell className="text-right">
-                  <button data-testid={`editar-${d.id}`} onClick={() => openEdit(d)} className="text-zinc-400 hover:text-primary p-1.5 transition-colors"><PencilSimple size={16} /></button>
-                  <button data-testid={`eliminar-${d.id}`} onClick={() => setDelId(d.id)} className="text-zinc-400 hover:text-red-500 p-1.5 transition-colors"><Trash size={16} /></button>
+                <TableCell className="text-right whitespace-nowrap">
+                  {!facturado && CONV[entidad] && (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <button data-testid={`convertir-${d.id}`} title="Convertir" className="inline-flex items-center gap-0.5 text-primary hover:text-indigo-700 text-xs font-medium px-2 py-1 rounded-md hover:bg-indigo-50 transition-colors">
+                          <ArrowBendDownRight size={15} /> Convertir <CaretDown size={11} />
+                        </button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-44">
+                        {CONV[entidad].map((c) => (
+                          <DropdownMenuItem key={c.d} data-testid={`convertir-${d.id}-${c.d}`} onClick={() => convertir(d, c.d)}>
+                            <ArrowBendDownRight size={14} className="mr-2 text-zinc-400" /> Pasar a {c.d === "factura" ? (esCompra ? "factura recibida" : "factura") : c.label.toLowerCase()}
+                          </DropdownMenuItem>
+                        ))}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  )}
+                  <button data-testid={`imprimir-${d.id}`} onClick={() => printDoc(d)} title="Imprimir" className="text-zinc-400 hover:text-primary p-1.5 transition-colors"><Printer size={16} /></button>
+                  <button data-testid={`editar-${d.id}`} onClick={() => openEdit(d)} title="Editar" className="text-zinc-400 hover:text-primary p-1.5 transition-colors"><PencilSimple size={16} /></button>
+                  <button data-testid={`eliminar-${d.id}`} onClick={() => setDelId(d.id)} title="Eliminar" className="text-zinc-400 hover:text-red-500 p-1.5 transition-colors"><Trash size={16} /></button>
                 </TableCell>
               </TableRow>
-            ))}
+            );})}
           </TableBody>
         </Table>
       </div>

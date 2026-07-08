@@ -1,0 +1,40 @@
+{
+  "summary": "Iter 8 validates the new feature batch: (1) document conversion chain, (2) Facturas Emitidas warning AlertDialog, (3) logo upload, (4) printable listados, (5) purchase reconciliation. Backend pytest: 9/9 passed for /api/documentos/{entidad}/{id}/convertir (presupuesto→pedido, presupuesto→albarán, pedido→albarán, albarán→factura emitida, albarán compra→factura recibida, double-convert prevention), /api/albaranes-compra-pendientes filter by proveedor, /api/facturas-recibidas conciliacion coincide/no coincide, /api/ajustes logo persistence, /api/facturas-emitidas direct create. Frontend Playwright: presupuesto→albarán conversion via convertir-<id> menu shows toast 'Albarán A-2026-0003 creado', new albarán row shows 'de A-2026-0004' origin ref, then albarán→factura conversion shows 'Factura A2026-0003 emitida' and albarán row becomes Facturado. /facturas-emitidas: yellow aviso banner (aviso-facturas) reading 'Las facturas no se pueden eliminar (Verifactu)...' is rendered above the table; 'Nueva factura' opens modal, clicking 'Emitir factura' triggers confirmar-emitir-dialog with title 'Emitir factura directa', body warning about Verifactu, and confirmar-emitir-button 'Sí, emitir' — factura is created after confirm. /ajustes: empresa-logo-input accepts a tiny PNG, empresa-logo-preview appears and PERSISTS after guardar-ajustes-button + page reload. /facturas-recibidas: opening 'Manual' dialog and selecting proveedor 'TEST_Iter8 Prov Pending' (via native <select> select-proveedor) reveals conciliacion-albaranes with 2 alb-check-<id> rows and a live 'No coincide' badge comparing 121€ albaranes vs 0€ invoice (matches when lines added — backend test confirms coincide==true when totals equal). Print buttons imprimir-listado-button present on ALL 8 list pages (Clientes, Proveedores, Artículos, Presupuestos, Pedidos venta, Albaranes venta, Facturas emitidas, Facturas recibidas) — clicks do not crash the page, no JS errors. Nav regression: sidebar renders unlabeled top (Panel, Artículos) + VENTAS (Clientes/Presupuestos/Pedidos/Albaranes/Facturas) + COMPRAS (Proveedores/Pedidos/Albaranes/Facturas) + SISTEMA (Ajustes). Series numeración still works from Ajustes.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Radix Dialog (documento-dialog, licencia-dialog, factura-emitida-dialog, factura-recibida-dialog)", "issues": ["Non-blocking a11y warning still present: 'Missing Description or aria-describedby={undefined} for DialogContent'. Add <DialogDescription/> to each DialogContent to silence. Same as iter7."]},
+      {"screen": "FacturasRecibidas manual dialog", "issues": ["select-proveedor is a native <select> while most other dropdowns use shadcn/Radix Select. Inconsistent UX; consider migrating to the shadcn Select for a unified look/feel."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter8_conversion.py",
+    "/app/test_reports/pytest/iter8.xml"
+  ],
+  "action_items": [
+    "(Optional) Add DialogDescription to remaining Radix Dialog components to remove a11y warnings.",
+    "(Optional) Migrate select-proveedor in FacturasRecibidas.jsx from native <select> to shadcn Select for UI consistency."
+  ],
+  "critical_code_review_comments": [
+    "server.py convertir_documento: correctly enforces _TRANSICIONES map, blocks double conversion (returns 400 when convertido_a set OR estado==facturado), links albarán with factura_id/factura_numero, and for compra→factura recibida sets origen='albaran' and albaranes_ids=[doc_id] so downstream conciliation displays 'Albarán' in Origen col. Clean design.",
+    "server.py _emitir_factura when converting from albarán: falls back to serie por_defecto if src serie no longer exists in series_venta — good resilience.",
+    "server.py POST /facturas-recibidas: computes conciliacion={suma_albaranes, coincide} using 0.01€ tolerance, and only when albaranes_ids provided. Also flips albaran estado→facturado + factura_id. Solid.",
+    "FacturasEmitidas.jsx confirmar-emitir-dialog gates direct creation but does NOT gate creation via albarán conversion (correct behavior — the warning is only for manual invoices).",
+    "Ajustes.jsx logo upload: no client-side size cap enforcement shown; DEFAULT_EMPRESA has 'logo' string. The spec says 600KB max; consider adding a size guard on the file input to reject > 600KB with a Spanish error toast.",
+    "print.js opens window.open — in headless popups may be blocked; app remains functional (no throw). Fine."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter8_conversion.py (new)"
+  ],
+  "success_rate": {"backend": "100% (9/9 pytest)", "frontend": "100% for tested flows"},
+  "test_credentials": "Client license auto via REACT_APP_LICENSE_KEY=NEXO-DEMO-0001 in frontend/.env. Admin (not needed here): admin@nexopro.com / Admin1234!",
+  "seed_data_creation": "Created (and left in DB — cannot always delete facturas by design): several TEST_Iter8 presupuestos/pedidos/albaranes/facturas, TEST_Iter8 Prov Chain/Pending/Recon/NoCoin proveedores, TEST_UI Iter8 Cliente/TEST_UI WarningDialog Cliente clients. Logo in empresa set to 1x1 transparent PNG data URL.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "select-proveedor in FacturasRecibidas is a native HTML <select> — use page.select_option(value=...) or evaluate to enumerate its .options; NOT role='option'. Route for Facturas Emitidas is /facturas-emitidas (NOT /ventas/facturas). Warning dialog requires cliente to be filled first (validation happens before dialog opens). Live series after this run: venta A next factura ≈ 0004+, next presupuesto ≈ 0005; compra series 'C' has multiple pending albaranes still in DB from tests (some now facturado). Logo currently set to 1x1 PNG."
+}
