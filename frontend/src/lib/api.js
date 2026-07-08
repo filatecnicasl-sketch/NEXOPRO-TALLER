@@ -125,6 +125,8 @@ export const subirFotoToken = (token, file) => {
   fd.append("file", file);
   return client.post(`/taller/subida/${token}`, fd, { headers: { "Content-Type": "multipart/form-data" } }).then((r) => r.data);
 };
+export const guardarFirmaOrden = (id, imagen) => client.post(`/taller/ordenes/${id}/firma`, { imagen }).then((r) => r.data);
+export const borrarFirmaOrden = (id) => client.delete(`/taller/ordenes/${id}/firma`).then((r) => r.data);
 
 // Taller — Citas
 export const getCitas = (params) => client.get("/taller/citas", { params }).then((r) => r.data);

@@ -18,6 +18,7 @@ from pydantic import BaseModel, Field
 from typing import List, Optional, Literal
 from datetime import datetime, timezone, date, timedelta
 import uuid
+import base64
 import asyncio
 import resend
 from twilio.rest import Client as TwilioClient
@@ -1917,6 +1918,34 @@ async def borrar_foto(tipo: str, eid: str, path: str):
     if not col:
         raise HTTPException(404, "Tipo no válido")
     await db[col].update_one({"id": eid}, {"$pull": {"fotos": {"path": path}}})
+    return {"ok": True}
+
+
+class FirmaInput(BaseModel):
+    imagen: str  # dataURL base64 (data:image/png;base64,...)
+
+
+@api_router.post("/taller/ordenes/{oid}/firma")
+async def guardar_firma_orden(oid: str, data: FirmaInput):
+    m = re.match(r"data:(image/\w+);base64,(.+)", data.imagen or "", re.DOTALL)
+    if not m:
+        raise HTTPException(400, "Imagen de firma no válida")
+    ct, raw = m.group(1), base64.b64decode(m.group(2))
+    if len(raw) > 3 * 1024 * 1024:
+        raise HTTPException(400, "La firma es demasiado grande")
+    media = await _guardar_media(raw, "firma.png", ct)
+    ts = now_iso()
+    res = await db.ordenes_trabajo.update_one(
+        {"id": oid}, {"$set": {"firma_cliente_path": media["path"], "firma_cliente_at": ts}})
+    if res.matched_count == 0:
+        raise HTTPException(404, "Orden no encontrada")
+    return {"firma_cliente_path": media["path"], "firma_cliente_at": ts}
+
+
+@api_router.delete("/taller/ordenes/{oid}/firma")
+async def borrar_firma_orden(oid: str):
+    await db.ordenes_trabajo.update_one(
+        {"id": oid}, {"$set": {"firma_cliente_path": "", "firma_cliente_at": ""}})
     return {"ok": True}
 
 

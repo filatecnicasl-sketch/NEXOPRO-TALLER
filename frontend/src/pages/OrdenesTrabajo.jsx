@@ -4,10 +4,13 @@ import { toast } from "sonner";
 import {
   getOrdenes, createOrden, updateOrden, deleteOrden, estadoOrden,
   getVehiculos, getContactos, getArticulos, createVehiculo, createContacto, getAjustes, eur,
+  guardarFirmaOrden, borrarFirmaOrden, mediaUrl,
 } from "@/lib/api";
 import { imprimirParteOrden, imprimirHojaEntrada } from "@/lib/taller_print";
 import PageHeader from "@/components/PageHeader";
 import LineasEditor from "@/components/LineasEditor";
+import FotosGaleria from "@/components/FotosGaleria";
+import SignaturePad from "@/components/SignaturePad";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -44,6 +47,7 @@ export default function OrdenesTrabajo() {
   const [vehForm, setVehForm] = useState({ matricula: "", marca: "", modelo: "", cliente_id: "", tipo: "cliente" });
   const [cliOpen, setCliOpen] = useState(false);
   const [cliForm, setCliForm] = useState({ nombre: "", nif: "", telefono: "", email: "" });
+  const [firmando, setFirmando] = useState(false);
 
   const load = () => {
     setLoading(true);
@@ -91,6 +95,25 @@ export default function OrdenesTrabajo() {
   };
 
   const remove = async () => { await deleteOrden(delId); setDelId(null); toast.success("Orden eliminada"); load(); };
+
+  const refrescarOrden = async () => {
+    const d = await getOrdenes();
+    setItems(d);
+    const o = d.find((x) => x.id === editId);
+    if (o) setForm((f) => ({ ...f, fotos: o.fotos || [], firma_cliente_path: o.firma_cliente_path || "", firma_cliente_at: o.firma_cliente_at || "" }));
+  };
+  const guardarFirma = async (dataURL) => {
+    if (!editId) return;
+    setFirmando(true);
+    try { const r = await guardarFirmaOrden(editId, dataURL); setForm((f) => ({ ...f, firma_cliente_path: r.firma_cliente_path, firma_cliente_at: r.firma_cliente_at })); toast.success("Firma guardada"); load(); }
+    catch { toast.error("No se pudo guardar la firma"); }
+    finally { setFirmando(false); }
+  };
+  const quitarFirma = async () => {
+    if (!editId) return;
+    try { await borrarFirmaOrden(editId); setForm((f) => ({ ...f, firma_cliente_path: "", firma_cliente_at: "" })); load(); }
+    catch { toast.error("No se pudo quitar la firma"); }
+  };
 
   const guardarVehiculo = async () => {
     if (!vehForm.matricula.trim() && !vehForm.marca.trim()) return toast.error("Indica al menos la matrícula");
@@ -237,6 +260,31 @@ export default function OrdenesTrabajo() {
             <div className="col-span-2">
               <Label className="text-xs">Notas internas</Label>
               <Textarea value={form.notas} onChange={(e) => setForm({ ...form, notas: e.target.value })} className="rounded-sm mt-1" rows={2} />
+            </div>
+
+            <div className="col-span-2 border-t border-zinc-100 pt-4 mt-1">
+              <Label className="text-xs mb-2 block font-semibold text-zinc-700">Recepción digital (estado del vehículo)</Label>
+              {editId ? (
+                <div className="space-y-4">
+                  <FotosGaleria tipo="ordenes" id={editId} fotos={form.fotos || []} onChange={refrescarOrden} titulo="Fotos del estado del vehículo" />
+                  <div>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <Label className="text-xs">Firma del cliente (conformidad de entrada)</Label>
+                      {form.firma_cliente_path && <button type="button" onClick={quitarFirma} className="text-[11px] text-red-500 hover:underline" data-testid="firma-quitar">Volver a firmar</button>}
+                    </div>
+                    {form.firma_cliente_path ? (
+                      <div className="border border-zinc-200 rounded-lg p-3 bg-white inline-flex flex-col items-center" data-testid="firma-guardada">
+                        <img src={mediaUrl(form.firma_cliente_path)} alt="Firma del cliente" className="h-24 object-contain" />
+                        <span className="text-[10px] text-emerald-600 mt-1">✓ Firmado{form.firma_cliente_at ? ` · ${new Date(form.firma_cliente_at).toLocaleString("es-ES")}` : ""}</span>
+                      </div>
+                    ) : (
+                      <SignaturePad onSave={guardarFirma} saving={firmando} />
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <p className="text-sm text-zinc-400">Guarda la orden para poder adjuntar fotos del estado y recoger la firma del cliente.</p>
+              )}
             </div>
           </div>
           <DialogFooter>

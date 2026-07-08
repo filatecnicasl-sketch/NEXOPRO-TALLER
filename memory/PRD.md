@@ -35,6 +35,13 @@ Autónomos y pymes españolas que gestionan compras/ventas y facturación con ob
   Admin: admin@nexopro.com / Admin1234!. Licencia demo: NEXO-DEMO-0001 (frontend/.env REACT_APP_LICENSE_KEY).
 
 ## Estado / Bloqueos
+- TALLER — RECEPCIÓN DIGITAL (firma en pantalla + fotos del estado) (2026-07-08):
+  · Sección "Recepción digital" en el diálogo de Órdenes de trabajo (solo al editar una orden guardada):
+    FotosGaleria tipo="ordenes" (subida directa + QR móvil, reutiliza infra existente) + SignaturePad.jsx
+    (canvas táctil/ratón) para la firma de conformidad del cliente. Backend: POST/DELETE
+    /api/taller/ordenes/{id}/firma (dataURL base64 → object storage → firma_cliente_path/firma_cliente_at).
+    La hoja de entrada (imprimirHojaEntrada) muestra la firma digital sobre la línea de firma del cliente.
+    Verificado E2E por captura (dibujo→guardar→se muestra sello fecha; firma sale en la hoja impresa).
 - TALLER — HOJA DE ENTRADA + BUSCADOR DE ARTÍCULOS + CONFIRMAR CITA (2026-07-08):
   · Hoja de entrada/recepción de vehículo (lib/taller_print.js imprimirHojaEntrada): A4 con DOS
     ejemplares (TALLER + CLIENTE) en la misma hoja, con datos taller/cliente/vehículo (matrícula,

@@ -190,7 +190,10 @@ export function imprimirHojaEntrada({ empresa = {}, orden = {}, vehiculo = {}, c
 
     <div style="display:flex;justify-content:space-between;gap:30px;margin-top:14px">
       <div style="flex:1;border-top:1px solid #d4d4d8;padding-top:5px;font-size:10px;color:#71717a">Firma y sello del taller</div>
-      <div style="flex:1;border-top:1px solid #d4d4d8;padding-top:5px;font-size:10px;color:#71717a">Firma del cliente (conforme)</div>
+      <div style="flex:1;text-align:center">
+        ${orden.firma_cliente_path ? `<img src="${esc(mediaUrl(orden.firma_cliente_path))}" style="max-height:46px;max-width:180px;object-fit:contain;margin-bottom:2px" />` : `<div style="height:46px"></div>`}
+        <div style="border-top:1px solid #d4d4d8;padding-top:5px;font-size:10px;color:#71717a">Firma del cliente (conforme)</div>
+      </div>
     </div>
   </div>`;
 
