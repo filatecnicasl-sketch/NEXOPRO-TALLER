@@ -869,10 +869,7 @@ def _facturae_centros(cliente):
 
 
 def _facturae_xml(f: dict, empresa: dict, cliente: dict) -> str:
-    lineas = f.get("lineas", [])
-    base_total = round(sum(l.get("base", 0) for l in lineas), 2)
-    iva_total = round(sum(l.get("cuota_iva", 0) for l in lineas), 2)
-    total = round(base_total + iva_total, 2)
+    lineas, base_total, iva_total, total = calcular_lineas(f.get("lineas", []))
 
     grupos = {}
     for l in lineas:

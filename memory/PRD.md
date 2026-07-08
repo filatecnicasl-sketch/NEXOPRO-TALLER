@@ -63,7 +63,24 @@ Autónomos y pymes españolas que gestionan compras/ventas y facturación con ob
   VENTA (presupuestos/pedidos/albaranes/facturas) y COMPRA (pedidos/albaranes) con "próximo número" editable
   por tipo y serie por defecto. Numeración generada desde estos contadores (_siguiente_contador, $inc atómico).
 
+## Estado / Bloqueos
+- FACTURAE 3.2.2 (B2G/FACe) — FASE 1 + FIX PROVEEDOR + DIR3 (2026-07-08):
+  · FIX: al crear factura recibida (y en docs de compra y en conversión albarán→factura recibida) ahora se
+    da de alta el proveedor automáticamente (ensure_proveedor, dedup por NIF/nombre).
+  · Ficha de Cliente: apartado "Administración Pública" (es_publica + DIR3: oficina_contable, organo_gestor,
+    unidad_tramitadora). Campos en Contacto/ContactoInput.
+  · Facturae 3.2.2: GET /api/facturas-emitidas/{id}/facturae devuelve XML descargable bien formado
+    (_facturae_xml), con datos de empresa (Ajustes) + NIFs emisor/receptor + 3 AdministrativeCentre
+    (roles 01/02/03) para clientes públicos + totales por tipo de IVA. Botón de descarga en cada factura emitida.
+    Fase 1 = XML sin firmar (el usuario lo firma/sube a FACe). Fase 2 (firma XAdES-EPES + envío FACe) PENDIENTE
+    (requiere certificado .p12 del usuario).
+  Verificado testing_agent iteration_9 (backend 4/4, frontend 100%).
+
 ## Backlog / Próximos pasos (P1/P2)
+- (P1) GESTIÓN DOCUMENTAL: adjuntar y visualizar el PDF original en facturas recibidas y albaranes recibidos
+  (recomendado: object storage). PENDIENTE — acordado con el usuario.
+- (P2) Facturae Fase 2: firma digital XAdES-EPES + envío automático a FACe (requiere certificado .p12).
+- (P2) Añadir DialogDescription a los diálogos (avisos a11y recurrentes).
 - (P1) Flujo enlazado: presupuesto → pedido → albarán → factura (venta) y pedido → albarán → factura (compra).
 - Convertir pedido→albarán→factura (flujo enlazado).
 - Conexión real a Verifactu/AEAT (certificado digital, entorno producción).
