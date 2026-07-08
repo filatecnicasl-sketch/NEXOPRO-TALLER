@@ -497,6 +497,27 @@ async def ensure_cliente(nombre: str, nif: str = "") -> Optional[dict]:
     return doc
 
 
+async def ensure_proveedor(nombre: str, nif: str = "") -> Optional[dict]:
+    """Busca un proveedor por NIF o nombre; si no existe, lo da de alta automáticamente."""
+    nombre = (nombre or "").strip()
+    if not nombre:
+        return None
+    existing = None
+    if nif:
+        existing = await db.contactos.find_one({"tipo": "proveedor", "nif": nif})
+    if not existing:
+        existing = await db.contactos.find_one({
+            "tipo": "proveedor",
+            "nombre": {"$regex": f"^{re.escape(nombre)}$", "$options": "i"},
+        })
+    if existing:
+        return existing
+    nuevo = Contacto(tipo="proveedor", nombre=nombre, nif=nif, notas="Alta automática desde documento de compra")
+    doc = nuevo.model_dump()
+    await db.contactos.insert_one(dict(doc))
+    return doc
+
+
 # ---------------------------------------------------------------------------
 # AJUSTES (Series de documentos, contadores y datos de empresa)
 # ---------------------------------------------------------------------------
@@ -633,6 +654,11 @@ def _make_documento_routes(entidad: str, coleccion: str, prefijo: str, registrar
             if cli:
                 doc["contacto_id"] = cli["id"]
                 doc["contacto_nif"] = doc["contacto_nif"] or cli.get("nif", "")
+        elif doc["tipo_operacion"] == "compra" and doc["contacto_nombre"] and not doc["contacto_id"]:
+            prov = await ensure_proveedor(doc["contacto_nombre"], doc.get("contacto_nif", ""))
+            if prov:
+                doc["contacto_id"] = prov["id"]
+                doc["contacto_nif"] = doc["contacto_nif"] or prov.get("nif", "")
         await db[coleccion].insert_one(dict(doc))
         if registrar_entrada and doc["tipo_operacion"] == "compra":
             await registrar_articulos_entrada(doc["lineas"], {
@@ -819,14 +845,21 @@ async def crear_factura_recibida(data: FacturaRecibidaInput):
             "suma_albaranes": suma,
             "coincide": abs(suma - total) < 0.01,
         }
+    prov_id = data.proveedor_id
+    prov_nif = data.proveedor_nif
+    if data.proveedor_nombre and not prov_id:
+        prov = await ensure_proveedor(data.proveedor_nombre, data.proveedor_nif)
+        if prov:
+            prov_id = prov["id"]
+            prov_nif = prov_nif or prov.get("nif", "")
     doc = {
         "id": new_id(),
         "numero_proveedor": data.numero_proveedor,
         "tipo_factura": "ordinaria",
         "rectifica_a": "",
-        "proveedor_id": data.proveedor_id,
+        "proveedor_id": prov_id,
         "proveedor_nombre": data.proveedor_nombre,
-        "proveedor_nif": data.proveedor_nif,
+        "proveedor_nif": prov_nif,
         "fecha": data.fecha,
         "lineas": lineas,
         "base_total": base,
@@ -979,9 +1012,14 @@ async def convertir_documento(entidad: str, doc_id: str, data: ConvertirInput):
         return {"tipo": "emitida", **fact}
 
     # compra → factura recibida
+    prov_id = src.get("contacto_id", "")
+    if src.get("contacto_nombre") and not prov_id:
+        prov = await ensure_proveedor(src.get("contacto_nombre", ""), src.get("contacto_nif", ""))
+        if prov:
+            prov_id = prov["id"]
     doc = {
         "id": new_id(), "numero_proveedor": "", "tipo_factura": "ordinaria", "rectifica_a": "",
-        "proveedor_id": src.get("contacto_id", ""), "proveedor_nombre": src.get("contacto_nombre", ""),
+        "proveedor_id": prov_id, "proveedor_nombre": src.get("contacto_nombre", ""),
         "proveedor_nif": src.get("contacto_nif", ""), "fecha": date.today().isoformat(),
         "lineas": lineas, "base_total": base, "iva_total": iva, "total": total,
         "estado": "pendiente", "origen": "albaran", "forma_pago": "Transferencia", "pdf_base64": "",
