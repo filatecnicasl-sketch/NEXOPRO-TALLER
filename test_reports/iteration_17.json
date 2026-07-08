@@ -1,0 +1,21 @@
+{
+  "summary": "Verified Hoja de entrada server-side PDF (WeasyPrint) end-to-end. Backend endpoint returns 200 application/pdf (%PDF header) for valid id and 404 for invalid id. Frontend: dropdown 'Hoja de entrada' from Órdenes de trabajo AND 'Imprimir hoja y finalizar' from Recepción rápida both call window.open with the correct URL /api/taller/ordenes/{id}/hoja-entrada.pdf, target=_blank.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": ["/app/backend/tests/test_hoja_entrada_pdf.py", "/app/test_reports/pytest/hoja_entrada_results.xml"],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "OrdenesTrabajo.jsx had stray duplicated JSX after final } (lines 405-413) causing 'Unexpected token (409:19)' compile error and breaking the entire frontend. Fixed by removing garbage tail. Main agent should ensure editor/patcher doesn't append duplicates on save."
+  ],
+  "updated_files": ["/app/frontend/src/pages/OrdenesTrabajo.jsx", "/app/backend/tests/test_hoja_entrada_pdf.py"],
+  "success_rate": {"backend": "100% (3/3)", "frontend": "100% (2/2)"},
+  "seed_data_creation": "Created OT-000021 with matrícula TEST1234 via Recepción rápida during test.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Backend endpoint /api/taller/ordenes/{oid}/hoja-entrada.pdf verified returning valid PDF (>1KB, %PDF header). Frontend window.open interception confirmed both call sites (OrdenesTrabajo dropdown item hoja-entrada-{id} at line 73 and RecepcionRapida rr-imprimir-finalizar at line 76) use hojaEntradaUrl() with target=_blank. NOTE: had to fix a compile-blocking syntax error (leftover duplicate JSX tail) in OrdenesTrabajo.jsx before frontend could load.",
+  "rca of the issue": "Bug FIXED. WeasyPrint server-side PDF replaces the previous iframe/HTML print approach. Backend generates real A4 landscape PDF (23KB+). Both frontend triggers open this PDF URL in a new tab so the browser uses its native PDF viewer (no compressed/deformed layout). Prior compile error from stray JSX in OrdenesTrabajo.jsx was blocking the fix from being visible in the UI; removed during testing."
+}

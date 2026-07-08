@@ -3,9 +3,8 @@ import { Lightning, Plus, Printer, Check, ArrowLeft } from "@phosphor-icons/reac
 import { toast } from "sonner";
 import {
   getVehiculos, getContactos, createVehiculo, createContacto, createOrden, getOrdenes,
-  guardarFirmaOrden, mediaUrl,
+  guardarFirmaOrden, mediaUrl, hojaEntradaUrl,
 } from "@/lib/api";
-import { imprimirHojaEntrada } from "@/lib/taller_print";
 import { TIPOS_TRABAJO } from "@/lib/taller";
 import FotosGaleria from "@/components/FotosGaleria";
 import SignaturePad from "@/components/SignaturePad";
@@ -74,7 +73,7 @@ export default function RecepcionRapida({ open, onOpenChange, vehiculos, cliente
     catch { toast.error("No se pudo guardar la firma"); }
     finally { setFirmando(false); }
   };
-  const imprimir = () => imprimirHojaEntrada({ empresa, orden, vehiculo: veh, cliente: cli });
+  const imprimir = () => window.open(hojaEntradaUrl(orden.id), "_blank");
 
   return (
     <Dialog open={open} onOpenChange={(o) => (o ? onOpenChange(true) : cerrar())}>

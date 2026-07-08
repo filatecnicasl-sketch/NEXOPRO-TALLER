@@ -4,9 +4,9 @@ import { toast } from "sonner";
 import {
   getOrdenes, createOrden, updateOrden, deleteOrden, estadoOrden,
   getVehiculos, getContactos, getArticulos, createVehiculo, createContacto, getAjustes, eur,
-  guardarFirmaOrden, borrarFirmaOrden, mediaUrl,
+  guardarFirmaOrden, borrarFirmaOrden, mediaUrl, hojaEntradaUrl,
 } from "@/lib/api";
-import { imprimirParteOrden, imprimirHojaEntrada } from "@/lib/taller_print";
+import { imprimirParteOrden } from "@/lib/taller_print";
 import PageHeader from "@/components/PageHeader";
 import LineasEditor from "@/components/LineasEditor";
 import FotosGaleria from "@/components/FotosGaleria";
@@ -70,9 +70,7 @@ export default function OrdenesTrabajo() {
   };
 
   const imprimirEntrada = (o) => {
-    const veh = vehiculos.find((v) => v.id === o.vehiculo_id) || {};
-    const cli = clientes.find((c) => c.id === (o.cliente_id || veh.cliente_id)) || { nombre: o.cliente_nombre || "" };
-    imprimirHojaEntrada({ empresa, orden: o, vehiculo: veh, cliente: cli });
+    window.open(hojaEntradaUrl(o.id), "_blank");
   };
 
   const openNew = () => { setForm(EMPTY); setLineas([]); setEditId(null); setOpen(true); };

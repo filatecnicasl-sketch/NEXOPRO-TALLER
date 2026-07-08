@@ -8,6 +8,9 @@ const client = axios.create({ baseURL: API });
 // Facturae 3.2.2 (descarga XML)
 export const facturaeUrl = (id) => `${API}/facturas-emitidas/${id}/facturae`;
 
+// Hoja de entrada de taller (PDF A4 horizontal generado en servidor)
+export const hojaEntradaUrl = (id) => `${API}/taller/ordenes/${id}/hoja-entrada.pdf`;
+
 // Gestión documental (PDF original)
 export const uploadArchivo = (file) => {
   const fd = new FormData();
