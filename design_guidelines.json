@@ -1,0 +1,72 @@
+{
+  "theme": "light",
+  "archetype": "Swiss & High-Contrast",
+  "typography": {
+    "heading_font": "Cabinet Grotesk",
+    "body_font": "IBM Plex Sans",
+    "hierarchy": {
+      "h1": "text-4xl sm:text-5xl tracking-tight font-medium",
+      "h2": "text-2xl sm:text-3xl tracking-tight font-medium",
+      "h3": "text-xl sm:text-2xl font-medium",
+      "h4": "text-lg sm:text-xl font-medium",
+      "body": "text-sm text-slate-700 leading-relaxed",
+      "small": "text-xs text-slate-500 uppercase tracking-widest"
+    }
+  },
+  "colors": {
+    "background": "#FAFAFA",
+    "surface": "#FFFFFF",
+    "border": "#E2E8F0",
+    "text_primary": "#0F172A",
+    "text_secondary": "#475569",
+    "primary": "#0055FF",
+    "primary_hover": "#0044CC",
+    "success": "#10B981",
+    "warning": "#F59E0B",
+    "error": "#EF4444"
+  },
+  "layout": {
+    "spacing_scale": "Generous internal padding (p-6, p-8) for containers, dense tight gaps (gap-4) for data grids.",
+    "grid_system": "Control Room Grid (Dense). grid-cols-1 md:grid-cols-3 lg:grid-cols-4 or 12-col subgrid for tables.",
+    "alignment": "Left-aligned for all dense content, tables, and forms. Center only for empty states or AI processing loaders."
+  },
+  "components": {
+    "sidebar": "Fixed left sidebar, 1px right border border-slate-200. Monochrome text, active state has font-medium and black text. Icons: Phosphor.",
+    "cards": "Flat solid background, no shadow, 1px solid border-slate-200, rounded-none or rounded-sm max 4px. Hover: subtle shadow-sm.",
+    "tables": "Dense Shadcn tables. Zebra striping on hover, sticky header. Verifactu status as minimalist badges.",
+    "buttons": "Square or rounded-sm corners. Primary buttons are solid Blue/Black. Secondary buttons are outlined.",
+    "pdf_uploader": "Dashed border area with Phosphor upload icon. When processing, use a monospace font loader 'Extrayendo datos AI...'"
+  },
+  "motion": {
+    "hover": "Fast transitions (150ms). translate-y-[1px] for buttons.",
+    "lists": "Staggered fade-in for table rows or dashboard widgets.",
+    "ai_extraction": "Scanning line animation over the PDF preview, skeleton loaders for extracted fields until confirmed."
+  },
+  "icons_and_assets": {
+    "icon_library": "@phosphor-icons/react",
+    "install_command": "yarn add @phosphor-icons/react",
+    "images": {
+      "login_background": {
+        "url": "https://images.pexels.com/photos/1313534/pexels-photo-1313534.jpeg",
+        "description": "Modern office architecture, used for the left/right split panel on the login/auth screen."
+      },
+      "empty_state_team": {
+        "url": "https://images.pexels.com/photos/36733304/pexels-photo-36733304.jpeg",
+        "description": "Professional team, can be used in onboarding or empty states for 'Add your first supplier'."
+      }
+    }
+  },
+  "accessibility": {
+    "contrast": "Ensure all text passes WCAG AA. Buttons text must be white against primary colors.",
+    "testing": "All interactive elements MUST include data-testid (e.g., data-testid='upload-pdf-button', data-testid='sidebar-clientes')."
+  },
+  "instructions_to_main_agent": [
+    "Build a sidebar layout with navigation for Dashboard, Clientes, Proveedores, Pedidos, Albaranes, Facturas Emitidas, Facturas Recibidas.",
+    "Implement the 'Control Room' dense grid for the Dashboard showing KPIs (Facturación, Pendientes, etc.).",
+    "For the AI PDF upload flow (in Facturas Recibidas / Albaranes), create a split-screen or modal: PDF preview on one side, extracted data form on the other for review.",
+    "Use Shadcn UI for tables, dialogs, forms, and dropdowns. Customize them to remove heavy shadows and large border radii.",
+    "Ensure the UI is entirely in Spanish as requested.",
+    "Use Cabinet Grotesk for headings and IBM Plex Sans for body text. Do NOT use Inter.",
+    "Include data-testid attributes on all critical UI elements for testing."
+  ]
+}
