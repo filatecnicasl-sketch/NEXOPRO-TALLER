@@ -9,9 +9,10 @@ export default function ImportPdfDialog({ open, onOpenChange, onExtracted, titul
   const [file, setFile] = useState(null);
   const [loading, setLoading] = useState(false);
   const [datos, setDatos] = useState(null);
+  const [consumo, setConsumo] = useState(null);
   const inputRef = useRef();
 
-  const reset = () => { setFile(null); setDatos(null); setLoading(false); };
+  const reset = () => { setFile(null); setDatos(null); setConsumo(null); setLoading(false); };
 
   const handleFile = (f) => {
     if (!f) return;
@@ -25,6 +26,7 @@ export default function ImportPdfDialog({ open, onOpenChange, onExtracted, titul
     try {
       const res = await extraerPdf(file);
       setDatos(res.datos);
+      setConsumo(res.consumo || null);
       toast.success("Datos extraídos correctamente");
     } catch (e) {
       toast.error(e?.response?.data?.detail || "No se pudo procesar el PDF");
@@ -88,6 +90,12 @@ export default function ImportPdfDialog({ open, onOpenChange, onExtracted, titul
                 <div className="flex justify-between border-t border-slate-100 pt-2"><span className="text-slate-400">Total</span><span className="font-semibold text-primary">{eur(datos.total)}</span></div>
                 {datos.proveedor_existente && (
                   <div className="text-xs text-emerald-600 bg-emerald-50 rounded-sm px-2 py-1">✓ Proveedor encontrado en tu base de datos</div>
+                )}
+                {consumo && (
+                  <div className="text-xs text-slate-500 bg-slate-50 rounded-sm px-2 py-1.5 flex items-center justify-between" data-testid="consumo-ia">
+                    <span>Coste IA de esta lectura</span>
+                    <span className="font-mono-plex text-slate-700">{consumo.total_tokens} tokens ≈ {eur(consumo.coste_eur)}</span>
+                  </div>
                 )}
               </div>
             )}

@@ -1,0 +1,27 @@
+{
+  "summary": "Verified end-to-end AI PDF extraction flow on Facturas Recibidas with real Gemini call. Backend /api/consumos-ia/resumen works, UI shows per-read consumo-ia and accumulated consumo-ia-resumen; num_lecturas incremented 1->2 after new extraction; row saved with origen 'IA'.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Facturas Recibidas - consumo IA card & per-read", "issues": ["Coste EUR is formatted via eur() with 2 decimals so tiny amounts (e.g. 0,00212 €) render as '0,00 €' both in per-read (consumo-ia) and accumulated card (consumo-ia-resumen). Recommend showing 4-5 decimals or milli-euro notation for AI costs so users see a non-zero value (backend returns coste_eur=0.00212 correctly)."]},
+      {"screen": "ImportPdfDialog / recibida-dialog", "issues": ["Radix Dialog console warning: 'Missing Description or aria-describedby for {DialogContent}' — accessibility only, non-blocking."]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/backend_test.py"],
+  "action_items": [
+    "Improve euro formatting for AI cost fields (per-read + summary) so 0.00212 € doesn't display as 0,00 €. Use a dedicated formatter with 4-5 decimals or show '<0,01 €' fallback.",
+    "(Optional) Add DialogDescription to ImportPdfDialog and recibida-dialog to remove Radix a11y warning."
+  ],
+  "critical_code_review_comments": [
+    "server.py extraer_pdf/consumos-ia paths look clean; coste_eur rounded to 5 decimals and stored in consumos_ia — good.",
+    "FacturasRecibidas.jsx: getConsumoIA errors are silently swallowed (.catch(()=>{})) — acceptable but hides potential 5xx; consider logging in dev."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "seed_data_creation": "Used existing /tmp/factura_test.pdf; one new consumos_ia record + one new factura recibida (Suministros Iberia SL, FRA-2026-045, total 108,90 €, origen ai_pdf).",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "AI extraction flow validated. Per-read consumo returned 1280 tokens (~0.0019 EUR) for the same PDF; accumulated card went from Lecturas 1/Tokens 1443 to Lecturas 2/Tokens 2723. Only remaining polish is EUR formatting for sub-cent AI costs."
+}

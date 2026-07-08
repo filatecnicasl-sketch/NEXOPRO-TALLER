@@ -29,6 +29,11 @@ EMERGENT_LLM_KEY = os.environ.get('EMERGENT_LLM_KEY')
 JWT_SECRET = os.environ.get('JWT_SECRET', 'change-me')
 JWT_ALGORITHM = "HS256"
 
+# Coste aproximado Gemini 2.5 Flash (USD por token) para estimar el gasto de IA
+PRECIO_INPUT_TOKEN = 0.30 / 1_000_000
+PRECIO_OUTPUT_TOKEN = 2.50 / 1_000_000
+USD_EUR = 0.92
+
 app = FastAPI(title="ERP Base - Clientes, Proveedores y Facturación")
 api_router = APIRouter(prefix="/api")
 
@@ -846,7 +851,8 @@ async def extraer_pdf(file: UploadFile = File(...)):
             system_message="Eres un asistente experto en extraer datos estructurados de documentos comerciales.",
         ).with_model("gemini", "gemini-2.5-flash")
         pdf_file = FileContentWithMimeType(file_path=tmp_path, mime_type="application/pdf")
-        respuesta = await chat.send_message(UserMessage(text=EXTRACCION_PROMPT, file_contents=[pdf_file]))
+        resp = await chat.send_message_with_tools(UserMessage(text=EXTRACCION_PROMPT, file_contents=[pdf_file]))
+        respuesta = resp.content or ""
         datos = _parse_json(respuesta if isinstance(respuesta, str) else str(respuesta))
         # normaliza líneas
         lineas_raw = datos.get("lineas", []) or []
@@ -861,7 +867,25 @@ async def extraer_pdf(file: UploadFile = File(...)):
             match = await db.contactos.find_one({"tipo": "proveedor", "nif": nif}, {"_id": 0})
             if match:
                 datos["proveedor_existente"] = match
-        return {"ok": True, "datos": datos}
+        # registro de consumo de IA (tokens + coste estimado)
+        u = resp.usage
+        input_tokens = getattr(u, "input_tokens", 0) or 0
+        output_tokens = getattr(u, "output_tokens", 0) or 0
+        total_tokens = getattr(u, "total_tokens", input_tokens + output_tokens) or (input_tokens + output_tokens)
+        coste_eur = round((input_tokens * PRECIO_INPUT_TOKEN + output_tokens * PRECIO_OUTPUT_TOKEN) * USD_EUR, 5)
+        consumo = {
+            "id": new_id(),
+            "tipo": "extraccion_pdf",
+            "archivo": file.filename or "documento.pdf",
+            "modelo": "gemini-2.5-flash",
+            "input_tokens": input_tokens,
+            "output_tokens": output_tokens,
+            "total_tokens": total_tokens,
+            "coste_eur": coste_eur,
+            "created_at": now_iso(),
+        }
+        await db.consumos_ia.insert_one(dict(consumo))
+        return {"ok": True, "datos": datos, "consumo": clean(consumo)}
     except json.JSONDecodeError:
         raise HTTPException(422, "No se pudo interpretar la respuesta de la IA")
     except Exception as e:
@@ -870,6 +894,19 @@ async def extraer_pdf(file: UploadFile = File(...)):
     finally:
         if tmp_path and os.path.exists(tmp_path):
             os.remove(tmp_path)
+
+
+@api_router.get("/consumos-ia/resumen")
+async def consumos_ia_resumen():
+    docs = await db.consumos_ia.find({}, {"_id": 0}).sort("created_at", -1).to_list(5000)
+    total_tokens = sum(d.get("total_tokens", 0) for d in docs)
+    coste_total = round(sum(d.get("coste_eur", 0) for d in docs), 4)
+    return {
+        "num_lecturas": len(docs),
+        "total_tokens": total_tokens,
+        "coste_total_eur": coste_total,
+        "ultimas": docs[:10],
+    }
 
 
 # ---------------------------------------------------------------------------

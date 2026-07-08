@@ -57,6 +57,9 @@ export const extraerPdf = (file) => {
 // Dashboard
 export const getResumen = () => client.get("/dashboard/resumen").then((r) => r.data);
 
+// Consumo IA
+export const getConsumoIA = () => client.get("/consumos-ia/resumen").then((r) => r.data);
+
 // ---- Auth admin ----
 const authHeader = () => {
   const t = localStorage.getItem("nexopro_admin_token");

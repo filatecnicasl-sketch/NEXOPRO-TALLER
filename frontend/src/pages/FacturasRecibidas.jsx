@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Plus, ArrowUUpLeft, Sparkle, FileArrowDown, Robot } from "@phosphor-icons/react";
 import { toast } from "sonner";
 import {
-  getFacturasRecibidas, createFacturaRecibida, rectificarFacturaRecibida, estadoFacturaRecibida, getContactos, getArticulos, eur,
+  getFacturasRecibidas, createFacturaRecibida, rectificarFacturaRecibida, estadoFacturaRecibida, getContactos, getArticulos, getConsumoIA, eur,
 } from "@/lib/api";
 import PageHeader from "@/components/PageHeader";
 import LineasEditor, { calcTotales } from "@/components/LineasEditor";
@@ -33,8 +33,9 @@ export default function FacturasRecibidas() {
   const [importOpen, setImportOpen] = useState(false);
   const [form, setForm] = useState(emptyForm());
   const [rectId, setRectId] = useState(null);
+  const [consumoIA, setConsumoIA] = useState(null);
 
-  const load = () => { setLoading(true); getFacturasRecibidas().then((d) => { setItems(d); setLoading(false); }); };
+  const load = () => { setLoading(true); getFacturasRecibidas().then((d) => { setItems(d); setLoading(false); }); getConsumoIA().then(setConsumoIA).catch(() => {}); };
   useEffect(() => { load(); getContactos("proveedor").then(setProveedores); getArticulos().then(setArticulos); }, []);
 
   const openNew = () => { setForm(emptyForm()); setOpen(true); };
@@ -101,6 +102,18 @@ export default function FacturasRecibidas() {
           <Plus size={16} className="mr-1" /> Manual
         </Button>
       </PageHeader>
+
+      {consumoIA && consumoIA.num_lecturas > 0 && (
+        <div className="mb-4 bg-white border border-slate-200 rounded-sm px-4 py-3 flex items-center gap-6 text-sm" data-testid="consumo-ia-resumen">
+          <div className="flex items-center gap-2 text-slate-500">
+            <Robot size={16} className="text-primary" />
+            <span className="text-[11px] uppercase tracking-widest">Consumo IA acumulado</span>
+          </div>
+          <div><span className="text-slate-400">Lecturas</span> <span className="font-medium ml-1">{consumoIA.num_lecturas}</span></div>
+          <div><span className="text-slate-400">Tokens</span> <span className="font-medium ml-1 font-mono-plex">{consumoIA.total_tokens.toLocaleString("es-ES")}</span></div>
+          <div><span className="text-slate-400">Coste estimado</span> <span className="font-semibold text-primary ml-1">{eur(consumoIA.coste_total_eur)}</span></div>
+        </div>
+      )}
 
       <div className="bg-white border border-slate-200 rounded-sm">
         <Table>
