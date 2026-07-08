@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
@@ -18,7 +19,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
-const EMPTY = { nombre: "", nif: "", email: "", telefono: "", direccion: "", ciudad: "", codigo_postal: "", pais: "España", iban: "", banco: "", swift: "", direccion_entrega: "", ciudad_entrega: "", cp_entrega: "", notas: "" };
+const EMPTY = { nombre: "", nif: "", email: "", telefono: "", direccion: "", ciudad: "", codigo_postal: "", pais: "España", iban: "", banco: "", swift: "", direccion_entrega: "", ciudad_entrega: "", cp_entrega: "", es_publica: false, dir3_oficina_contable: "", dir3_organo_gestor: "", dir3_unidad_tramitadora: "", notas: "" };
 
 export default function Contactos({ tipo }) {
   const label = tipo === "cliente" ? "Cliente" : "Proveedor";
@@ -219,6 +220,31 @@ export default function Contactos({ tipo }) {
                   <Label className="text-xs">CP entrega</Label>
                   <Input value={form.cp_entrega} onChange={(e) => setForm({ ...form, cp_entrega: e.target.value })} className="rounded-sm mt-1" />
                 </div>
+                <div className="col-span-2 pt-2 border-t border-slate-100">
+                  <label className="flex items-center gap-2 cursor-pointer mt-1">
+                    <Checkbox data-testid="input-es-publica" checked={!!form.es_publica} onCheckedChange={(v) => setForm({ ...form, es_publica: !!v })} />
+                    <span className="text-sm font-medium text-slate-700">Es Administración Pública (factura electrónica FACe)</span>
+                  </label>
+                </div>
+                {form.es_publica && (
+                  <>
+                    <div className="col-span-2">
+                      <div className="text-[10px] uppercase tracking-widest text-slate-400">Códigos DIR3</div>
+                    </div>
+                    <div className="col-span-2">
+                      <Label className="text-xs">Oficina contable</Label>
+                      <Input data-testid="input-dir3-oc" value={form.dir3_oficina_contable} onChange={(e) => setForm({ ...form, dir3_oficina_contable: e.target.value.toUpperCase() })} className="rounded-sm mt-1 font-mono-plex" placeholder="Ej. L01460001" />
+                    </div>
+                    <div>
+                      <Label className="text-xs">Órgano gestor</Label>
+                      <Input data-testid="input-dir3-og" value={form.dir3_organo_gestor} onChange={(e) => setForm({ ...form, dir3_organo_gestor: e.target.value.toUpperCase() })} className="rounded-sm mt-1 font-mono-plex" placeholder="Ej. LA0001234" />
+                    </div>
+                    <div>
+                      <Label className="text-xs">Unidad tramitadora</Label>
+                      <Input data-testid="input-dir3-ut" value={form.dir3_unidad_tramitadora} onChange={(e) => setForm({ ...form, dir3_unidad_tramitadora: e.target.value.toUpperCase() })} className="rounded-sm mt-1 font-mono-plex" placeholder="Ej. LA0005678" />
+                    </div>
+                  </>
+                )}
               </>
             )}
             <div className="col-span-2">

@@ -5,6 +5,9 @@ export const API = `${BACKEND_URL}/api`;
 
 const client = axios.create({ baseURL: API });
 
+// Facturae 3.2.2 (descarga XML)
+export const facturaeUrl = (id) => `${API}/facturas-emitidas/${id}/facturae`;
+
 // Contactos
 export const getContactos = (tipo) => client.get("/contactos", { params: { tipo } }).then((r) => r.data);
 export const createContacto = (data) => client.post("/contactos", data).then((r) => r.data);

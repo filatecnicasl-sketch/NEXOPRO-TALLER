@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
-import { Plus, ArrowUUpLeft, Eye, Receipt, ShieldCheck, CheckCircle, Printer, Warning } from "@phosphor-icons/react";
+import { Plus, ArrowUUpLeft, Eye, Receipt, ShieldCheck, CheckCircle, Printer, Warning, FileCode } from "@phosphor-icons/react";
 import { toast } from "sonner";
 import {
-  getFacturasEmitidas, createFacturaEmitida, rectificarFacturaEmitida, estadoFacturaEmitida, getContactos, getArticulos, getAjustes, eur,
+  getFacturasEmitidas, createFacturaEmitida, rectificarFacturaEmitida, estadoFacturaEmitida, getContactos, getArticulos, getAjustes, facturaeUrl, eur,
 } from "@/lib/api";
 import { imprimirDocumento, imprimirListado } from "@/lib/print";
 import PageHeader from "@/components/PageHeader";
@@ -100,6 +100,16 @@ export default function FacturasEmitidas() {
     filas: items.map((f) => [f.numero_completo, f.cliente_nombre, f.fecha_expedicion, f.estado, eur(f.total)]),
   });
 
+  const descargarFacturae = (f) => {
+    const a = document.createElement("a");
+    a.href = facturaeUrl(f.id);
+    a.download = `facturae_${(f.numero_completo || f.id).replace(/\s/g, "_")}.xml`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    toast.success("Descargando Facturae 3.2.2 (XML)");
+  };
+
   return (
     <div className="p-8 max-w-[1400px]" data-testid="facturas-emitidas-page">
       <PageHeader title="Facturas Emitidas" subtitle="Facturas de venta con registro compatible Verifactu" chip={`${items.length} ${items.length === 1 ? "factura" : "facturas"}`}>
@@ -182,6 +192,7 @@ export default function FacturasEmitidas() {
                   </span>
                 </TableCell>
                 <TableCell className="text-right">
+                  <button data-testid={`facturae-${f.id}`} onClick={() => descargarFacturae(f)} title="Descargar Facturae 3.2.2 (FACe)" className="text-zinc-400 hover:text-emerald-600 p-1.5 transition-colors"><FileCode size={16} /></button>
                   <button data-testid={`imprimir-${f.id}`} onClick={() => printFactura(f)} title="Imprimir" className="text-zinc-400 hover:text-primary p-1.5 transition-colors"><Printer size={16} /></button>
                   <button data-testid={`ver-${f.id}`} onClick={() => setDetalle(f)} title="Ver" className="text-zinc-400 hover:text-primary p-1.5 transition-colors"><Eye size={16} /></button>
                   {f.tipo_factura !== "rectificativa" && f.estado !== "rectificada" && (

@@ -1,4 +1,5 @@
 from fastapi import FastAPI, APIRouter, HTTPException, UploadFile, File, Form, Depends, Request
+from fastapi.responses import Response
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -230,6 +231,10 @@ class Contacto(BaseModel):
     direccion_entrega: str = ""
     ciudad_entrega: str = ""
     cp_entrega: str = ""
+    es_publica: bool = False
+    dir3_oficina_contable: str = ""
+    dir3_organo_gestor: str = ""
+    dir3_unidad_tramitadora: str = ""
     notas: str = ""
     created_at: str = Field(default_factory=now_iso)
 
@@ -250,6 +255,10 @@ class ContactoInput(BaseModel):
     direccion_entrega: str = ""
     ciudad_entrega: str = ""
     cp_entrega: str = ""
+    es_publica: bool = False
+    dir3_oficina_contable: str = ""
+    dir3_organo_gestor: str = ""
+    dir3_unidad_tramitadora: str = ""
     notas: str = ""
 
 
@@ -789,6 +798,199 @@ async def obtener_factura_emitida(doc_id: str):
     if not doc:
         raise HTTPException(404, "No encontrada")
     return doc
+
+
+# ---------------------------------------------------------------------------
+# FACTURAE 3.2.2 (factura electrónica para Administraciones Públicas / FACe)
+# ---------------------------------------------------------------------------
+def _xe(v) -> str:
+    return (str(v if v is not None else "")).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;")
+
+
+def _person_type(nif: str) -> str:
+    c = (nif or "").strip().upper()[:1]
+    return "J" if c in "ABCDEFGHJNPQRSUVW" else "F"
+
+
+def _fmt(n, dec=2) -> str:
+    return f"{float(n or 0):.{dec}f}"
+
+
+def _facturae_domicilio(direccion, cp, ciudad):
+    return (
+        "<AddressInSpain>"
+        f"<Address>{_xe(direccion or 'N/A')}</Address>"
+        f"<PostCode>{_xe((cp or '00000').strip()[:5].zfill(5))}</PostCode>"
+        f"<Town>{_xe(ciudad or 'N/A')}</Town>"
+        f"<Province>{_xe(ciudad or 'N/A')}</Province>"
+        "<CountryCode>ESP</CountryCode>"
+        "</AddressInSpain>"
+    )
+
+
+def _facturae_parte(nif, nombre, direccion, cp, ciudad, centros_xml=""):
+    ptype = _person_type(nif)
+    entidad = (
+        f"<LegalEntity><CorporateName>{_xe(nombre)}</CorporateName>{_facturae_domicilio(direccion, cp, ciudad)}</LegalEntity>"
+        if ptype == "J" else
+        f"<Individual><Name>{_xe(nombre)}</Name><FirstSurname>{_xe(nombre)}</FirstSurname>{_facturae_domicilio(direccion, cp, ciudad)}</Individual>"
+    )
+    return (
+        "<TaxIdentification>"
+        f"<PersonTypeCode>{ptype}</PersonTypeCode>"
+        "<ResidenceTypeCode>R</ResidenceTypeCode>"
+        f"<TaxIdentificationNumber>{_xe((nif or '').strip().upper())}</TaxIdentificationNumber>"
+        "</TaxIdentification>"
+        f"{centros_xml}{entidad}"
+    )
+
+
+def _facturae_centros(cliente):
+    """AdministrativeCentres con los DIR3 (01 Oficina Contable, 02 Órgano Gestor, 03 Unidad Tramitadora)."""
+    mapa = [
+        ("01", cliente.get("dir3_oficina_contable", ""), "Oficina contable"),
+        ("02", cliente.get("dir3_organo_gestor", ""), "Órgano gestor"),
+        ("03", cliente.get("dir3_unidad_tramitadora", ""), "Unidad tramitadora"),
+    ]
+    centros = ""
+    for role, code, nombre in mapa:
+        if not code:
+            continue
+        centros += (
+            "<AdministrativeCentre>"
+            f"<CentreCode>{_xe(code.strip())}</CentreCode>"
+            f"<RoleTypeCode>{role}</RoleTypeCode>"
+            f"<Name>{_xe(nombre)}</Name>"
+            f"{_facturae_domicilio(cliente.get('direccion'), cliente.get('codigo_postal'), cliente.get('ciudad'))}"
+            f"<CentreDescription>{_xe(nombre)}</CentreDescription>"
+            "</AdministrativeCentre>"
+        )
+    return f"<AdministrativeCentres>{centros}</AdministrativeCentres>" if centros else ""
+
+
+def _facturae_xml(f: dict, empresa: dict, cliente: dict) -> str:
+    lineas = f.get("lineas", [])
+    base_total = round(sum(l.get("base", 0) for l in lineas), 2)
+    iva_total = round(sum(l.get("cuota_iva", 0) for l in lineas), 2)
+    total = round(base_total + iva_total, 2)
+
+    grupos = {}
+    for l in lineas:
+        g = grupos.setdefault(float(l.get("tipo_iva", 0)), {"base": 0.0, "cuota": 0.0})
+        g["base"] += l.get("base", 0)
+        g["cuota"] += l.get("cuota_iva", 0)
+    taxes = "".join(
+        "<Tax><TaxTypeCode>01</TaxTypeCode>"
+        f"<TaxRate>{_fmt(rate)}</TaxRate>"
+        f"<TaxableBase><TotalAmount>{_fmt(v['base'])}</TotalAmount></TaxableBase>"
+        f"<TaxAmount><TotalAmount>{_fmt(v['cuota'])}</TotalAmount></TaxAmount></Tax>"
+        for rate, v in sorted(grupos.items(), reverse=True)
+    )
+
+    items = ""
+    for l in lineas:
+        cant = float(l.get("cantidad", 0) or 0)
+        precio = float(l.get("precio_unitario", 0) or 0)
+        dto = float(l.get("descuento", 0) or 0)
+        total_cost = round(cant * precio, 2)
+        base = l.get("base", 0)
+        descuento_xml = ""
+        if dto:
+            descuento_xml = (
+                "<DiscountsAndRebates><Discount>"
+                f"<DiscountReason>Descuento</DiscountReason>"
+                f"<DiscountRate>{_fmt(dto)}</DiscountRate>"
+                f"<DiscountAmount>{_fmt(round(total_cost - base, 2))}</DiscountAmount>"
+                "</Discount></DiscountsAndRebates>"
+            )
+        items += (
+            "<InvoiceLine>"
+            f"<ItemDescription>{_xe(l.get('descripcion', ''))}</ItemDescription>"
+            f"<Quantity>{_fmt(cant, 6)}</Quantity>"
+            "<UnitOfMeasure>01</UnitOfMeasure>"
+            f"<UnitPriceWithoutTax>{_fmt(precio, 6)}</UnitPriceWithoutTax>"
+            f"<TotalCost>{_fmt(total_cost)}</TotalCost>"
+            f"{descuento_xml}"
+            f"<GrossAmount>{_fmt(base)}</GrossAmount>"
+            "<TaxesOutputs><Tax><TaxTypeCode>01</TaxTypeCode>"
+            f"<TaxRate>{_fmt(l.get('tipo_iva', 0))}</TaxRate>"
+            f"<TaxableBase><TotalAmount>{_fmt(base)}</TotalAmount></TaxableBase>"
+            f"<TaxAmount><TotalAmount>{_fmt(l.get('cuota_iva', 0))}</TotalAmount></TaxAmount>"
+            "</Tax></TaxesOutputs>"
+            "</InvoiceLine>"
+        )
+
+    seller = _facturae_parte(empresa.get("nif"), empresa.get("nombre") or "Emisor",
+                             empresa.get("direccion"), empresa.get("codigo_postal"), empresa.get("ciudad"))
+    buyer = _facturae_parte(cliente.get("nif") or f.get("cliente_nif"), cliente.get("nombre") or f.get("cliente_nombre") or "Cliente",
+                            cliente.get("direccion"), cliente.get("codigo_postal"), cliente.get("ciudad"),
+                            centros_xml=_facturae_centros(cliente))
+
+    ns = "http://www.facturae.gob.es/formato/Versiones/Facturaev3_2_2.xml"
+    return (
+        '<?xml version="1.0" encoding="UTF-8"?>'
+        f'<fe:Facturae xmlns:fe="{ns}">'
+        "<FileHeader>"
+        "<SchemaVersion>3.2.2</SchemaVersion>"
+        "<Modality>I</Modality>"
+        "<InvoiceIssuerType>EM</InvoiceIssuerType>"
+        "<Batch>"
+        f"<BatchIdentifier>{_xe(f.get('numero_completo', ''))}</BatchIdentifier>"
+        "<InvoicesCount>1</InvoicesCount>"
+        f"<TotalInvoicesAmount><TotalAmount>{_fmt(total)}</TotalAmount></TotalInvoicesAmount>"
+        f"<TotalOutstandingAmount><TotalAmount>{_fmt(total)}</TotalAmount></TotalOutstandingAmount>"
+        f"<TotalExecutableAmount><TotalAmount>{_fmt(total)}</TotalAmount></TotalExecutableAmount>"
+        "<InvoiceCurrencyCode>EUR</InvoiceCurrencyCode>"
+        "</Batch>"
+        "</FileHeader>"
+        f"<Parties><SellerParty>{seller}</SellerParty><BuyerParty>{buyer}</BuyerParty></Parties>"
+        "<Invoices><Invoice>"
+        "<InvoiceHeader>"
+        f"<InvoiceNumber>{_xe(f.get('numero_completo', ''))}</InvoiceNumber>"
+        f"<InvoiceSeriesCode>{_xe(f.get('serie', ''))}</InvoiceSeriesCode>"
+        "<InvoiceDocumentType>FC</InvoiceDocumentType>"
+        f"<InvoiceClass>{'OR' if f.get('tipo_factura') == 'rectificativa' else 'OO'}</InvoiceClass>"
+        "</InvoiceHeader>"
+        "<InvoiceIssueData>"
+        f"<IssueDate>{_xe(f.get('fecha_expedicion', date.today().isoformat()))}</IssueDate>"
+        "<InvoiceCurrencyCode>EUR</InvoiceCurrencyCode>"
+        "<TaxCurrencyCode>EUR</TaxCurrencyCode>"
+        "<LanguageName>es</LanguageName>"
+        "</InvoiceIssueData>"
+        f"<TaxesOutputs>{taxes}</TaxesOutputs>"
+        "<InvoiceTotals>"
+        f"<TotalGrossAmount>{_fmt(base_total)}</TotalGrossAmount>"
+        f"<TotalGrossAmountBeforeTaxes>{_fmt(base_total)}</TotalGrossAmountBeforeTaxes>"
+        f"<TotalTaxOutputs>{_fmt(iva_total)}</TotalTaxOutputs>"
+        "<TotalTaxesWithheld>0.00</TotalTaxesWithheld>"
+        f"<InvoiceTotal>{_fmt(total)}</InvoiceTotal>"
+        f"<TotalOutstandingAmount>{_fmt(total)}</TotalOutstandingAmount>"
+        f"<TotalExecutableAmount>{_fmt(total)}</TotalExecutableAmount>"
+        "</InvoiceTotals>"
+        f"<Items>{items}</Items>"
+        "</Invoice></Invoices>"
+        "</fe:Facturae>"
+    )
+
+
+@api_router.get("/facturas-emitidas/{doc_id}/facturae")
+async def facturae_factura_emitida(doc_id: str):
+    f = await db.facturas_emitidas.find_one({"id": doc_id}, {"_id": 0})
+    if not f:
+        raise HTTPException(404, "No encontrada")
+    cfg = await _get_ajustes()
+    empresa = cfg.get("empresa", {})
+    cliente = {}
+    if f.get("cliente_id"):
+        cliente = await db.contactos.find_one({"id": f["cliente_id"]}, {"_id": 0}) or {}
+    if not cliente and f.get("cliente_nif"):
+        cliente = await db.contactos.find_one({"tipo": "cliente", "nif": f["cliente_nif"]}, {"_id": 0}) or {}
+    if not cliente:
+        cliente = {"nombre": f.get("cliente_nombre", ""), "nif": f.get("cliente_nif", "")}
+    xml = _facturae_xml(f, empresa, cliente)
+    filename = f"facturae_{(f.get('numero_completo') or doc_id).replace(' ', '_')}.xml"
+    return Response(content=xml, media_type="application/xml",
+                    headers={"Content-Disposition": f'attachment; filename="{filename}"'})
 
 
 @api_router.patch("/facturas-emitidas/{doc_id}/estado")

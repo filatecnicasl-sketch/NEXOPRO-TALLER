@@ -1,0 +1,30 @@
+{
+  "summary": "Iter 9: validated (1) proveedor auto-alta on POST /api/facturas-recibidas via API + UI (Manual dialog with new proveedor_nombre creates the proveedor visible in /proveedores), (2) DIR3/es_publica round-trip on /api/contactos POST+GET+PUT and full UI roundtrip via /clientes dialog (input-es-publica reveals input-dir3-oc/og/ut, saved & reopened persist), (3) Facturae 3.2.2 GET /api/facturas-emitidas/{id}/facturae returns application/xml + attachment header, contains <SchemaVersion>3.2.2</SchemaVersion>, both seller/buyer NIFs, three <AdministrativeCentre> with <CentreCode> and <RoleTypeCode> 01/02/03 for público clients (and NONE for non-público), InvoiceTotal 217.80 matches, XML well-formed; UI facturae-<id> button triggers file download (facturae_A2026-0009.xml) without JS errors.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "All Radix Dialogs (contacto-dialog, factura-recibida-dialog, factura-emitida-dialog)", "issues": ["Persistent a11y console warning: 'Missing Description or aria-describedby={undefined} for DialogContent'. Same as iter7/8 — add <DialogDescription/> to silence."]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/test_iter9_dir3_facturae.py", "/app/test_reports/pytest/iter9.xml"],
+  "action_items": [
+    "(Optional) Add DialogDescription to remaining Radix Dialog components."
+  ],
+  "critical_code_review_comments": [
+    "server.py ensure_proveedor: lookup by NIF first then case-insensitive nombre regex — solid dedup logic. Same pattern in ensure_cliente. Auto-alta triggered from crear_factura_recibida (line ~1053), _make_documento_routes.crear (line ~479), and convertir_documento compra→factura (line ~1219). Coverage looks complete.",
+    "server.py _facturae_xml: uses stored lineas' `base` and `cuota_iva` fields (populated by calcular_lineas). Ensure any legacy invoices with different line schemas (e.g., only `precio`+`iva`) still work — currently missing keys default to 0 causing InvoiceTotal 0. Consider fallback compute if base/cuota_iva missing.",
+    "server.py _facturae_xml uses InvoiceClass 'OO' (Original) / 'OR' (Original Rectificativa) — spec-compliant. Uses <UnitOfMeasure>01</UnitOfMeasure> (unidades) hardcoded — acceptable for MVP.",
+    "_facturae_centros only emits centros for present DIR3 codes; if ALL three are empty, section is omitted entirely — correct for non-público clients. Confirmed by test_facturae_nonpublic_no_centres.",
+    "Contactos.jsx conditional DIR3 section renders only when form.es_publica is true — clean UX. DIR3 inputs uppercase automatically (.toUpperCase()) — good.",
+    "FacturasEmitidas.jsx descargarFacturae likely uses window.open or an <a download> — worked in headless (triggered expect_download event). Filename honored from Content-Disposition."
+  ],
+  "updated_files": ["/app/backend/tests/test_iter9_dir3_facturae.py (new)"],
+  "success_rate": {"backend": "100% (4/4 pytest)", "frontend": "100% for tested flows (DIR3 roundtrip, proveedor auto-alta, Facturae download)"},
+  "test_credentials": "License auto via REACT_APP_LICENSE_KEY=NEXO-DEMO-0001. Admin (not needed): admin@nexopro.com / Admin1234!",
+  "seed_data_creation": "TEST_Iter9 AutoProv, TEST_Iter9 Publica (público client with DIR3), TEST_Iter9 AytoTest (público client with DIR3 + issued factura), TEST_Iter9 Priv (non-público client + issued factura), TEST_UI Iter9 Ayto (UI DIR3 client), TEST_UI Iter9 NuevoProv (auto-created proveedor), TEST_UI Iter9 CliDirect. Facturas cannot be deleted by design.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "For POST /api/facturas-emitidas and /api/facturas-recibidas the line schema uses `precio_unitario` and `tipo_iva` (NOT `precio` or `iva`) — passing wrong keys silently produces 0€ invoices. Facturae button data-testid pattern: facturae-<id>. DIR3 inputs hidden until input-es-publica checkbox is checked. In Contactos edit dialog the pencil edit button is typically the first svg button in the row's action cell; use search box to filter row first. In direct-invoice modal you must add a line via + Desde artículo... dropdown before Emitir factura enables the warning dialog; a bare Emitir call shows toast 'Añade al menos una línea'."
+}
