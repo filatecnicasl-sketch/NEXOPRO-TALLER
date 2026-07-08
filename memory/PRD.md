@@ -35,6 +35,20 @@ Autónomos y pymes españolas que gestionan compras/ventas y facturación con ob
   Admin: admin@nexopro.com / Admin1234!. Licencia demo: NEXO-DEMO-0001 (frontend/.env REACT_APP_LICENSE_KEY).
 
 ## Estado / Bloqueos
+- MÓDULO TALLER — FASE 3 (Citas + Vehículos de cortesía) (2026-07-08):
+  · Backend: colecciones `citas` y `prestamos`. Endpoints /api/taller/citas (+ PATCH estado,
+    filtros) y /api/taller/prestamos (+ POST /{id}/contrato img/PDF). Herencia matrícula/cliente.
+  · Frontend: Citas.jsx (agenda por día, estados) y Cortesia.jsx (préstamos veh. cortesía + contrato).
+    Nuevo icono "Cortesía" en ribbon Taller (5 items). Alta rápida veh/cliente en ambos.
+  · Verificado testing_agent iteration_13 (backend 17/17, frontend E2E OK).
+- MÓDULO TALLER — FASE 2 (Peritajes + Compañías + Fotos QR) (2026-07-08):
+  · Backend: `peritajes`, `companias`, fotos. Endpoints /api/taller/peritajes, /api/taller/companias,
+    /api/taller/{tipo}/{id}/fotos, /api/taller/media/{path}, /api/taller/foto-sesion + /subida/{token}
+    (públicos, subida por QR desde móvil). Ficha vehículo devuelve {vehiculo, ordenes, peritajes}.
+  · Frontend: Peritajes.jsx (daños valorados, compañías, reportaje fotográfico), FotosGaleria.jsx
+    (subida directa + QR), SubirFotos.jsx (página pública /subir/:token fuera del gate), galería
+    en ficha de vehículo (anexos). Alta rápida veh/cliente en Órdenes y Peritajes.
+  · Verificado testing_agent iteration_12 (backend 100%, frontend 100%).
 - MÓDULO TALLER — FASE 1 (Vehículos + Órdenes de trabajo) (2026-07-08):
   · Backend: colecciones `vehiculos` y `ordenes_trabajo`. Endpoints CRUD
     /api/taller/vehiculos (+ /{id}/ficha) y /api/taller/ordenes (+ PATCH /{id}/estado).
