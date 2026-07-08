@@ -2,19 +2,33 @@ import "@/App.css";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { Toaster } from "@/components/ui/sonner";
 import Layout from "@/components/Layout";
+import LicenseGate from "@/components/LicenseGate";
 import Dashboard from "@/pages/Dashboard";
 import Contactos from "@/pages/Contactos";
 import Articulos from "@/pages/Articulos";
 import Documentos from "@/pages/Documentos";
 import FacturasEmitidas from "@/pages/FacturasEmitidas";
 import FacturasRecibidas from "@/pages/FacturasRecibidas";
+import AdminLogin from "@/pages/AdminLogin";
+import AdminPanel from "@/pages/AdminPanel";
 
 function App() {
   return (
     <div className="App">
       <BrowserRouter>
         <Routes>
-          <Route element={<Layout />}>
+          {/* Panel central (solo administrador) — fuera del gate de licencia */}
+          <Route path="/admin/login" element={<AdminLogin />} />
+          <Route path="/admin" element={<AdminPanel />} />
+
+          {/* Aplicación cliente — protegida por licencia */}
+          <Route
+            element={
+              <LicenseGate>
+                <Layout />
+              </LicenseGate>
+            }
+          >
             <Route path="/" element={<Dashboard />} />
             <Route path="/clientes" element={<Contactos tipo="cliente" key="cliente" />} />
             <Route path="/proveedores" element={<Contactos tipo="proveedor" key="proveedor" />} />

@@ -55,5 +55,29 @@ export const extraerPdf = (file) => {
 // Dashboard
 export const getResumen = () => client.get("/dashboard/resumen").then((r) => r.data);
 
+// ---- Auth admin ----
+const authHeader = () => {
+  const t = localStorage.getItem("nexopro_admin_token");
+  return t ? { Authorization: `Bearer ${t}` } : {};
+};
+export const adminLogin = (email, password) =>
+  client.post("/auth/login", { email, password }).then((r) => r.data);
+export const adminMe = () => client.get("/auth/me", { headers: authHeader() }).then((r) => r.data);
+
+// ---- Licencias (admin) ----
+export const getLicencias = () => client.get("/admin/licencias", { headers: authHeader() }).then((r) => r.data);
+export const createLicencia = (data) => client.post("/admin/licencias", data, { headers: authHeader() }).then((r) => r.data);
+export const updateLicencia = (id, data) => client.put(`/admin/licencias/${id}`, data, { headers: authHeader() }).then((r) => r.data);
+export const estadoLicencia = (id, estado) => {
+  const fd = new FormData();
+  fd.append("estado", estado);
+  return client.patch(`/admin/licencias/${id}/estado`, fd, { headers: authHeader() }).then((r) => r.data);
+};
+export const registrarPago = (id) => client.post(`/admin/licencias/${id}/pago`, {}, { headers: authHeader() }).then((r) => r.data);
+export const deleteLicencia = (id) => client.delete(`/admin/licencias/${id}`, { headers: authHeader() }).then((r) => r.data);
+
+// ---- Licencia (público, gate del cliente) ----
+export const verificarLicencia = (key) => client.get(`/licencia/verificar/${key}`).then((r) => r.data);
+
 export const eur = (n) =>
   new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR" }).format(Number(n || 0));

@@ -1,4 +1,4 @@
-from fastapi import FastAPI, APIRouter, HTTPException, UploadFile, File, Form
+from fastapi import FastAPI, APIRouter, HTTPException, UploadFile, File, Form, Depends, Request
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -7,11 +7,14 @@ import json
 import hashlib
 import logging
 import tempfile
+import secrets
+import bcrypt
+import jwt
 from pathlib import Path
 from pydantic import BaseModel, Field
 from typing import List, Optional, Literal
+from datetime import datetime, timezone, date, timedelta
 import uuid
-from datetime import datetime, timezone, date
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -21,6 +24,8 @@ client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ['DB_NAME']]
 
 EMERGENT_LLM_KEY = os.environ.get('EMERGENT_LLM_KEY')
+JWT_SECRET = os.environ.get('JWT_SECRET', 'change-me')
+JWT_ALGORITHM = "HS256"
 
 app = FastAPI(title="ERP Base - Clientes, Proveedores y Facturación")
 api_router = APIRouter(prefix="/api")
@@ -43,6 +48,151 @@ def new_id():
 def clean(doc: dict) -> dict:
     doc.pop('_id', None)
     return doc
+
+
+# ---------------------------------------------------------------------------
+# AUTENTICACIÓN (Admin JWT) + LICENCIAS
+# ---------------------------------------------------------------------------
+def hash_password(password: str) -> str:
+    return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+
+
+def verify_password(plain: str, hashed: str) -> bool:
+    try:
+        return bcrypt.checkpw(plain.encode("utf-8"), hashed.encode("utf-8"))
+    except Exception:
+        return False
+
+
+def create_access_token(user_id: str, email: str) -> str:
+    payload = {"sub": user_id, "email": email,
+               "exp": datetime.now(timezone.utc) + timedelta(hours=12), "type": "access"}
+    return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
+
+
+async def get_current_admin(request: Request) -> dict:
+    auth_header = request.headers.get("Authorization", "")
+    token = auth_header[7:] if auth_header.startswith("Bearer ") else None
+    if not token:
+        raise HTTPException(401, "No autenticado")
+    try:
+        payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        user = await db.users.find_one({"id": payload["sub"]}, {"_id": 0, "password_hash": 0})
+        if not user or user.get("role") != "admin":
+            raise HTTPException(401, "No autorizado")
+        return user
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(401, "Sesión expirada")
+    except jwt.InvalidTokenError:
+        raise HTTPException(401, "Token inválido")
+
+
+class LoginInput(BaseModel):
+    email: str
+    password: str
+
+
+@api_router.post("/auth/login")
+async def auth_login(data: LoginInput):
+    user = await db.users.find_one({"email": data.email.lower().strip()})
+    if not user or not verify_password(data.password, user["password_hash"]):
+        raise HTTPException(401, "Credenciales incorrectas")
+    token = create_access_token(user["id"], user["email"])
+    return {"token": token, "user": {"email": user["email"], "name": user.get("name", ""), "role": user["role"]}}
+
+
+@api_router.get("/auth/me")
+async def auth_me(admin: dict = Depends(get_current_admin)):
+    return admin
+
+
+# ---- Licencias ----
+class LicenciaInput(BaseModel):
+    empresa: str
+    email: str = ""
+    telefono: str = ""
+    precio_mensual: float = 29
+    notas: str = ""
+
+
+def _gen_license_key() -> str:
+    return "NEXO-" + secrets.token_hex(4).upper() + "-" + secrets.token_hex(2).upper()
+
+
+@api_router.post("/admin/licencias")
+async def crear_licencia(data: LicenciaInput, admin: dict = Depends(get_current_admin)):
+    doc = {
+        "id": new_id(),
+        "license_key": _gen_license_key(),
+        "empresa": data.empresa,
+        "email": data.email,
+        "telefono": data.telefono,
+        "precio_mensual": data.precio_mensual,
+        "estado": "activa",
+        "ultimo_pago": None,
+        "proximo_pago": None,
+        "notas": data.notas,
+        "created_at": now_iso(),
+    }
+    await db.licencias.insert_one(dict(doc))
+    return clean(doc)
+
+
+@api_router.get("/admin/licencias")
+async def listar_licencias(admin: dict = Depends(get_current_admin)):
+    return await db.licencias.find({}, {"_id": 0}).sort("created_at", -1).to_list(2000)
+
+
+@api_router.put("/admin/licencias/{lic_id}")
+async def actualizar_licencia(lic_id: str, data: LicenciaInput, admin: dict = Depends(get_current_admin)):
+    res = await db.licencias.update_one({"id": lic_id}, {"$set": data.model_dump()})
+    if res.matched_count == 0:
+        raise HTTPException(404, "Licencia no encontrada")
+    return await db.licencias.find_one({"id": lic_id}, {"_id": 0})
+
+
+@api_router.patch("/admin/licencias/{lic_id}/estado")
+async def cambiar_estado_licencia(lic_id: str, estado: str = Form(...), admin: dict = Depends(get_current_admin)):
+    if estado not in ("activa", "suspendida"):
+        raise HTTPException(400, "Estado no válido")
+    res = await db.licencias.update_one({"id": lic_id}, {"$set": {"estado": estado}})
+    if res.matched_count == 0:
+        raise HTTPException(404, "Licencia no encontrada")
+    return await db.licencias.find_one({"id": lic_id}, {"_id": 0})
+
+
+@api_router.post("/admin/licencias/{lic_id}/pago")
+async def registrar_pago(lic_id: str, admin: dict = Depends(get_current_admin)):
+    hoy = date.today()
+    prox = (hoy.replace(day=1) + timedelta(days=32)).replace(day=1)
+    res = await db.licencias.update_one({"id": lic_id}, {"$set": {
+        "ultimo_pago": hoy.isoformat(), "proximo_pago": prox.isoformat(), "estado": "activa",
+    }})
+    if res.matched_count == 0:
+        raise HTTPException(404, "Licencia no encontrada")
+    return await db.licencias.find_one({"id": lic_id}, {"_id": 0})
+
+
+@api_router.delete("/admin/licencias/{lic_id}")
+async def eliminar_licencia(lic_id: str, admin: dict = Depends(get_current_admin)):
+    await db.licencias.delete_one({"id": lic_id})
+    return {"ok": True}
+
+
+@api_router.get("/licencia/verificar/{license_key}")
+async def verificar_licencia(license_key: str):
+    """Endpoint público usado por la app cliente para saber si está activa."""
+    lic = await db.licencias.find_one({"license_key": license_key}, {"_id": 0})
+    if not lic:
+        return {"valida": False, "estado": "no_encontrada", "mensaje": "Licencia no válida."}
+    activa = lic["estado"] == "activa"
+    return {
+        "valida": activa,
+        "estado": lic["estado"],
+        "empresa": lic["empresa"],
+        "mensaje": "Licencia activa." if activa else "Aplicación desactivada. Contacte con su proveedor.",
+    }
+
 
 
 # ---------------------------------------------------------------------------
@@ -644,6 +794,37 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.on_event("startup")
+async def startup_seed():
+    # Índices
+    try:
+        await db.users.create_index("email", unique=True)
+        await db.licencias.create_index("license_key", unique=True)
+    except Exception as e:
+        logger.warning(f"Index warning: {e}")
+    # Admin idempotente
+    admin_email = os.environ.get("ADMIN_EMAIL", "admin@nexopro.com").lower()
+    admin_password = os.environ.get("ADMIN_PASSWORD", "Admin1234!")
+    existing = await db.users.find_one({"email": admin_email})
+    if existing is None:
+        await db.users.insert_one({
+            "id": new_id(), "email": admin_email, "password_hash": hash_password(admin_password),
+            "name": "Administrador", "role": "admin", "created_at": now_iso(),
+        })
+        logger.info("Admin creado")
+    elif not verify_password(admin_password, existing["password_hash"]):
+        await db.users.update_one({"email": admin_email}, {"$set": {"password_hash": hash_password(admin_password)}})
+    # Licencia demo idempotente
+    demo_key = os.environ.get("DEMO_LICENSE_KEY", "NEXO-DEMO-0001")
+    if not await db.licencias.find_one({"license_key": demo_key}):
+        await db.licencias.insert_one({
+            "id": new_id(), "license_key": demo_key, "empresa": "Empresa Demo SL",
+            "email": "demo@empresa.es", "telefono": "", "precio_mensual": 29,
+            "estado": "activa", "ultimo_pago": None, "proximo_pago": None,
+            "notas": "Licencia de demostración", "created_at": now_iso(),
+        })
 
 
 @app.on_event("shutdown")
