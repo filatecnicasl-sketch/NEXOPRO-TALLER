@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Car, Wrench, MagnifyingGlass, CalendarBlank, Clock, ArrowRight, CircleNotch } from "@phosphor-icons/react";
-import { getTallerResumen, eur } from "@/lib/api";
+import { Car, Wrench, MagnifyingGlass, CalendarBlank, Clock, ArrowRight, CircleNotch, Lightning } from "@phosphor-icons/react";
+import { getTallerResumen, getVehiculos, getContactos, getAjustes, eur } from "@/lib/api";
 import PageHeader from "@/components/PageHeader";
+import RecepcionRapida from "@/components/RecepcionRapida";
+import { Button } from "@/components/ui/button";
 
 const OT_ESTADOS = [
   { key: "recepcion", label: "Recepción", cls: "bg-amber-50 text-amber-700 ring-amber-200" },
@@ -30,8 +32,18 @@ function Kpi({ icon: Icon, label, value, tone, to, nav, testid }) {
 export default function TallerDashboard() {
   const nav = useNavigate();
   const [data, setData] = useState(null);
+  const [recepOpen, setRecepOpen] = useState(false);
+  const [vehiculos, setVehiculos] = useState([]);
+  const [clientes, setClientes] = useState([]);
+  const [empresa, setEmpresa] = useState({});
 
-  useEffect(() => { getTallerResumen().then(setData).catch(() => setData({})); }, []);
+  const cargarResumen = () => getTallerResumen().then(setData).catch(() => setData({}));
+  useEffect(() => {
+    cargarResumen();
+    getVehiculos().then(setVehiculos).catch(() => {});
+    getContactos("cliente").then(setClientes).catch(() => {});
+    getAjustes().then((a) => setEmpresa(a.empresa || {})).catch(() => {});
+  }, []);
 
   if (!data) return (
     <div className="p-8 flex items-center gap-2 text-zinc-400"><CircleNotch size={18} className="animate-spin" /> Cargando panel…</div>
@@ -44,7 +56,12 @@ export default function TallerDashboard() {
 
   return (
     <div className="p-8 max-w-[1300px]" data-testid="taller-dashboard">
-      <PageHeader title="Panel del taller" subtitle="Visión operativa del día a día" chip="Taller" />
+      <PageHeader title="Panel del taller" subtitle="Visión operativa del día a día" chip="Taller">
+        <Button data-testid="dashboard-recepcion-rapida" onClick={() => setRecepOpen(true)}
+          className="rounded-lg bg-amber-500 hover:bg-amber-600 text-white shadow-sm h-11 px-5 text-[15px]">
+          <Lightning size={20} weight="fill" className="mr-2" /> Recepción rápida
+        </Button>
+      </PageHeader>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <Kpi testid="kpi-vehiculos" icon={Car} label="Vehículos" value={data.total_vehiculos || 0} tone="bg-indigo-50 text-indigo-600" to="/taller/vehiculos" nav={nav} />
@@ -148,6 +165,15 @@ export default function TallerDashboard() {
           </div>
         </div>
       )}
+
+      <RecepcionRapida
+        open={recepOpen}
+        onOpenChange={setRecepOpen}
+        vehiculos={vehiculos}
+        clientes={clientes}
+        empresa={empresa}
+        onCreated={() => { cargarResumen(); getVehiculos().then(setVehiculos).catch(() => {}); getContactos("cliente").then(setClientes).catch(() => {}); }}
+      />
     </div>
   );
 }
