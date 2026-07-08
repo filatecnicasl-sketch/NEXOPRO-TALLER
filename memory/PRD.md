@@ -35,6 +35,22 @@ Autónomos y pymes españolas que gestionan compras/ventas y facturación con ob
   Admin: admin@nexopro.com / Admin1234!. Licencia demo: NEXO-DEMO-0001 (frontend/.env REACT_APP_LICENSE_KEY).
 
 ## Estado / Bloqueos
+- TALLER — HOJA DE ENTRADA A4 HORIZONTAL (réplica ASORECA) + IMPRESIÓN (2026-07-08):
+  · imprimirHojaEntrada (taller_print.js) rehecha como réplica fiel del "Resguardo de depósito sin
+    presupuesto" ASORECA: A4 HORIZONTAL, UN solo ejemplar, ocupa todo el folio (contenedor 190mm).
+    Incluye: título, cabecera taller (nombre/CIF/dir/RIIA/mail/tel/fax) + bloque cliente, tabla
+    REPARACIONES A REALIZAR (Nº/Descripción/Mano de obra/Materiales, 21 filas), datos vehículo +
+    croquis (perfil+planta) + seguro/combustible/observaciones, recuadro RENUNCIA con texto legal y
+    firmas prestador/cliente, fecha prevista de entrega, 4 casillas de autorización, y al pie
+    Protección de Datos + gastos de estancia. Verificado por render (idéntico al original).
+  · IMPRESIÓN: función open() cambiada de window.open (bloqueada por navegador) a IFRAME oculto que
+    espera a que carguen las imágenes y llama a win.print(). Se quitaron los <script> onload internos
+    (no disparaban en iframe y causaban que NO imprimiese). Confirmado por el usuario ("LISTO").
+  · UI Órdenes: los 2 iconos de impresión (hoja/parte) sustituidos por un DropdownMenu "Imprimir" con
+    opciones claras "Hoja de entrada (A4 horizontal)" y "Parte de trabajo".
+  · Datos de EJEMPLO en BD para previsualizar: empresa "Taller Hnos. García S.L." (placeholder, el
+    usuario debe poner la suya en Ajustes), cliente María López, vehículo 1234ABC, orden OT-000014.
+    Existe también OT-000013 (7765HGJ) con texto de prueba del usuario.
 - TALLER/UI — RECEPCIÓN RÁPIDA + BUSCADOR LÍNEAS + MENÚ COLOR (2026-07-08):
   · Recepción rápida (RecepcionRapida.jsx): botón en cabecera de Órdenes. Flujo 2 pasos pensado para
     tablet junto al coche: paso 1 (matrícula + marca/modelo + cliente existente o alta rápida + tipos +

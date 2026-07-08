@@ -29,26 +29,40 @@ function shell(title, body) {
     @page{margin:14mm}
     @media print{body{padding:0}.noprint{display:none}}
   </style></head><body>${body}
-  <script>window.onload=function(){setTimeout(function(){window.print()},400)}</script>
   </body></html>`;
 }
 
 function open(html) {
   const iframe = document.createElement("iframe");
   iframe.setAttribute("aria-hidden", "true");
-  iframe.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden";
+  iframe.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0;";
   document.body.appendChild(iframe);
-  try {
-    const doc = iframe.contentWindow.document;
-    doc.open();
-    doc.write(html);
-    doc.close();
+  const win = iframe.contentWindow;
+  const doc = win.document;
+  doc.open();
+  doc.write(html);
+  doc.close();
+
+  let done = false;
+  const triggerPrint = () => {
+    if (done) return;
+    done = true;
+    try { win.focus(); win.print(); } catch (e) {
+      const w = window.open("", "_blank");
+      if (w) { w.document.open(); w.document.write(html); w.document.close(); }
+    }
     setTimeout(() => { try { iframe.remove(); } catch (e) {} }, 60000);
-  } catch (e) {
-    const w = window.open("", "_blank", "width=1000,height=760");
-    if (!w) { alert("Permite las ventanas emergentes para imprimir."); return; }
-    w.document.open(); w.document.write(html); w.document.close();
-  }
+  };
+
+  const imgs = Array.from(doc.images || []);
+  if (imgs.length === 0) { setTimeout(triggerPrint, 250); return; }
+  let loaded = 0;
+  const check = () => { loaded++; if (loaded >= imgs.length) setTimeout(triggerPrint, 150); };
+  imgs.forEach((img) => {
+    if (img.complete) check();
+    else { img.addEventListener("load", check); img.addEventListener("error", check); }
+  });
+  setTimeout(triggerPrint, 2500); // seguridad si alguna imagen no carga
 }
 
 function cabecera(empresa, titulo, ref, fecha) {
@@ -258,7 +272,6 @@ export function imprimirHojaEntrada({ empresa = {}, orden = {}, vehiculo = {}, c
     table.rep td.d{border-right:.8px solid #000}
     table.rep td.m{text-align:right}
   </style></head><body>${body}
-  <script>window.onload=function(){setTimeout(function(){window.print()},400)}</script>
   </body></html>`;
   open(html);
 }
