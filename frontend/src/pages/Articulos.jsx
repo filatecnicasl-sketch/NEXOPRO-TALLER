@@ -63,24 +63,23 @@ export default function Articulos() {
 
   return (
     <div className="p-8 max-w-[1400px]" data-testid="articulos-page">
-      <PageHeader title="Artículos" subtitle="Catálogo de productos y servicios para usar en tus documentos">
-        <Button data-testid="nuevo-articulo-button" onClick={openNew} className="rounded-sm bg-primary">
-          <Plus size={16} className="mr-1" /> Nuevo artículo
+      <PageHeader title="Artículos" subtitle="Catálogo de productos y servicios para usar en tus documentos" chip={`${items.length} ${items.length === 1 ? "artículo" : "artículos"}`}>
+        <Button data-testid="nuevo-articulo-button" onClick={openNew} className="rounded-md bg-primary hover:bg-indigo-700">
+          <Plus size={16} className="mr-1.5" /> Nuevo artículo
         </Button>
       </PageHeader>
 
       <div className="relative mb-4 max-w-sm">
-        <MagnifyingGlass size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+        <MagnifyingGlass size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
         <Input data-testid="buscar-articulo-input" placeholder="Buscar por nombre, referencia o código..." value={search}
-          onChange={(e) => setSearch(e.target.value)} className="pl-9 rounded-sm" />
+          onChange={(e) => setSearch(e.target.value)} className="pl-9 rounded-md bg-white" />
       </div>
 
-      <div className="bg-white border border-slate-200 rounded-sm">
+      <div className="bg-white border border-zinc-200 rounded-lg shadow-sm overflow-hidden">
         <Table>
           <TableHeader>
-            <TableRow className="bg-slate-50 hover:bg-slate-50">
-              <TableHead>Referencia</TableHead>
-              <TableHead>Nombre</TableHead>
+            <TableRow className="bg-zinc-50 hover:bg-zinc-50 border-zinc-200 [&>th]:text-[11px] [&>th]:uppercase [&>th]:tracking-wider [&>th]:text-zinc-500 [&>th]:font-semibold">
+              <TableHead>Artículo</TableHead>
               <TableHead>Cód. prov.</TableHead>
               <TableHead>Cód. barras/QR</TableHead>
               <TableHead>Origen (documentos)</TableHead>
@@ -91,41 +90,51 @@ export default function Articulos() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {loading && <TableRow><TableCell colSpan={9} className="text-center text-slate-400 py-8">Cargando...</TableCell></TableRow>}
+            {loading && <TableRow><TableCell colSpan={8} className="text-center text-zinc-400 py-10">Cargando...</TableCell></TableRow>}
             {!loading && filtered.length === 0 && (
-              <TableRow><TableCell colSpan={9} className="py-16 text-center">
-                <Package size={40} className="mx-auto text-slate-200 mb-3" />
-                <p className="text-slate-500 text-sm">No hay artículos todavía</p>
-                <Button variant="link" onClick={openNew} className="text-primary">Añadir el primero</Button>
+              <TableRow><TableCell colSpan={8} className="py-16 text-center">
+                <div className="mx-auto h-14 w-14 rounded-full bg-zinc-100 flex items-center justify-center mb-3">
+                  <Package size={26} className="text-zinc-400" />
+                </div>
+                <p className="text-zinc-700 text-sm font-medium">No hay artículos todavía</p>
+                <p className="text-zinc-400 text-xs mt-0.5">Se crean solos al importar facturas de proveedor, o añádelos aquí.</p>
+                <Button onClick={openNew} className="mt-4 rounded-md bg-primary hover:bg-indigo-700"><Plus size={15} className="mr-1.5" /> Nuevo artículo</Button>
               </TableCell></TableRow>
             )}
             {filtered.map((a, i) => (
-              <TableRow key={a.id} className="animate-row" style={{ animationDelay: `${i * 25}ms` }} data-testid={`articulo-row-${a.id}`}>
-                <TableCell className="font-mono-plex text-xs text-slate-600">{a.referencia || "—"}</TableCell>
-                <TableCell className="font-medium text-slate-800">
-                  {a.nombre}
-                  {a.auto && <span className="ml-2 text-[10px] uppercase tracking-wide text-primary bg-accent px-1.5 py-0.5 rounded-sm">auto</span>}
+              <TableRow key={a.id} className="animate-row border-zinc-100 hover:bg-zinc-50/70 transition-colors" style={{ animationDelay: `${i * 25}ms` }} data-testid={`articulo-row-${a.id}`}>
+                <TableCell className="py-2.5">
+                  <div className="flex items-center gap-3">
+                    <span className="inline-flex h-9 w-9 items-center justify-center rounded-md bg-indigo-50 text-indigo-600 shrink-0"><Package size={17} weight="duotone" /></span>
+                    <div className="min-w-0">
+                      <div className="font-medium text-zinc-900 truncate flex items-center gap-2">
+                        {a.nombre}
+                        {a.auto && <span className="text-[10px] uppercase tracking-wide text-indigo-600 bg-accent px-1.5 py-0.5 rounded-full">auto</span>}
+                      </div>
+                      <div className="text-xs text-zinc-400 font-mono-plex">{a.referencia || "—"}</div>
+                    </div>
+                  </div>
                 </TableCell>
-                <TableCell className="font-mono-plex text-xs text-slate-600">{a.codigo_proveedor || "—"}</TableCell>
-                <TableCell className="font-mono-plex text-xs text-slate-600">{a.codigo_barras || "—"}</TableCell>
+                <TableCell className="font-mono-plex text-xs text-zinc-600">{a.codigo_proveedor || "—"}</TableCell>
+                <TableCell className="font-mono-plex text-xs text-zinc-600">{a.codigo_barras || "—"}</TableCell>
                 <TableCell>
                   {(a.origenes && a.origenes.length > 0) ? (
                     <div className="flex flex-wrap gap-1 max-w-[280px]">
                       {a.origenes.slice(0, 3).map((o, k) => (
-                        <span key={k} className="text-[11px] font-mono-plex bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded-sm" title={`${o.tipo} · ${o.proveedor || ""} · ${o.fecha || ""}`}>
+                        <span key={k} className="text-[11px] font-mono-plex bg-zinc-100 text-zinc-600 px-1.5 py-0.5 rounded-full" title={`${o.tipo} · ${o.proveedor || ""} · ${o.fecha || ""}`}>
                           {o.documento_numero}
                         </span>
                       ))}
-                      {a.origenes.length > 3 && <span className="text-[11px] text-slate-400">+{a.origenes.length - 3}</span>}
+                      {a.origenes.length > 3 && <span className="text-[11px] text-zinc-400">+{a.origenes.length - 3}</span>}
                     </div>
-                  ) : <span className="text-slate-300 text-xs">—</span>}
+                  ) : <span className="text-zinc-300 text-xs">—</span>}
                 </TableCell>
-                <TableCell className="text-slate-600">{a.unidad}</TableCell>
-                <TableCell className="text-right tabular-nums">{eur(a.precio)}</TableCell>
-                <TableCell className="text-right text-slate-600">{a.tipo_iva}%</TableCell>
+                <TableCell className="text-zinc-600 text-sm">{a.unidad}</TableCell>
+                <TableCell className="text-right tabular-nums font-medium text-zinc-900">{eur(a.precio)}</TableCell>
+                <TableCell className="text-right text-zinc-500 text-sm">{a.tipo_iva}%</TableCell>
                 <TableCell className="text-right">
-                  <button data-testid={`editar-${a.id}`} onClick={() => openEdit(a)} className="text-slate-400 hover:text-primary p-1.5"><PencilSimple size={16} /></button>
-                  <button data-testid={`eliminar-${a.id}`} onClick={() => setDelId(a.id)} className="text-slate-400 hover:text-red-500 p-1.5"><Trash size={16} /></button>
+                  <button data-testid={`editar-${a.id}`} onClick={() => openEdit(a)} className="text-zinc-400 hover:text-primary p-1.5"><PencilSimple size={16} /></button>
+                  <button data-testid={`eliminar-${a.id}`} onClick={() => setDelId(a.id)} className="text-zinc-400 hover:text-red-500 p-1.5"><Trash size={16} /></button>
                 </TableCell>
               </TableRow>
             ))}

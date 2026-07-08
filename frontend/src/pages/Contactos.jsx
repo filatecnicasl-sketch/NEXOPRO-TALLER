@@ -3,6 +3,7 @@ import { Plus, PencilSimple, Trash, MagnifyingGlass, UsersThree } from "@phospho
 import { toast } from "sonner";
 import { getContactos, createContacto, updateContacto, deleteContacto } from "@/lib/api";
 import PageHeader from "@/components/PageHeader";
+import Initials from "@/components/Initials";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -66,60 +67,71 @@ export default function Contactos({ tipo }) {
 
   return (
     <div className="p-8 max-w-[1400px]" data-testid={`${tipo}-page`}>
-      <PageHeader title={plural} subtitle={`Gestiona tu cartera de ${plural.toLowerCase()}`}>
-        <Button data-testid="nuevo-contacto-button" onClick={openNew} className="rounded-sm bg-primary hover:bg-[hsl(222_100%_44%)]">
-          <Plus size={16} className="mr-1" /> Nuevo {label.toLowerCase()}
+      <PageHeader title={plural} subtitle={`Gestiona tu cartera de ${plural.toLowerCase()}`} chip={`${items.length} ${items.length === 1 ? "registro" : "registros"}`}>
+        <Button data-testid="nuevo-contacto-button" onClick={openNew} className="rounded-md bg-primary hover:bg-indigo-700">
+          <Plus size={16} className="mr-1.5" /> Nuevo {label.toLowerCase()}
         </Button>
       </PageHeader>
 
       <div className="relative mb-4 max-w-sm">
-        <MagnifyingGlass size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+        <MagnifyingGlass size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
         <Input
           data-testid="buscar-contacto-input"
           placeholder="Buscar por nombre o NIF..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="pl-9 rounded-sm"
+          className="pl-9 rounded-md bg-white"
         />
       </div>
 
-      <div className="bg-white border border-slate-200 rounded-sm">
+      <div className="bg-white border border-zinc-200 rounded-lg shadow-sm overflow-hidden">
         <Table>
           <TableHeader>
-            <TableRow className="bg-slate-50 hover:bg-slate-50">
-              <TableHead>Nombre</TableHead>
-              <TableHead>NIF/CIF</TableHead>
-              <TableHead>Email</TableHead>
-              <TableHead>Teléfono</TableHead>
-              <TableHead>Ciudad</TableHead>
-              <TableHead className="text-right">Acciones</TableHead>
+            <TableRow className="bg-zinc-50 hover:bg-zinc-50 border-zinc-200">
+              <TableHead className="text-[11px] uppercase tracking-wider text-zinc-500 font-semibold">Nombre</TableHead>
+              <TableHead className="text-[11px] uppercase tracking-wider text-zinc-500 font-semibold">NIF/CIF</TableHead>
+              <TableHead className="text-[11px] uppercase tracking-wider text-zinc-500 font-semibold">Teléfono</TableHead>
+              <TableHead className="text-[11px] uppercase tracking-wider text-zinc-500 font-semibold">Ciudad</TableHead>
+              <TableHead className="text-right text-[11px] uppercase tracking-wider text-zinc-500 font-semibold">Acciones</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading && (
-              <TableRow><TableCell colSpan={6} className="text-center text-slate-400 py-8">Cargando...</TableCell></TableRow>
+              <TableRow><TableCell colSpan={5} className="text-center text-zinc-400 py-10">Cargando...</TableCell></TableRow>
             )}
             {!loading && filtered.length === 0 && (
               <TableRow>
-                <TableCell colSpan={6} className="py-16 text-center">
-                  <UsersThree size={40} className="mx-auto text-slate-200 mb-3" />
-                  <p className="text-slate-500 text-sm">No hay {plural.toLowerCase()} todavía</p>
-                  <Button variant="link" onClick={openNew} className="text-primary">Añadir el primero</Button>
+                <TableCell colSpan={5} className="py-16 text-center">
+                  <div className="mx-auto h-14 w-14 rounded-full bg-zinc-100 flex items-center justify-center mb-3">
+                    <UsersThree size={26} className="text-zinc-400" />
+                  </div>
+                  <p className="text-zinc-700 text-sm font-medium">No hay {plural.toLowerCase()} todavía</p>
+                  <p className="text-zinc-400 text-xs mt-0.5">Empieza añadiendo tu primer {label.toLowerCase()}.</p>
+                  <Button onClick={openNew} className="mt-4 rounded-md bg-primary hover:bg-indigo-700">
+                    <Plus size={15} className="mr-1.5" /> Nuevo {label.toLowerCase()}
+                  </Button>
                 </TableCell>
               </TableRow>
             )}
             {filtered.map((c, i) => (
-              <TableRow key={c.id} className="animate-row" style={{ animationDelay: `${i * 25}ms` }} data-testid={`contacto-row-${c.id}`}>
-                <TableCell className="font-medium text-slate-800">{c.nombre}</TableCell>
-                <TableCell className="font-mono-plex text-xs text-slate-600">{c.nif || "—"}</TableCell>
-                <TableCell className="text-slate-600">{c.email || "—"}</TableCell>
-                <TableCell className="text-slate-600">{c.telefono || "—"}</TableCell>
-                <TableCell className="text-slate-600">{c.ciudad || "—"}</TableCell>
+              <TableRow key={c.id} className="animate-row border-zinc-100 hover:bg-zinc-50/70 transition-colors" style={{ animationDelay: `${i * 25}ms` }} data-testid={`contacto-row-${c.id}`}>
+                <TableCell className="py-2.5">
+                  <div className="flex items-center gap-3">
+                    <Initials name={c.nombre} />
+                    <div className="min-w-0">
+                      <div className="font-medium text-zinc-900 truncate">{c.nombre}</div>
+                      <div className="text-xs text-zinc-400 truncate">{c.email || "Sin email"}</div>
+                    </div>
+                  </div>
+                </TableCell>
+                <TableCell className="font-mono-plex text-xs text-zinc-600">{c.nif || "—"}</TableCell>
+                <TableCell className="text-zinc-600 text-sm">{c.telefono || "—"}</TableCell>
+                <TableCell className="text-zinc-600 text-sm">{c.ciudad || "—"}</TableCell>
                 <TableCell className="text-right">
-                  <button data-testid={`editar-${c.id}`} onClick={() => openEdit(c)} className="text-slate-400 hover:text-primary p-1.5 transition-colors">
+                  <button data-testid={`editar-${c.id}`} onClick={() => openEdit(c)} className="text-zinc-400 hover:text-primary p-1.5 transition-colors">
                     <PencilSimple size={16} />
                   </button>
-                  <button data-testid={`eliminar-${c.id}`} onClick={() => setDelId(c.id)} className="text-slate-400 hover:text-red-500 p-1.5 transition-colors">
+                  <button data-testid={`eliminar-${c.id}`} onClick={() => setDelId(c.id)} className="text-zinc-400 hover:text-red-500 p-1.5 transition-colors">
                     <Trash size={16} />
                   </button>
                 </TableCell>
