@@ -92,6 +92,40 @@ export const estadoOrden = (id, estado) => {
 };
 export const deleteOrden = (id) => client.delete(`/taller/ordenes/${id}`).then((r) => r.data);
 
+// Taller — Compañías de seguros
+export const getCompanias = () => client.get("/taller/companias").then((r) => r.data);
+export const createCompania = (data) => client.post("/taller/companias", data).then((r) => r.data);
+export const updateCompania = (id, data) => client.put(`/taller/companias/${id}`, data).then((r) => r.data);
+export const deleteCompania = (id) => client.delete(`/taller/companias/${id}`).then((r) => r.data);
+
+// Taller — Peritajes
+export const getPeritajes = (vehiculo_id) => client.get("/taller/peritajes", { params: { vehiculo_id } }).then((r) => r.data);
+export const getPeritaje = (id) => client.get(`/taller/peritajes/${id}`).then((r) => r.data);
+export const createPeritaje = (data) => client.post("/taller/peritajes", data).then((r) => r.data);
+export const updatePeritaje = (id, data) => client.put(`/taller/peritajes/${id}`, data).then((r) => r.data);
+export const estadoPeritaje = (id, estado) => {
+  const fd = new FormData();
+  fd.append("estado", estado);
+  return client.patch(`/taller/peritajes/${id}/estado`, fd).then((r) => r.data);
+};
+export const deletePeritaje = (id) => client.delete(`/taller/peritajes/${id}`).then((r) => r.data);
+
+// Taller — Fotos / adjuntos (subida directa + QR + galería)
+export const mediaUrl = (path) => `${API}/taller/media/${path}`;
+export const subirFoto = (tipo, id, file) => {
+  const fd = new FormData();
+  fd.append("file", file);
+  return client.post(`/taller/${tipo}/${id}/fotos`, fd, { headers: { "Content-Type": "multipart/form-data" } }).then((r) => r.data);
+};
+export const borrarFoto = (tipo, id, path) => client.delete(`/taller/${tipo}/${id}/fotos`, { params: { path } }).then((r) => r.data);
+export const crearFotoSesion = (tipo, entidad_id) => client.post("/taller/foto-sesion", { tipo, entidad_id }).then((r) => r.data);
+export const infoSubida = (token) => client.get(`/taller/subida/${token}`).then((r) => r.data);
+export const subirFotoToken = (token, file) => {
+  const fd = new FormData();
+  fd.append("file", file);
+  return client.post(`/taller/subida/${token}`, fd, { headers: { "Content-Type": "multipart/form-data" } }).then((r) => r.data);
+};
+
 // Dashboard
 export const getResumen = () => client.get("/dashboard/resumen").then((r) => r.data);
 

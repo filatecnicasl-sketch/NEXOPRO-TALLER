@@ -1577,7 +1577,8 @@ async def ficha_vehiculo(vid: str):
     if not v:
         raise HTTPException(404, "Vehículo no encontrado")
     ordenes = await db.ordenes_trabajo.find({"vehiculo_id": vid}, {"_id": 0}).sort("created_at", -1).to_list(500)
-    return {"vehiculo": v, "ordenes": ordenes}
+    peritajes = await db.peritajes.find({"vehiculo_id": vid}, {"_id": 0}).sort("created_at", -1).to_list(500)
+    return {"vehiculo": v, "ordenes": ordenes, "peritajes": peritajes}
 
 
 @api_router.put("/taller/vehiculos/{vid}")
@@ -1691,6 +1692,244 @@ async def estado_orden(oid: str, estado: str = Form(...)):
 async def eliminar_orden(oid: str):
     await db.ordenes_trabajo.delete_one({"id": oid})
     return {"ok": True}
+
+
+# ---------------------------------------------------------------------------
+# TALLER — FASE 2: Peritajes, Compañías de seguros, Fotos (subida + QR)
+# ---------------------------------------------------------------------------
+_TALLER_COLS = {"peritajes": "peritajes", "vehiculos": "vehiculos", "ordenes": "ordenes_trabajo"}
+
+
+async def _guardar_media(contenido: bytes, filename: str, content_type: str) -> dict:
+    ext = filename.rsplit(".", 1)[-1].lower() if filename and "." in filename else "bin"
+    path = f"{APP_NAME}/media/{new_id()}.{ext}"
+    res = storage_put(path, contenido, content_type or "application/octet-stream")
+    return {"path": res.get("path", path), "filename": filename or "archivo", "content_type": content_type or ""}
+
+
+async def _append_foto(col: str, eid: str, file: UploadFile) -> dict:
+    contenido = await file.read()
+    ct = file.content_type or ""
+    if not (ct.startswith("image/") or ct == "application/pdf"):
+        raise HTTPException(400, "Solo se admiten imágenes o PDF")
+    if len(contenido) > 15 * 1024 * 1024:
+        raise HTTPException(400, "El archivo no debe superar 15 MB")
+    media = await _guardar_media(contenido, file.filename, ct)
+    foto = {"path": media["path"], "filename": media["filename"], "content_type": ct, "created_at": now_iso()}
+    res = await db[col].update_one({"id": eid}, {"$push": {"fotos": foto}})
+    if res.matched_count == 0:
+        raise HTTPException(404, "Registro no encontrado")
+    return foto
+
+
+@api_router.get("/taller/media/{path:path}")
+async def obtener_media(path: str):
+    try:
+        data, ct = storage_get(path)
+    except Exception:
+        raise HTTPException(404, "Archivo no encontrado")
+    return Response(content=data, media_type=ct or "application/octet-stream",
+                    headers={"Content-Disposition": f'inline; filename="{path.split("/")[-1]}"'})
+
+
+@api_router.post("/taller/{tipo}/{eid}/fotos")
+async def subir_foto(tipo: str, eid: str, file: UploadFile = File(...)):
+    col = _TALLER_COLS.get(tipo)
+    if not col:
+        raise HTTPException(404, "Tipo no válido")
+    return await _append_foto(col, eid, file)
+
+
+@api_router.delete("/taller/{tipo}/{eid}/fotos")
+async def borrar_foto(tipo: str, eid: str, path: str):
+    col = _TALLER_COLS.get(tipo)
+    if not col:
+        raise HTTPException(404, "Tipo no válido")
+    await db[col].update_one({"id": eid}, {"$pull": {"fotos": {"path": path}}})
+    return {"ok": True}
+
+
+# ---- Sesiones de subida por QR (públicas) ----
+class FotoSesionInput(BaseModel):
+    tipo: str
+    entidad_id: str
+
+
+@api_router.post("/taller/foto-sesion")
+async def crear_foto_sesion(data: FotoSesionInput):
+    if data.tipo not in _TALLER_COLS:
+        raise HTTPException(400, "Tipo no válido")
+    token = uuid.uuid4().hex[:10]
+    await db.foto_sesiones.insert_one({
+        "token": token, "tipo": data.tipo, "entidad_id": data.entidad_id, "created_at": now_iso(),
+    })
+    return {"token": token}
+
+
+@api_router.get("/taller/subida/{token}")
+async def info_subida(token: str):
+    s = await db.foto_sesiones.find_one({"token": token}, {"_id": 0})
+    if not s:
+        raise HTTPException(404, "Enlace de subida no válido o caducado")
+    col = _TALLER_COLS[s["tipo"]]
+    ent = await db[col].find_one({"id": s["entidad_id"]}, {"_id": 0})
+    label = ""
+    if ent:
+        label = ent.get("matricula") or ent.get("vehiculo_matricula") or ent.get("numero") or ""
+    total = len(ent.get("fotos", [])) if ent else 0
+    return {"tipo": s["tipo"], "label": label, "total": total}
+
+
+@api_router.post("/taller/subida/{token}")
+async def subir_foto_token(token: str, file: UploadFile = File(...)):
+    s = await db.foto_sesiones.find_one({"token": token})
+    if not s:
+        raise HTTPException(404, "Enlace de subida no válido o caducado")
+    col = _TALLER_COLS[s["tipo"]]
+    foto = await _append_foto(col, s["entidad_id"], file)
+    ent = await db[col].find_one({"id": s["entidad_id"]}, {"_id": 0})
+    return {"ok": True, "total": len(ent.get("fotos", [])) if ent else 0, "foto": foto}
+
+
+# ---- Compañías de seguros ----
+class CompaniaInput(BaseModel):
+    nombre: str
+    cif: str = ""
+    telefono: str = ""
+    email: str = ""
+
+
+class Compania(CompaniaInput):
+    id: str = Field(default_factory=new_id)
+    created_at: str = Field(default_factory=now_iso)
+
+
+@api_router.post("/taller/companias")
+async def crear_compania(data: CompaniaInput):
+    c = Compania(**data.model_dump())
+    await db.companias.insert_one(c.model_dump())
+    return c.model_dump()
+
+
+@api_router.get("/taller/companias")
+async def listar_companias():
+    return await db.companias.find({}, {"_id": 0}).sort("nombre", 1).to_list(1000)
+
+
+@api_router.put("/taller/companias/{cid}")
+async def actualizar_compania(cid: str, data: CompaniaInput):
+    res = await db.companias.update_one({"id": cid}, {"$set": data.model_dump()})
+    if res.matched_count == 0:
+        raise HTTPException(404, "Compañía no encontrada")
+    return await db.companias.find_one({"id": cid}, {"_id": 0})
+
+
+@api_router.delete("/taller/companias/{cid}")
+async def eliminar_compania(cid: str):
+    await db.companias.delete_one({"id": cid})
+    return {"ok": True}
+
+
+# ---- Peritajes ----
+ESTADOS_PERITAJE = ['pendiente', 'valorado', 'aprobado', 'rechazado']
+
+
+class DanioItem(BaseModel):
+    descripcion: str = ""
+    importe: float = 0
+
+
+class PeritajeInput(BaseModel):
+    vehiculo_id: str = ""
+    vehiculo_matricula: str = ""
+    cliente_id: str = ""
+    cliente_nombre: str = ""
+    compania: str = ""
+    poliza: str = ""
+    siniestro: str = ""
+    descripcion: str = ""
+    danios: List[DanioItem] = []
+    estado: Literal['pendiente', 'valorado', 'aprobado', 'rechazado'] = 'pendiente'
+    fecha: str = ""
+
+
+class Peritaje(PeritajeInput):
+    id: str = Field(default_factory=new_id)
+    numero: str = ""
+    importe_total: float = 0
+    fotos: List[dict] = []
+    created_at: str = Field(default_factory=now_iso)
+
+
+async def _rellena_peritaje(d: dict) -> dict:
+    if d.get("vehiculo_id"):
+        v = await db.vehiculos.find_one({"id": d["vehiculo_id"]}, {"_id": 0})
+        if v:
+            d["vehiculo_matricula"] = v.get("matricula", "")
+            if not d.get("cliente_id"):
+                d["cliente_id"] = v.get("cliente_id", "")
+                d["cliente_nombre"] = v.get("cliente_nombre", "")
+    if d.get("cliente_id") and not d.get("cliente_nombre"):
+        cli = await db.contactos.find_one({"id": d["cliente_id"]}, {"_id": 0})
+        if cli:
+            d["cliente_nombre"] = cli.get("nombre", "")
+    d["importe_total"] = round(sum(float(x.get("importe", 0) or 0) for x in d.get("danios", [])), 2)
+    return d
+
+
+@api_router.post("/taller/peritajes")
+async def crear_peritaje(data: PeritajeInput):
+    d = await _rellena_peritaje(data.model_dump())
+    n = await _next_seq("peritaje")
+    d["numero"] = f"PER-{n:06d}"
+    p = Peritaje(**d)
+    await db.peritajes.insert_one(p.model_dump())
+    return p.model_dump()
+
+
+@api_router.get("/taller/peritajes")
+async def listar_peritajes(vehiculo_id: Optional[str] = None):
+    q = {}
+    if vehiculo_id:
+        q["vehiculo_id"] = vehiculo_id
+    return await db.peritajes.find(q, {"_id": 0}).sort("created_at", -1).to_list(2000)
+
+
+@api_router.get("/taller/peritajes/{pid}")
+async def obtener_peritaje(pid: str):
+    doc = await db.peritajes.find_one({"id": pid}, {"_id": 0})
+    if not doc:
+        raise HTTPException(404, "Peritaje no encontrado")
+    return doc
+
+
+@api_router.put("/taller/peritajes/{pid}")
+async def actualizar_peritaje(pid: str, data: PeritajeInput):
+    existing = await db.peritajes.find_one({"id": pid}, {"_id": 0})
+    if not existing:
+        raise HTTPException(404, "Peritaje no encontrado")
+    d = await _rellena_peritaje(data.model_dump())
+    d["numero"] = existing.get("numero", "")
+    await db.peritajes.update_one({"id": pid}, {"$set": d})
+    return await db.peritajes.find_one({"id": pid}, {"_id": 0})
+
+
+@api_router.patch("/taller/peritajes/{pid}/estado")
+async def estado_peritaje(pid: str, estado: str = Form(...)):
+    if estado not in ESTADOS_PERITAJE:
+        raise HTTPException(400, "Estado inválido")
+    res = await db.peritajes.update_one({"id": pid}, {"$set": {"estado": estado}})
+    if res.matched_count == 0:
+        raise HTTPException(404, "Peritaje no encontrado")
+    return await db.peritajes.find_one({"id": pid}, {"_id": 0})
+
+
+@api_router.delete("/taller/peritajes/{pid}")
+async def eliminar_peritaje(pid: str):
+    await db.peritajes.delete_one({"id": pid})
+    return {"ok": True}
+
+
 
 
 

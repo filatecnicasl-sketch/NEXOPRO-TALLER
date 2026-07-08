@@ -1,0 +1,40 @@
+{
+  "summary": "Iteración 12 (TALLER Fase 2): 23/23 pytest OK cubriendo Compañías, Peritajes (autonumeración PER-XXXXXX, herencia matrícula/cliente, importe_total, PATCH estado válido/inválido, PUT recalcula), Fotos (subida, tipo inválido no imagen->400, tipo colección inválido->404, GET media, DELETE), QR/sesión pública (token válido/inválido, incremento contador), y ficha vehículo con peritajes. Frontend: Peritajes end-to-end OK (dialog abierto tras crear, FotosGaleria con QR, cambio estado en fila, edición y eliminación); página pública /subir/:token muestra 'Enlace no válido' con token inválido y carga info+botón con token válido; ficha vehículo muestra Órdenes/Peritajes/Documentos con FotosGaleria.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {
+        "screen": "Peritajes.jsx (select peritaje-vehiculo y otros selects con contenido dinámico dentro de <option>)",
+        "issues": ["Warning React hidratación 'In HTML, <span> cannot be a child of <option>'. Se produce porque el overlay del editor Emergent inyecta <span data-ve-dynamic> alrededor del contenido dinámico del <option> (matricula, marca, etc.). Ya observado en iter11. Mitigación: envolver contenido de <option> en un único string (`{`${v.matricula} · ${...}`}`) en lugar de fragmentos JSX múltiples; ídem para el <option> del select de compañía y estados si aplica. No bloqueante — sólo es un warning en dev."]
+      }
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter12_taller_fase2.py",
+    "/app/test_reports/pytest/iter12.xml"
+  ],
+  "action_items": [
+    "(Opcional/menor) Concatenar el texto dentro de <option> en Peritajes.jsx a un único nodo string para evitar el warning de hidratación cuando el overlay dev-visual envuelve fragmentos JSX."
+  ],
+  "critical_code_review_comments": [
+    "server.py: _append_foto valida MIME image/* o application/pdf y límite 15MB — correcto. Registra `path`, `filename`, `content_type`, `created_at`. OK.",
+    "GET /api/taller/media/{path:path} usa path param con :path (correcto) — sirve el binario con Content-Disposition inline.",
+    "PATCH /taller/peritajes/{id}/estado usa Form(...): el frontend hace `application/x-www-form-urlencoded` en api.js (verificado por tests).",
+    "_rellena_peritaje hereda vehiculo_matricula y cliente_id/nombre desde vehículo; calcula importe_total sumando danios[].importe redondeado a 2 decimales — OK.",
+    "server.py ya supera 1990 líneas — recomendable dividir en routers (taller/, ventas/, ...). Ya reportado en iter11.",
+    "FotosGaleria.jsx: usa window.location.origin para construir el QR — depende de que la URL pública sea la misma que ve el móvil. Correcto para preview y producción.",
+    "SubirFotos.jsx: input file `capture=environment` para abrir cámara trasera en móvil — bien.",
+    "Falta rate-limit / expiración de tokens de subida (foto_sesiones no tiene TTL). Considerar TTL index o campo expires_at para evitar acumulación indefinida. No crítico."
+  ],
+  "updated_files": ["/app/backend/tests/test_iter12_taller_fase2.py"],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "seed_data_creation": "Todos los registros TEST_* creados durante los tests y flujos UI fueron eliminados (contactos, vehículos, compañías, peritajes). BD limpia.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Fase 2 verificada. Endpoints activos: /api/taller/companias, /api/taller/peritajes, /api/taller/{tipo}/{id}/fotos (tipo=peritajes|vehiculos|ordenes), /api/taller/media/{path}, /api/taller/foto-sesion + /api/taller/subida/{token} (públicos). Los tokens de sesión no expiran automáticamente — si se implementa TTL, actualizar test_iter12. La ficha /api/taller/vehiculos/{id}/ficha ahora devuelve {vehiculo, ordenes, peritajes}."
+}

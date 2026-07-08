@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { EstadoOTBadge } from "@/lib/taller";
+import FotosGaleria from "@/components/FotosGaleria";
 
 const EMPTY = {
   matricula: "", marca: "", modelo: "", bastidor: "", color: "", kilometros: "",
@@ -69,9 +70,14 @@ export default function Vehiculos() {
   };
 
   const openFicha = async (v) => {
-    setFicha({ loading: true, vehiculo: v, ordenes: [] });
+    setFicha({ loading: true, vehiculo: v, ordenes: [], peritajes: [] });
     try { const d = await getVehiculoFicha(v.id); setFicha({ loading: false, ...d }); }
     catch { setFicha(null); toast.error("No se pudo abrir la ficha"); }
+  };
+  const refreshFicha = async () => {
+    if (!ficha?.vehiculo?.id) return;
+    const d = await getVehiculoFicha(ficha.vehiculo.id);
+    setFicha({ loading: false, ...d });
   };
 
   const filtered = useMemo(() => {
@@ -245,6 +251,28 @@ export default function Vehiculos() {
                         ))}
                       </div>
                     )}
+              </div>
+              <div className="border-t border-zinc-100 pt-4">
+                <h4 className="font-heading font-semibold text-zinc-900 mb-2 text-sm">Peritajes</h4>
+                {ficha.loading ? <p className="text-sm text-zinc-400">Cargando...</p>
+                  : (ficha.peritajes || []).length === 0 ? <p className="text-sm text-zinc-400">Sin peritajes para este vehículo.</p>
+                    : (
+                      <div className="space-y-2">
+                        {ficha.peritajes.map((p) => (
+                          <div key={p.id} className="flex items-center justify-between border border-zinc-100 rounded-md px-3 py-2 text-sm">
+                            <div className="flex items-center gap-3">
+                              <span className="font-mono-plex text-xs text-zinc-500">{p.numero}</span>
+                              <span className="text-zinc-600">{p.compania || "—"}</span>
+                              <span className="text-zinc-400 text-xs">{(p.fotos || []).length} foto(s)</span>
+                            </div>
+                            <span className="tabular-nums font-medium text-zinc-900">{eur(p.importe_total)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+              </div>
+              <div className="border-t border-zinc-100 pt-4">
+                <FotosGaleria tipo="vehiculos" id={ficha.vehiculo.id} fotos={ficha.vehiculo.fotos || []} onChange={refreshFicha} titulo="Documentos y fotos (peritaciones, contratos…)" />
               </div>
             </>
           )}

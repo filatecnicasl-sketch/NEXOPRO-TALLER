@@ -13,6 +13,8 @@ import Ajustes from "@/pages/Ajustes";
 import TallerPlaceholder from "@/pages/TallerPlaceholder";
 import Vehiculos from "@/pages/Vehiculos";
 import OrdenesTrabajo from "@/pages/OrdenesTrabajo";
+import Peritajes from "@/pages/Peritajes";
+import SubirFotos from "@/pages/SubirFotos";
 import AdminLogin from "@/pages/AdminLogin";
 import AdminPanel from "@/pages/AdminPanel";
 
@@ -24,6 +26,9 @@ function App() {
           {/* Panel central (solo administrador) — fuera del gate de licencia */}
           <Route path="/admin/login" element={<AdminLogin />} />
           <Route path="/admin" element={<AdminPanel />} />
+
+          {/* Subida de fotos desde el móvil (pública, vía QR) — fuera del gate */}
+          <Route path="/subir/:token" element={<SubirFotos />} />
 
           {/* Aplicación cliente — protegida por licencia */}
           <Route
@@ -49,7 +54,7 @@ function App() {
             {/* Módulo Taller (sectorial) */}
             <Route path="/taller/vehiculos" element={<Vehiculos />} />
             <Route path="/taller/ordenes" element={<OrdenesTrabajo />} />
-            <Route path="/taller/peritajes" element={<TallerPlaceholder title="Peritajes" subtitle="Daños, compañía de seguros y fotos" />} />
+            <Route path="/taller/peritajes" element={<Peritajes />} />
             <Route path="/taller/citas" element={<TallerPlaceholder title="Citas" subtitle="Agenda de citas por vehículo" />} />
           </Route>
         </Routes>
