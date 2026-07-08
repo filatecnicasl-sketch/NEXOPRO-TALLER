@@ -36,33 +36,27 @@ function open(html) {
   const iframe = document.createElement("iframe");
   iframe.setAttribute("aria-hidden", "true");
   iframe.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0;";
-  document.body.appendChild(iframe);
-  const win = iframe.contentWindow;
-  const doc = win.document;
-  doc.open();
-  doc.write(html);
-  doc.close();
-
-  let done = false;
-  const triggerPrint = () => {
-    if (done) return;
-    done = true;
-    try { win.focus(); win.print(); } catch (e) {
-      const w = window.open("", "_blank");
-      if (w) { w.document.open(); w.document.write(html); w.document.close(); }
+  let printed = false;
+  const doPrint = () => {
+    if (printed) return;
+    printed = true;
+    try {
+      window.__printTriggered = (window.__printTriggered || 0) + 1;
+      const w = iframe.contentWindow;
+      w.focus();
+      w.print();
+    } catch (e) {
+      const win = window.open("", "_blank");
+      if (win) { win.document.open(); win.document.write(html); win.document.close(); }
+      else alert("Permite las ventanas emergentes para imprimir.");
     }
     setTimeout(() => { try { iframe.remove(); } catch (e) {} }, 60000);
   };
-
-  const imgs = Array.from(doc.images || []);
-  if (imgs.length === 0) { setTimeout(triggerPrint, 250); return; }
-  let loaded = 0;
-  const check = () => { loaded++; if (loaded >= imgs.length) setTimeout(triggerPrint, 150); };
-  imgs.forEach((img) => {
-    if (img.complete) check();
-    else { img.addEventListener("load", check); img.addEventListener("error", check); }
-  });
-  setTimeout(triggerPrint, 2500); // seguridad si alguna imagen no carga
+  iframe.onload = () => setTimeout(doPrint, 250);
+  document.body.appendChild(iframe);
+  iframe.srcdoc = html;
+  // Seguridad: si onload no dispara (algún navegador), imprime igualmente
+  setTimeout(doPrint, 1500);
 }
 
 function cabecera(empresa, titulo, ref, fecha) {
