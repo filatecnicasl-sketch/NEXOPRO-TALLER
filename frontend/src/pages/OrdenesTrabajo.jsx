@@ -137,7 +137,7 @@ export default function OrdenesTrabajo() {
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="sm:max-w-4xl rounded-sm max-h-[92vh] overflow-y-auto" data-testid="orden-dialog">
-          <DialogHeader><DialogTitle className="font-heading">{editId ? "Editar orden de trabajo" : "Nueva orden de trabajo"}</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle className="font-heading">{editId ? `Orden ${form.numero || ""}${form.vehiculo_matricula ? " · " + form.vehiculo_matricula : ""}` : "Nueva orden de trabajo"}</DialogTitle></DialogHeader>
           <div className="grid grid-cols-2 gap-4 py-2">
             <div>
               <Label className="text-xs">Vehículo *</Label>
