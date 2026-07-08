@@ -11,6 +11,12 @@ export const createContacto = (data) => client.post("/contactos", data).then((r)
 export const updateContacto = (id, data) => client.put(`/contactos/${id}`, data).then((r) => r.data);
 export const deleteContacto = (id) => client.delete(`/contactos/${id}`).then((r) => r.data);
 
+// Artículos
+export const getArticulos = () => client.get("/articulos").then((r) => r.data);
+export const createArticulo = (data) => client.post("/articulos", data).then((r) => r.data);
+export const updateArticulo = (id, data) => client.put(`/articulos/${id}`, data).then((r) => r.data);
+export const deleteArticulo = (id) => client.delete(`/articulos/${id}`).then((r) => r.data);
+
 // Documentos genéricos
 export const getDocumentos = (entidad) => client.get(`/${entidad}`).then((r) => r.data);
 export const createDocumento = (entidad, data) => client.post(`/${entidad}`, data).then((r) => r.data);

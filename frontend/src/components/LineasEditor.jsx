@@ -16,7 +16,7 @@ export function calcTotales(lineas) {
   return { base: +base.toFixed(2), iva: +iva.toFixed(2), total: +(base + iva).toFixed(2) };
 }
 
-export default function LineasEditor({ lineas, setLineas }) {
+export default function LineasEditor({ lineas, setLineas, articulos = [] }) {
   const update = (i, field, value) => {
     const next = [...lineas];
     next[i] = { ...next[i], [field]: value };
@@ -25,6 +25,15 @@ export default function LineasEditor({ lineas, setLineas }) {
   const add = () =>
     setLineas([...lineas, { descripcion: "", cantidad: 1, precio_unitario: 0, descuento: 0, tipo_iva: 21 }]);
   const remove = (i) => setLineas(lineas.filter((_, idx) => idx !== i));
+
+  const addArticulo = (id) => {
+    const a = articulos.find((x) => x.id === id);
+    if (!a) return;
+    setLineas([...lineas, {
+      descripcion: a.referencia ? `${a.referencia} · ${a.nombre}` : a.nombre,
+      cantidad: 1, precio_unitario: a.precio || 0, descuento: 0, tipo_iva: a.tipo_iva ?? 21,
+    }]);
+  };
 
   const totales = calcTotales(lineas);
 
@@ -99,9 +108,24 @@ export default function LineasEditor({ lineas, setLineas }) {
         })}
       </div>
       <div className="flex items-center justify-between">
-        <Button data-testid="add-linea-button" variant="outline" size="sm" onClick={add} className="rounded-sm">
-          <Plus size={15} className="mr-1" /> Añadir línea
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button data-testid="add-linea-button" variant="outline" size="sm" onClick={add} className="rounded-sm">
+            <Plus size={15} className="mr-1" /> Añadir línea
+          </Button>
+          {articulos.length > 0 && (
+            <select
+              data-testid="select-articulo-linea"
+              value=""
+              onChange={(e) => { if (e.target.value) addArticulo(e.target.value); e.target.value = ""; }}
+              className="h-9 text-sm border border-input rounded-sm bg-white px-2 text-slate-600"
+            >
+              <option value="">+ Desde artículo…</option>
+              {articulos.map((a) => (
+                <option key={a.id} value={a.id}>{a.referencia ? `${a.referencia} · ` : ""}{a.nombre}</option>
+              ))}
+            </select>
+          )}
+        </div>
         <div className="flex gap-6 text-sm">
           <div className="text-slate-500">Base <span className="text-slate-900 font-medium tabular-nums ml-1">{eur(totales.base)}</span></div>
           <div className="text-slate-500">IVA <span className="text-slate-900 font-medium tabular-nums ml-1">{eur(totales.iva)}</span></div>

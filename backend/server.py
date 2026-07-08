@@ -196,6 +196,87 @@ async def eliminar_contacto(contacto_id: str):
 
 
 # ---------------------------------------------------------------------------
+# ARTÍCULOS / PRODUCTOS
+# ---------------------------------------------------------------------------
+class ArticuloInput(BaseModel):
+    referencia: str = ""
+    nombre: str
+    descripcion: str = ""
+    precio: float = 0
+    tipo_iva: float = 21
+    unidad: str = "ud"
+    notas: str = ""
+
+
+@api_router.post("/articulos")
+async def crear_articulo(data: ArticuloInput):
+    d = data.model_dump()
+    doc = {"id": new_id(), **d, "nombre_lower": d["nombre"].strip().lower(),
+           "origenes": [], "auto": False, "created_at": now_iso()}
+    await db.articulos.insert_one(dict(doc))
+    return clean(doc)
+
+
+@api_router.get("/articulos")
+async def listar_articulos():
+    return await db.articulos.find({}, {"_id": 0}).sort("created_at", -1).to_list(2000)
+
+
+@api_router.put("/articulos/{articulo_id}")
+async def actualizar_articulo(articulo_id: str, data: ArticuloInput):
+    d = data.model_dump()
+    d["nombre_lower"] = d["nombre"].strip().lower()
+    res = await db.articulos.update_one({"id": articulo_id}, {"$set": d})
+    if res.matched_count == 0:
+        raise HTTPException(404, "Artículo no encontrado")
+    return await db.articulos.find_one({"id": articulo_id}, {"_id": 0})
+
+
+@api_router.delete("/articulos/{articulo_id}")
+async def eliminar_articulo(articulo_id: str):
+    await db.articulos.delete_one({"id": articulo_id})
+    return {"ok": True}
+
+
+async def registrar_articulos_entrada(lineas: list, origen: dict):
+    """Da de alta (o actualiza) los artículos que aparecen en un documento de entrada,
+    guardando en cada artículo a qué documento(s) corresponde."""
+    for l in lineas:
+        nombre = (l.get("descripcion") or "").strip()
+        if not nombre:
+            continue
+        entry = {
+            "tipo": origen["tipo"],
+            "documento_numero": origen["numero"],
+            "documento_id": origen["id"],
+            "fecha": origen.get("fecha", ""),
+            "proveedor": origen.get("proveedor", ""),
+            "precio": l.get("precio_unitario", 0),
+            "cantidad": l.get("cantidad", 0),
+        }
+        existing = await db.articulos.find_one({"nombre_lower": nombre.lower()})
+        if existing:
+            origenes = existing.get("origenes", [])
+            if not any(o.get("documento_id") == origen["id"] for o in origenes):
+                origenes.append(entry)
+            await db.articulos.update_one({"id": existing["id"]}, {"$set": {
+                "origenes": origenes,
+                "precio": l.get("precio_unitario", existing.get("precio", 0)),
+                "tipo_iva": l.get("tipo_iva", existing.get("tipo_iva", 21)),
+            }})
+        else:
+            art = {
+                "id": new_id(), "referencia": "", "nombre": nombre,
+                "nombre_lower": nombre.lower(), "descripcion": "",
+                "precio": l.get("precio_unitario", 0), "tipo_iva": l.get("tipo_iva", 21),
+                "unidad": "ud", "notas": "", "origenes": [entry], "auto": True,
+                "created_at": now_iso(),
+            }
+            await db.articulos.insert_one(dict(art))
+
+
+
+# ---------------------------------------------------------------------------
 # DOCUMENTOS genéricos (Pedidos / Albaranes)
 # ---------------------------------------------------------------------------
 async def _next_numero(coleccion: str, prefijo: str) -> str:
@@ -224,12 +305,17 @@ def _build_documento(data: DocumentoInput, numero: str):
     }
 
 
-def _make_documento_routes(entidad: str, coleccion: str, prefijo: str):
+def _make_documento_routes(entidad: str, coleccion: str, prefijo: str, registrar_entrada=False):
     @api_router.post(f"/{entidad}")
     async def crear(data: DocumentoInput):
         numero = await _next_numero(coleccion, prefijo)
         doc = _build_documento(data, numero)
         await db[coleccion].insert_one(dict(doc))
+        if registrar_entrada and doc["tipo_operacion"] == "compra":
+            await registrar_articulos_entrada(doc["lineas"], {
+                "tipo": entidad, "numero": doc["numero"], "id": doc["id"],
+                "fecha": doc["fecha"], "proveedor": doc["contacto_nombre"],
+            })
         return clean(doc)
 
     @api_router.get(f"/{entidad}")
@@ -264,7 +350,7 @@ def _make_documento_routes(entidad: str, coleccion: str, prefijo: str):
 
 
 _make_documento_routes("pedidos", "pedidos", "PED")
-_make_documento_routes("albaranes", "albaranes", "ALB")
+_make_documento_routes("albaranes", "albaranes", "ALB", registrar_entrada=True)
 
 
 # ---------------------------------------------------------------------------
@@ -374,6 +460,10 @@ async def crear_factura_recibida(data: FacturaRecibidaInput):
         "created_at": now_iso(),
     }
     await db.facturas_recibidas.insert_one(dict(doc))
+    await registrar_articulos_entrada(doc["lineas"], {
+        "tipo": "factura_recibida", "numero": doc["numero_proveedor"] or doc["id"][:8],
+        "id": doc["id"], "fecha": doc["fecha"], "proveedor": doc["proveedor_nombre"],
+    })
     return clean(doc)
 
 
@@ -501,6 +591,7 @@ async def dashboard_resumen():
     proveedores = await db.contactos.count_documents({"tipo": "proveedor"})
     pedidos = await db.pedidos.count_documents({})
     albaranes = await db.albaranes.count_documents({})
+    articulos = await db.articulos.count_documents({})
 
     emitidas = await db.facturas_emitidas.find({}, {"_id": 0}).to_list(5000)
     recibidas = await db.facturas_recibidas.find({}, {"_id": 0, "pdf_base64": 0}).to_list(5000)
@@ -526,6 +617,7 @@ async def dashboard_resumen():
         "proveedores": proveedores,
         "pedidos": pedidos,
         "albaranes": albaranes,
+        "articulos": articulos,
         "num_facturas_emitidas": len(emitidas),
         "num_facturas_recibidas": len(recibidas),
         "total_facturado": total_facturado,

@@ -1,72 +1,58 @@
-import { NavLink, Outlet, useLocation } from "react-router-dom";
-import {
-  SquaresFour,
-  UsersThree,
-  Truck,
-  ClipboardText,
-  Receipt,
-  FileArrowDown,
-  FileText,
-  Sparkle,
-} from "@phosphor-icons/react";
+import { NavLink, Outlet } from "react-router-dom";
+
+const LOGO = "https://customer-assets.emergentagent.com/job_invoice-hub-861/artifacts/7wiurgv7_favicom.png";
 
 const NAV = [
-  { to: "/", label: "Dashboard", icon: SquaresFour, testid: "sidebar-dashboard" },
-  { to: "/clientes", label: "Clientes", icon: UsersThree, testid: "sidebar-clientes" },
-  { to: "/proveedores", label: "Proveedores", icon: Truck, testid: "sidebar-proveedores" },
-  { to: "/pedidos", label: "Pedidos", icon: ClipboardText, testid: "sidebar-pedidos" },
-  { to: "/albaranes", label: "Albaranes", icon: FileText, testid: "sidebar-albaranes" },
-  { to: "/facturas-emitidas", label: "Facturas Emitidas", icon: Receipt, testid: "sidebar-facturas-emitidas" },
-  { to: "/facturas-recibidas", label: "Facturas Recibidas", icon: FileArrowDown, testid: "sidebar-facturas-recibidas" },
+  { to: "/", label: "Panel de control", testid: "nav-dashboard" },
+  { to: "/clientes", label: "Clientes", testid: "nav-clientes" },
+  { to: "/proveedores", label: "Proveedores", testid: "nav-proveedores" },
+  { to: "/articulos", label: "Artículos", testid: "nav-articulos" },
+  { to: "/pedidos", label: "Pedidos", testid: "nav-pedidos" },
+  { to: "/albaranes", label: "Albaranes", testid: "nav-albaranes" },
+  { to: "/facturas-emitidas", label: "Facturas Emitidas", testid: "nav-facturas-emitidas" },
+  { to: "/facturas-recibidas", label: "Facturas Recibidas", testid: "nav-facturas-recibidas" },
 ];
 
 export default function Layout() {
-  const location = useLocation();
   return (
-    <div className="min-h-screen flex bg-background">
-      <aside className="w-64 shrink-0 border-r border-slate-200 bg-white flex flex-col fixed h-screen" data-testid="sidebar">
-        <div className="px-6 py-6 border-b border-slate-200">
-          <div className="flex items-center gap-2">
-            <div className="h-8 w-8 rounded-sm bg-primary flex items-center justify-center">
-              <Sparkle weight="fill" className="text-white" size={18} />
+    <div className="min-h-screen bg-background">
+      <header className="sticky top-0 z-40 bg-white border-b border-slate-200" data-testid="topbar">
+        <div className="max-w-[1500px] mx-auto px-6">
+          <div className="flex items-center h-16 gap-8">
+            <div className="flex items-center gap-2.5 shrink-0">
+              <img src={LOGO} alt="NexoPro" className="h-9 w-9 object-contain" />
+              <div className="leading-none">
+                <div className="font-heading font-bold text-[17px] text-slate-900">NexoPro</div>
+                <div className="text-[9px] uppercase tracking-[0.2em] text-slate-400 mt-0.5">ERP · Verifactu</div>
+              </div>
             </div>
-            <div>
-              <div className="font-heading font-bold text-[15px] leading-none text-slate-900">Núcleo ERP</div>
-              <div className="text-[10px] uppercase tracking-widest text-slate-400 mt-1">Módulo base</div>
+            <nav className="flex items-center gap-1 overflow-x-auto no-scrollbar" data-testid="main-nav">
+              {NAV.map((item) => (
+                <NavLink
+                  key={item.to}
+                  to={item.to}
+                  end={item.to === "/"}
+                  data-testid={item.testid}
+                  className={({ isActive }) =>
+                    `whitespace-nowrap px-3 py-2 rounded-sm text-sm transition-colors duration-150 ${
+                      isActive
+                        ? "bg-accent text-primary font-medium"
+                        : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                    }`
+                  }
+                >
+                  {item.label}
+                </NavLink>
+              ))}
+            </nav>
+            <div className="ml-auto flex items-center gap-2 text-[11px] text-slate-400 shrink-0">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+              Compatible Verifactu
             </div>
           </div>
         </div>
-        <nav className="flex-1 py-4 px-3 space-y-0.5 overflow-y-auto">
-          {NAV.map((item) => {
-            const Icon = item.icon;
-            return (
-              <NavLink
-                key={item.to}
-                to={item.to}
-                end={item.to === "/"}
-                data-testid={item.testid}
-                className={({ isActive }) =>
-                  `flex items-center gap-3 px-3 py-2.5 rounded-sm text-sm transition-colors duration-150 ${
-                    isActive
-                      ? "bg-accent text-primary font-medium"
-                      : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
-                  }`
-                }
-              >
-                <Icon size={19} weight={location.pathname === item.to ? "fill" : "regular"} />
-                {item.label}
-              </NavLink>
-            );
-          })}
-        </nav>
-        <div className="px-6 py-4 border-t border-slate-200">
-          <div className="flex items-center gap-2 text-[11px] text-slate-400">
-            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-            Compatible Verifactu
-          </div>
-        </div>
-      </aside>
-      <main className="flex-1 ml-64 min-h-screen">
+      </header>
+      <main>
         <Outlet />
       </main>
     </div>

@@ -57,6 +57,8 @@ body {
 
 .font-heading { font-family: 'Cabinet Grotesk', sans-serif; }
 .font-mono-plex { font-family: 'IBM Plex Mono', monospace; }
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
 /* Scanning animation for AI extraction */
 @keyframes scan {

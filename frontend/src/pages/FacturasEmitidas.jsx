@@ -3,7 +3,7 @@ import { QRCodeSVG } from "qrcode.react";
 import { Plus, Trash, Eye, Receipt, ShieldCheck, CheckCircle } from "@phosphor-icons/react";
 import { toast } from "sonner";
 import {
-  getFacturasEmitidas, createFacturaEmitida, deleteFacturaEmitida, estadoFacturaEmitida, getContactos, eur,
+  getFacturasEmitidas, createFacturaEmitida, deleteFacturaEmitida, estadoFacturaEmitida, getContactos, getArticulos, eur,
 } from "@/lib/api";
 import PageHeader from "@/components/PageHeader";
 import LineasEditor, { calcTotales } from "@/components/LineasEditor";
@@ -26,13 +26,14 @@ export default function FacturasEmitidas() {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [clientes, setClientes] = useState([]);
+  const [articulos, setArticulos] = useState([]);
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState(emptyForm());
   const [detalle, setDetalle] = useState(null);
   const [delId, setDelId] = useState(null);
 
   const load = () => { setLoading(true); getFacturasEmitidas().then((d) => { setItems(d); setLoading(false); }); };
-  useEffect(() => { load(); getContactos("cliente").then(setClientes); }, []);
+  useEffect(() => { load(); getContactos("cliente").then(setClientes); getArticulos().then(setArticulos); }, []);
 
   const openNew = () => { setForm(emptyForm()); setOpen(true); };
   const onCliente = (id) => {
@@ -142,7 +143,7 @@ export default function FacturasEmitidas() {
               <Input type="date" value={form.fecha_expedicion} onChange={(e) => setForm({ ...form, fecha_expedicion: e.target.value })} className="rounded-sm mt-1" />
             </div>
           </div>
-          <LineasEditor lineas={form.lineas} setLineas={(l) => setForm({ ...form, lineas: l })} />
+          <LineasEditor lineas={form.lineas} setLineas={(l) => setForm({ ...form, lineas: l })} articulos={articulos} />
           <DialogFooter className="mt-2">
             <div className="mr-auto text-sm text-slate-500">Total: <span className="font-semibold text-primary">{eur(totales.total)}</span></div>
             <Button variant="outline" onClick={() => setOpen(false)} className="rounded-sm">Cancelar</Button>

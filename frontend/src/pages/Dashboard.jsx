@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
-import { TrendUp, TrendDown, UsersThree, Truck, Receipt, FileArrowDown } from "@phosphor-icons/react";
+import { TrendUp, TrendDown, UsersThree, Truck, Receipt, FileArrowDown, Package } from "@phosphor-icons/react";
 import { getResumen, eur } from "@/lib/api";
 import PageHeader from "@/components/PageHeader";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -26,7 +26,7 @@ export default function Dashboard() {
   if (!data)
     return (
       <div className="p-8">
-        <PageHeader title="Dashboard" subtitle="Resumen de tu actividad" />
+        <PageHeader title="Panel de control" subtitle="Resumen de tu actividad" />
         <div className="grid grid-cols-4 gap-4">
           {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-28 rounded-sm" />)}
         </div>
@@ -35,7 +35,7 @@ export default function Dashboard() {
 
   return (
     <div className="p-8 max-w-[1400px]" data-testid="dashboard-page">
-      <PageHeader title="Dashboard" subtitle="Resumen de tu actividad comercial y financiera" />
+      <PageHeader title="Panel de control" subtitle="Resumen de tu actividad comercial y financiera" />
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
         <Kpi label="Facturado" value={eur(data.total_facturado)} sub={`${data.num_facturas_emitidas} facturas emitidas`} icon={TrendUp} accent="text-emerald-500" />
@@ -44,9 +44,10 @@ export default function Dashboard() {
         <Kpi label="Pendiente pago" value={eur(data.pendiente_pago)} sub="Facturas sin pagar" icon={FileArrowDown} accent="text-blue-400" />
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-6">
         <Kpi label="Clientes" value={data.clientes} icon={UsersThree} accent="text-primary" />
         <Kpi label="Proveedores" value={data.proveedores} icon={Truck} accent="text-primary" />
+        <Kpi label="Artículos" value={data.articulos ?? 0} icon={Package} accent="text-primary" />
         <Kpi label="Pedidos" value={data.pedidos} icon={Receipt} accent="text-primary" />
         <Kpi label="Albaranes" value={data.albaranes} icon={FileArrowDown} accent="text-primary" />
       </div>

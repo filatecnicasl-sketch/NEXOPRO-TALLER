@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Plus, Trash, Sparkle, FileArrowDown, Robot } from "@phosphor-icons/react";
 import { toast } from "sonner";
 import {
-  getFacturasRecibidas, createFacturaRecibida, deleteFacturaRecibida, estadoFacturaRecibida, getContactos, eur,
+  getFacturasRecibidas, createFacturaRecibida, deleteFacturaRecibida, estadoFacturaRecibida, getContactos, getArticulos, eur,
 } from "@/lib/api";
 import PageHeader from "@/components/PageHeader";
 import LineasEditor, { calcTotales } from "@/components/LineasEditor";
@@ -27,13 +27,14 @@ export default function FacturasRecibidas() {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [proveedores, setProveedores] = useState([]);
+  const [articulos, setArticulos] = useState([]);
   const [open, setOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [form, setForm] = useState(emptyForm());
   const [delId, setDelId] = useState(null);
 
   const load = () => { setLoading(true); getFacturasRecibidas().then((d) => { setItems(d); setLoading(false); }); };
-  useEffect(() => { load(); getContactos("proveedor").then(setProveedores); }, []);
+  useEffect(() => { load(); getContactos("proveedor").then(setProveedores); getArticulos().then(setArticulos); }, []);
 
   const openNew = () => { setForm(emptyForm()); setOpen(true); };
   const onProveedor = (id) => {
@@ -179,7 +180,7 @@ export default function FacturasRecibidas() {
               <Input type="date" value={form.fecha} onChange={(e) => setForm({ ...form, fecha: e.target.value })} className="rounded-sm mt-1" />
             </div>
           </div>
-          <LineasEditor lineas={form.lineas} setLineas={(l) => setForm({ ...form, lineas: l })} />
+          <LineasEditor lineas={form.lineas} setLineas={(l) => setForm({ ...form, lineas: l })} articulos={articulos} />
           <DialogFooter className="mt-2">
             <div className="mr-auto text-sm text-slate-500">Total: <span className="font-semibold text-primary">{eur(totales.total)}</span></div>
             <Button variant="outline" onClick={() => setOpen(false)} className="rounded-sm">Cancelar</Button>
