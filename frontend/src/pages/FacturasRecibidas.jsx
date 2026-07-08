@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Plus, ArrowUUpLeft, Sparkle, FileArrowDown, Robot } from "@phosphor-icons/react";
 import { toast } from "sonner";
 import {
-  getFacturasRecibidas, createFacturaRecibida, rectificarFacturaRecibida, estadoFacturaRecibida, getContactos, getArticulos, getConsumoIA, eur,
+  getFacturasRecibidas, createFacturaRecibida, rectificarFacturaRecibida, estadoFacturaRecibida, getContactos, getArticulos, getConsumoIA, eur, eurCoste,
 } from "@/lib/api";
 import PageHeader from "@/components/PageHeader";
 import LineasEditor, { calcTotales } from "@/components/LineasEditor";
@@ -111,7 +111,7 @@ export default function FacturasRecibidas() {
           </div>
           <div><span className="text-slate-400">Lecturas</span> <span className="font-medium ml-1">{consumoIA.num_lecturas}</span></div>
           <div><span className="text-slate-400">Tokens</span> <span className="font-medium ml-1 font-mono-plex">{consumoIA.total_tokens.toLocaleString("es-ES")}</span></div>
-          <div><span className="text-slate-400">Coste estimado</span> <span className="font-semibold text-primary ml-1">{eur(consumoIA.coste_total_eur)}</span></div>
+          <div><span className="text-slate-400">Coste estimado</span> <span className="font-semibold text-primary ml-1">{eurCoste(consumoIA.coste_total_eur)}</span></div>
         </div>
       )}
 

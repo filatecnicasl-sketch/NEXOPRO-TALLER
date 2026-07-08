@@ -1,7 +1,7 @@
 import { useState, useRef } from "react";
 import { UploadSimple, FilePdf, Sparkle, CheckCircle } from "@phosphor-icons/react";
 import { toast } from "sonner";
-import { extraerPdf, eur } from "@/lib/api";
+import { extraerPdf, eur, eurCoste } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 
@@ -94,7 +94,7 @@ export default function ImportPdfDialog({ open, onOpenChange, onExtracted, titul
                 {consumo && (
                   <div className="text-xs text-slate-500 bg-slate-50 rounded-sm px-2 py-1.5 flex items-center justify-between" data-testid="consumo-ia">
                     <span>Coste IA de esta lectura</span>
-                    <span className="font-mono-plex text-slate-700">{consumo.total_tokens} tokens ≈ {eur(consumo.coste_eur)}</span>
+                    <span className="font-mono-plex text-slate-700">{consumo.total_tokens} tokens ≈ {eurCoste(consumo.coste_eur)}</span>
                   </div>
                 )}
               </div>
