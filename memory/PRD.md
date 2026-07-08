@@ -82,6 +82,14 @@ Autónomos y pymes españolas que gestionan compras/ventas y facturación con ob
     /api/taller/ordenes/{id}/firma (dataURL base64 → object storage → firma_cliente_path/firma_cliente_at).
     La hoja de entrada (imprimirHojaEntrada) muestra la firma digital sobre la línea de firma del cliente.
     Verificado E2E por captura (dibujo→guardar→se muestra sello fecha; firma sale en la hoja impresa).
+- TALLER — HOJA DE ENTRADA EN PDF SERVIDOR (WeasyPrint) (2026-06 fork): RESUELTO bug recurrente
+  de impresión (salía comprimida/deformada con impresión HTML en navegador). Ahora el backend
+  genera un PDF real A4 horizontal vía WeasyPrint: GET /api/taller/ordenes/{oid}/hoja-entrada.pdf
+  (@page size A4 landscape, dos ejemplares). Frontend: helper api.js hojaEntradaUrl(id); los botones
+  de OrdenesTrabajo.jsx (dropdown data-testid hoja-entrada-{id}) y RecepcionRapida.jsx (rr-imprimir-
+  finalizar) hacen window.open(hojaEntradaUrl, "_blank") → visor PDF nativo del navegador. Verificado
+  end-to-end por testing_agent (iteration_17: backend 3/3, frontend 2/2, 100%).
+
 - TALLER — HOJA DE ENTRADA + BUSCADOR DE ARTÍCULOS + CONFIRMAR CITA (2026-07-08):
   · Hoja de entrada/recepción de vehículo (lib/taller_print.js imprimirHojaEntrada): A4 con DOS
     ejemplares (TALLER + CLIENTE) en la misma hoja, con datos taller/cliente/vehículo (matrícula,
