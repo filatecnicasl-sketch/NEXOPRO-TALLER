@@ -160,8 +160,8 @@ export default function RecepcionRapida({ open, onOpenChange, vehiculos, cliente
             </>
           ) : (
             <>
-              <Button variant="outline" onClick={imprimir} className="rounded-md" data-testid="rr-imprimir"><Printer size={15} className="mr-1.5" /> Imprimir hoja de entrada</Button>
-              <Button onClick={cerrar} className="rounded-md bg-emerald-600 hover:bg-emerald-700" data-testid="rr-finalizar"><Check size={16} className="mr-1.5" weight="bold" /> Finalizar</Button>
+              <Button variant="outline" onClick={cerrar} className="rounded-md" data-testid="rr-cerrar">Cerrar sin imprimir</Button>
+              <Button onClick={() => { imprimir(); cerrar(); }} className="rounded-md bg-emerald-600 hover:bg-emerald-700" data-testid="rr-imprimir-finalizar"><Printer size={16} className="mr-1.5" /> Imprimir hoja y finalizar</Button>
             </>
           )}
         </DialogFooter>
