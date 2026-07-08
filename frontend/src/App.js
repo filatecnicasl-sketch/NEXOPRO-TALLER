@@ -1,54 +1,30 @@
-import { useEffect } from "react";
 import "@/App.css";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-import axios from "axios";
-import { HOME } from "@/constants/testIds";
-
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
-const API = `${BACKEND_URL}/api`;
-
-const Home = () => {
-  const helloWorldApi = async () => {
-    try {
-      const response = await axios.get(`${API}/`);
-      console.log(response.data.message);
-    } catch (e) {
-      console.error(e, `errored out requesting / api`);
-    }
-  };
-
-  useEffect(() => {
-    helloWorldApi();
-  }, []);
-
-  return (
-    <div>
-      <header className="App-header">
-        <a
-          data-testid={HOME.emergentLink}
-          className="App-link"
-          href="https://emergent.sh"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <img src="https://avatars.githubusercontent.com/in/1201222?s=120&u=2686cf91179bbafbc7a71bfbc43004cf9ae1acea&v=4" />
-        </a>
-        <p className="mt-5">Building something incredible ~!</p>
-      </header>
-    </div>
-  );
-};
+import { Toaster } from "@/components/ui/sonner";
+import Layout from "@/components/Layout";
+import Dashboard from "@/pages/Dashboard";
+import Contactos from "@/pages/Contactos";
+import Documentos from "@/pages/Documentos";
+import FacturasEmitidas from "@/pages/FacturasEmitidas";
+import FacturasRecibidas from "@/pages/FacturasRecibidas";
 
 function App() {
   return (
     <div className="App">
       <BrowserRouter>
         <Routes>
-          <Route path="/" element={<Home />}>
-            <Route index element={<Home />} />
+          <Route element={<Layout />}>
+            <Route path="/" element={<Dashboard />} />
+            <Route path="/clientes" element={<Contactos tipo="cliente" key="cliente" />} />
+            <Route path="/proveedores" element={<Contactos tipo="proveedor" key="proveedor" />} />
+            <Route path="/pedidos" element={<Documentos entidad="pedidos" key="pedidos" />} />
+            <Route path="/albaranes" element={<Documentos entidad="albaranes" key="albaranes" />} />
+            <Route path="/facturas-emitidas" element={<FacturasEmitidas />} />
+            <Route path="/facturas-recibidas" element={<FacturasRecibidas />} />
           </Route>
         </Routes>
       </BrowserRouter>
+      <Toaster position="top-right" richColors />
     </div>
   );
 }

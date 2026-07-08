@@ -1,0 +1,34 @@
+{
+  "summary": "Full backend + frontend E2E testing of Spanish ERP module (Clientes, Proveedores, Pedidos, Albaranes, Facturas Emitidas w/ Verifactu, Facturas Recibidas). All 8 backend pytest classes pass. Frontend flows validated: dashboard KPIs render, contactos CRUD works, pedido creation w/ line items and totals (2*100=242€ with 21% IVA), factura emitida issued with auto-numeric (A2026-0003), Verifactu QR + SHA-256 huella shown in detail dialog, estado toggle Pendiente↔Cobrada works, factura recibida manual create works, Importar PDF (IA) dialog opens with dropzone visible.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "All dialogs", "issues": ["Radix DialogContent missing aria-describedby / DialogDescription - accessibility warning in console (non-blocking)"]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/backend_test.py",
+    "/app/test_reports/pytest/results.xml"
+  ],
+  "action_items": [
+    "Optional: add <DialogDescription> or aria-describedby to Radix DialogContent to silence accessibility warnings",
+    "Note: /api/extraccion/pdf endpoint returns 500 'Budget exceeded' - EXPECTED per E1 (Emergent LLM key has 0 balance), not a code bug"
+  ],
+  "critical_code_review_comments": [
+    "server.py mixes all routes in one 560-line file - could split into routers/ modules if it grows",
+    "PATCH /facturas-emitidas/{id}/estado uses Form(...) which forces multipart/form-encoded; frontend likely sends this - works but a JSON body would be more RESTful",
+    "Verifactu hash chain: huella_anterior is fetched by sort on created_at desc which is correct, but there is a race if two facturas are created concurrently (acceptable for MVP)",
+    "extraccion/pdf: catches broad Exception and returns 500 - reasonable, but bubbling budget-exceeded up as 402/429 would be more accurate"
+  ],
+  "updated_files": [
+    "/app/backend/tests/backend_test.py (created)"
+  ],
+  "success_rate": {"backend": "100% (8/8)", "frontend": "100% (all critical flows)"},
+  "seed_data_creation": "Test-prefixed contactos and facturas were created and cleaned up by pytest teardown. A few TEST_ facturas/clientes may remain from UI testing (A2026-0002 'X', A2026-0003 'TEST_Cli_UI', clientes TEST_Cli_UI/TEST_Cliente_A_upd, proveedor TEST_Prov_UI). Non-destructive to seed data.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Backend tests are loadscope-parallel-safe (2 xdist workers). Each test class is self-contained. Verifactu QR is data-testid='verifactu-qr' inside factura detail dialog. Facturas Emitidas cliente selector is a NATIVE HTML <select> (use page.select_option, not radix combobox). Pedido/Albaran tipo & contacto are also native selects. Importar IA button + pdf-dropzone in FacturasRecibidas work; do NOT trigger real upload - key has 0 balance.",
+  "rca_of_the_issue": "N/A - no bugs found. Initial backend test failures were due to pytest-xdist loadscope pinning classes to separate workers (class-level state doesn't cross workers). Fixed by making each test class self-contained (create+cleanup own data)."
+}
