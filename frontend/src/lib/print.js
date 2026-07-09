@@ -1,4 +1,5 @@
-// Utilidad de impresión: genera documentos y listados en una ventana nueva (Guardar como PDF).
+// Utilidad de impresión: genera documentos y listados e imprime en la propia página (sin pestañas).
+import { imprimirHtmlString } from "@/lib/api";
 
 const esc = (v) => String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 const money = (n) => new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR" }).format(Number(n || 0));
@@ -31,16 +32,11 @@ function shell(title, bodyHTML, accent) {
     @page{margin:16mm}
     @media print{body{padding:0}.noprint{display:none}}
   </style></head><body>${bodyHTML}
-  <script>window.onload=function(){setTimeout(function(){window.print()},250)}</script>
   </body></html>`;
 }
 
 function open(html) {
-  const w = window.open("", "_blank", "width=900,height=1000");
-  if (!w) { alert("Permite las ventanas emergentes para imprimir."); return; }
-  w.document.open();
-  w.document.write(html);
-  w.document.close();
+  imprimirHtmlString(html);
 }
 
 export function imprimirDocumento({

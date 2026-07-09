@@ -16,42 +16,57 @@ export const parteTrabajoUrl = (id) => `${API}/taller/ordenes/${id}/parte-trabaj
 export const hojaEntradaHtmlUrl = (id) => `${API}/taller/ordenes/${id}/hoja-entrada.html`;
 export const parteTrabajoHtmlUrl = (id) => `${API}/taller/ordenes/${id}/parte-trabajo.html`;
 
-// Imprime un documento HTML directamente en el navegador (sin descargar nada, sin abrir pestañas
-// ni depender de Acrobat/visor de PDF). Renderiza el HTML en un iframe oculto y lanza el diálogo
-// de imprimir. El HTML lleva las imágenes incrustadas y @page con el tamaño A4 correcto.
+// Imprime un documento HTML directamente en el navegador SIN iframe, SIN ventanas nuevas y SIN PDF.
+// Inyecta el documento (oculto) en la propia página y usa window.print() de la ventana principal,
+// que muestra el diálogo de impresión igual que al imprimir cualquier web (Ctrl+P). Es el método
+// más compatible: evita bloqueos de extensiones (ERR_BLOCKED_BY_CLIENT) y problemas de iframes/Acrobat.
 export async function imprimirDocumento(url) {
   const r = await fetch(url);
   if (!r.ok) throw new Error("No se pudo generar el documento");
   const html = await r.text();
+  imprimirHtmlString(html);
+}
 
-  const prev = document.getElementById("__print_frame__");
-  if (prev) prev.remove();
+// Igual que imprimirDocumento pero recibiendo el HTML como cadena (documentos generados en cliente).
+export function imprimirHtmlString(html) {
+  const parsed = new DOMParser().parseFromString(html, "text/html");
+  const cssText = Array.from(parsed.querySelectorAll("style")).map((s) => s.textContent).join("\n");
+  const bodyHTML = parsed.body ? parsed.body.innerHTML : html;
 
-  const iframe = document.createElement("iframe");
-  iframe.id = "__print_frame__";
-  iframe.style.position = "fixed";
-  iframe.style.right = "0";
-  iframe.style.bottom = "0";
-  iframe.style.width = "0";
-  iframe.style.height = "0";
-  iframe.style.border = "0";
-  iframe.style.visibility = "hidden";
-  document.body.appendChild(iframe);
+  // Las reglas @page (tamaño/orientación) van a nivel superior; el resto del CSS solo en impresión.
+  const pageRules = (cssText.match(/@page[^{]*\{[^}]*\}/g) || []).join("\n");
+  const restCss = cssText.replace(/@page[^{]*\{[^}]*\}/g, "");
 
-  const doc = iframe.contentWindow.document;
-  doc.open();
-  doc.write(html);
-  doc.close();
+  document.getElementById("__print_style__")?.remove();
+  document.getElementById("__print_root__")?.remove();
 
-  const win = iframe.contentWindow;
-  let printed = false;
-  const doPrint = () => {
-    if (printed) return;
-    printed = true;
-    try { win.focus(); win.print(); } catch (e) { /* noop */ }
+  const style = document.createElement("style");
+  style.id = "__print_style__";
+  style.textContent = `
+    #__print_root__ { display: none; }
+    ${pageRules}
+    @media print {
+      body > *:not(#__print_root__) { display: none !important; }
+      #__print_root__ { display: block !important; }
+      ${restCss}
+    }
+  `;
+  const root = document.createElement("div");
+  root.id = "__print_root__";
+  root.innerHTML = bodyHTML;
+
+  document.head.appendChild(style);
+  document.body.appendChild(root);
+
+  const cleanup = () => {
+    document.getElementById("__print_style__")?.remove();
+    document.getElementById("__print_root__")?.remove();
+    window.removeEventListener("afterprint", cleanup);
   };
-  win.addEventListener("load", () => setTimeout(doPrint, 250));
-  setTimeout(doPrint, 800);
+  window.addEventListener("afterprint", cleanup);
+
+  setTimeout(() => { try { window.focus(); window.print(); } catch (e) { /* noop */ } }, 200);
+  setTimeout(cleanup, 120000);
 }
 
 // Descarga fiable de un PDF (funciona en todos los navegadores, sin ventanas emergentes)

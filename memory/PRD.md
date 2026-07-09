@@ -114,6 +114,18 @@ Autónomos y pymes españolas que gestionan compras/ventas y facturación con ob
   sin Acrobat. Los PDF (hoja-entrada.pdf/parte-trabajo.pdf) siguen existiendo por si se quieren guardar.
   Verificado (smoke test Chrome): clic imprimir → GET parte-trabajo.html 200, iframe creado,
   window.open 0 veces, ningún .pdf solicitado; HTML renderiza A4 horizontal correcto.
+- IMPRESIÓN EN LA PROPIA PÁGINA (método definitivo, unificado) (2026-06 fork): el usuario seguía sin
+  poder imprimir (Órdenes no abría; Ventas mostraba el HTML pero sin poder imprimir; ERR_BLOCKED_BY_CLIENT
+  por extensión al abrir pestañas). Solución final y UNIFICADA para toda la app: api.js imprimirHtmlString(html)
+  inyecta el documento oculto (#__print_root__) en la página actual + un <style> con @page y reglas
+  @media print que ocultan todo salvo el documento, y llama a window.print() de la ventana PRINCIPAL
+  (equivale a Ctrl+P). SIN iframe, SIN ventanas nuevas, SIN PDF, SIN Acrobat → inmune a bloqueos de
+  extensiones. imprimirDocumento(url)=fetch+imprimirHtmlString. Aplicado a: Órdenes (parte y hoja vía
+  endpoints .html del backend), Recepción rápida, Documentos de Ventas/Compras (lib/print.js) y Peritajes
+  (lib/taller_print.js) — todos usan imprimirHtmlString. Se eliminó todo window.open del frontend.
+  Verificado (smoke test Chrome): Órdenes y Ventas → window.print() llamado 1 vez, documento inyectado,
+  window.open 0, pantalla de la app intacta. PENDIENTE: confirmar en el Chrome real del usuario (si su
+  navegador imprime cualquier web con Ctrl+P, este método funcionará).
 
 - TALLER — HOJA DE ENTRADA + BUSCADOR DE ARTÍCULOS + CONFIRMAR CITA (2026-07-08):
   · Hoja de entrada/recepción de vehículo (lib/taller_print.js imprimirHojaEntrada): A4 con DOS

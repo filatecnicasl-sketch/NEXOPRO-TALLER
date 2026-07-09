@@ -1,29 +1,9 @@
 // Informes de taller: parte de trabajo (orden) e informe de peritaje con reportaje fotográfico.
-import { mediaUrl } from "@/lib/api";
+import { mediaUrl, imprimirHtmlString } from "@/lib/api";
 
 const esc = (v) => String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 const money = (n) => new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR" }).format(Number(n || 0));
 const ACCENT = "#4338ca";
-
-const PRINT_UI = `<style>@media print{.__bar{display:none!important}}</style>
-<div class="__bar" style="position:sticky;top:0;left:0;right:0;background:#4338ca;color:#fff;padding:12px 18px;display:flex;gap:14px;align-items:center;font-family:Arial,sans-serif;font-size:14px;z-index:99999;box-shadow:0 2px 8px rgba(0,0,0,.2)">
-  <button onclick="__print()" style="background:#fff;color:#4338ca;border:0;border-radius:9px;padding:10px 22px;font-weight:800;font-size:15px;cursor:pointer">🖨 IMPRIMIR</button>
-  <span style="opacity:.95">Si no se abre solo, pulsa <b>IMPRIMIR</b>. En el diálogo elige orientación <b>Horizontal</b>.</span>
-  <button onclick="window.close()" style="margin-left:auto;background:transparent;color:#fff;border:1px solid rgba(255,255,255,.5);border-radius:9px;padding:8px 16px;cursor:pointer">Cerrar</button>
-</div>`;
-
-const PRINT_SCRIPT = `<script>
-function __print(){try{window.focus();window.print();}catch(e){}}
-window.addEventListener('load',function(){
-  var imgs=[].slice.call(document.images);
-  var pending=imgs.filter(function(i){return !i.complete}).length;
-  function go(){setTimeout(__print,350);}
-  if(pending===0){go();return;}
-  imgs.forEach(function(i){i.addEventListener('load',dec);i.addEventListener('error',dec);});
-  function dec(){pending--;if(pending<=0)go();}
-  setTimeout(go,2500);
-});
-</script>`;
 
 function empresaHeader(empresa = {}) {
   const logo = empresa.logo
@@ -53,18 +33,7 @@ function shell(title, body) {
 }
 
 function open(html) {
-  const doc = html
-    .replace("<body>", "<body>" + PRINT_UI)
-    .replace("</body>", PRINT_SCRIPT + "</body>");
-  const w = window.open("", "_blank");
-  if (!w) {
-    alert("Tu navegador ha bloqueado la ventana de impresión. Permite las ventanas emergentes de este sitio (icono en la barra de direcciones) y vuelve a pulsar Imprimir.");
-    return;
-  }
-  w.document.open();
-  w.document.write(doc);
-  w.document.close();
-  w.focus();
+  imprimirHtmlString(html);
 }
 
 function cabecera(empresa, titulo, ref, fecha) {
