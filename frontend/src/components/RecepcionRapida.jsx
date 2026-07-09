@@ -74,7 +74,7 @@ export default function RecepcionRapida({ open, onOpenChange, vehiculos, cliente
     finally { setFirmando(false); }
   };
   const imprimir = async () => {
-    try { await imprimirPdf(hojaEntradaUrl(orden.id)); }
+    try { await imprimirPdf(hojaEntradaUrl(orden.id), `hoja-entrada-${orden.numero || orden.id}.pdf`); }
     catch { toast.error("No se pudo generar el PDF"); }
   };
 

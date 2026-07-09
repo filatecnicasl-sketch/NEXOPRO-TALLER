@@ -64,12 +64,12 @@ export default function OrdenesTrabajo() {
   }, []);
 
   const imprimir = async (o) => {
-    try { await imprimirPdf(parteTrabajoUrl(o.id)); }
+    try { await imprimirPdf(parteTrabajoUrl(o.id), `parte-${o.numero || o.id}.pdf`); }
     catch { toast.error("No se pudo generar el PDF del parte"); }
   };
 
   const imprimirEntrada = async (o) => {
-    try { await imprimirPdf(hojaEntradaUrl(o.id)); }
+    try { await imprimirPdf(hojaEntradaUrl(o.id), `hoja-entrada-${o.numero || o.id}.pdf`); }
     catch { toast.error("No se pudo generar el PDF de la hoja de entrada"); }
   };
 

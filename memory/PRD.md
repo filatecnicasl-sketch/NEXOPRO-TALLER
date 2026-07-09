@@ -99,6 +99,12 @@ Autónomos y pymes españolas que gestionan compras/ventas y facturación con ob
   si el navegador no permite print(), abre el PDF en pestaña nueva. Verificado (smoke test Chrome):
   clic "Imprimir orden" dispara GET parte-trabajo.pdf (200) y crea el iframe #__print_frame__.
   Objetivo del usuario: PC Windows + Chrome. Queda pendiente que el usuario confirme en su Chrome real.
+- FIX ERR_BLOCKED_BY_CLIENT (2026-06 fork): el usuario veía "La página está bloqueada · ERR_BLOCKED_BY_CLIENT"
+  en Chrome y Edge (extensión/antivirus bloqueando pestañas nuevas). Causa: el respaldo window.open.
+  Solución: imprimirPdf() YA NO usa window.open en absoluto. Imprime vía iframe oculto + print(); si
+  el iframe no puede imprimir, cae a DESCARGA (anchor download), nunca a pestaña nueva. Verificado
+  (smoke test Chrome): clic imprimir → GET parte-trabajo.pdf 200, iframe #__print_frame__ creado,
+  window.open llamado 0 veces.
 
 - TALLER — HOJA DE ENTRADA + BUSCADOR DE ARTÍCULOS + CONFIRMAR CITA (2026-07-08):
   · Hoja de entrada/recepción de vehículo (lib/taller_print.js imprimirHojaEntrada): A4 con DOS

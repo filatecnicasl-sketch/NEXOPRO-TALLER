@@ -29,9 +29,10 @@ export async function descargarPdf(url, filename) {
 }
 
 // Imprime un PDF directamente: abre el diálogo de imprimir del navegador sin descargar.
-// Usa un iframe oculto con el PDF (fiable en Chrome de escritorio, sin ventanas emergentes).
-// Si el navegador no lo permite, abre el PDF en una pestaña nueva como respaldo.
-export async function imprimirPdf(url) {
+// Usa un iframe oculto con el PDF (fiable en Chrome/Edge de escritorio, SIN abrir pestañas nuevas,
+// para evitar ERR_BLOCKED_BY_CLIENT de bloqueadores/antivirus). Si el iframe no puede imprimir,
+// cae a DESCARGA del PDF (nunca abre ventanas emergentes).
+export async function imprimirPdf(url, filename) {
   const r = await fetch(url);
   if (!r.ok) throw new Error("No se pudo generar el PDF");
   const blob = await r.blob();
@@ -50,26 +51,33 @@ export async function imprimirPdf(url) {
   iframe.style.border = "0";
   iframe.style.visibility = "hidden";
 
-  let done = false;
-  const fallback = () => { try { window.open(objUrl, "_blank"); } catch (e) { /* noop */ } };
+  let printed = false;
+  const descargar = () => {
+    const a = document.createElement("a");
+    a.href = objUrl;
+    a.download = filename || "documento.pdf";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  };
 
   iframe.onload = () => {
     setTimeout(() => {
       try {
         iframe.contentWindow.focus();
         iframe.contentWindow.print();
-        done = true;
+        printed = true;
       } catch (e) {
-        fallback();
+        if (!printed) { printed = true; descargar(); }
       }
-    }, 400);
+    }, 350);
   };
 
   document.body.appendChild(iframe);
   iframe.src = objUrl;
 
-  // Respaldo si el iframe no llega a cargar (algunos navegadores/config)
-  setTimeout(() => { if (!done) fallback(); }, 4000);
+  // Si el iframe no llega a imprimir (bloqueado por extensión), descarga el PDF como respaldo.
+  setTimeout(() => { if (!printed) { printed = true; descargar(); } }, 3000);
   setTimeout(() => URL.revokeObjectURL(objUrl), 60000);
 }
 
