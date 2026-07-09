@@ -2079,7 +2079,7 @@ def _build_resguardo_html(orden, vehiculo, cliente, empresa):
     '''
 
     css = """
-    @page { size: A4 landscape; margin: 6mm; }
+    @page { size: A4 portrait; margin: 8mm; }
     * { box-sizing:border-box; font-family: Arial, Helvetica, sans-serif; }
     body { margin:0; color:#000; font-size:9px; }
     table { border-collapse:collapse; width:100%; }
