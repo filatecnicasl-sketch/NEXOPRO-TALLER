@@ -201,7 +201,7 @@ export default function OrdenesTrabajo() {
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="w-56">
                       <DropdownMenuItem data-testid={`hoja-entrada-${o.id}`} onClick={() => imprimirEntrada(o)}>
-                        <ClipboardText size={16} className="mr-2 text-indigo-500" /> Hoja de entrada (A4 horizontal)
+                        <ClipboardText size={16} className="mr-2 text-indigo-500" /> Hoja de entrada
                       </DropdownMenuItem>
                       <DropdownMenuItem data-testid={`imprimir-orden-${o.id}`} onClick={() => imprimir(o)}>
                         <FileText size={16} className="mr-2 text-zinc-500" /> Parte de trabajo
