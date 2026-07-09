@@ -754,6 +754,7 @@ class AjustesInput(BaseModel):
     series_compra: List[dict] = []
     notificaciones: Optional[dict] = None
     app_url: Optional[str] = None
+    modulo_inicio: Optional[str] = None
 
 
 def _norm_series(series: list, tipos: list) -> list:
@@ -803,6 +804,8 @@ async def guardar_ajustes(data: AjustesInput):
     set_doc = {"empresa": empresa, "series_venta": sv, "series_compra": sc, "updated_at": now_iso()}
     if data.app_url:
         set_doc["app_url"] = data.app_url.rstrip("/")
+    if data.modulo_inicio in ("panel", "taller"):
+        set_doc["modulo_inicio"] = data.modulo_inicio
     if data.notificaciones is not None:
         prev_notif = _merge_notif(prev)
         notif = {}

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Plus, Trash, FloppyDisk, Buildings, Stack, Star, UploadSimple, Image as ImageIcon, BellRinging, EnvelopeSimple, WhatsappLogo, PaperPlaneTilt } from "@phosphor-icons/react";
+import { Plus, Trash, FloppyDisk, Buildings, Stack, Star, UploadSimple, Image as ImageIcon, BellRinging, EnvelopeSimple, WhatsappLogo, PaperPlaneTilt, House, Wrench } from "@phosphor-icons/react";
 import { toast } from "sonner";
 import { getAjustes, updateAjustes, probarNotificacion } from "@/lib/api";
 import PageHeader from "@/components/PageHeader";
@@ -180,6 +180,7 @@ export default function Ajustes() {
   const [seriesVenta, setSeriesVenta] = useState([]);
   const [seriesCompra, setSeriesCompra] = useState([]);
   const [notif, setNotif] = useState(null);
+  const [moduloInicio, setModuloInicio] = useState("panel");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -189,6 +190,7 @@ export default function Ajustes() {
       setSeriesVenta(d.series_venta || []);
       setSeriesCompra(d.series_compra || []);
       setNotif(d.notificaciones || null);
+      setModuloInicio(d.modulo_inicio || "panel");
       setLoading(false);
     });
   }, []);
@@ -198,11 +200,14 @@ export default function Ajustes() {
     const sc = seriesCompra.filter((s) => (s.nombre || "").trim());
     setSaving(true);
     try {
-      const d = await updateAjustes({ empresa, series_venta: sv, series_compra: sc, notificaciones: notif, app_url: window.location.origin });
+      const d = await updateAjustes({ empresa, series_venta: sv, series_compra: sc, notificaciones: notif, modulo_inicio: moduloInicio, app_url: window.location.origin });
       setEmpresa(d.empresa || {});
       setSeriesVenta(d.series_venta || []);
       setSeriesCompra(d.series_compra || []);
       setNotif(d.notificaciones || null);
+      setModuloInicio(d.modulo_inicio || "panel");
+      // Reinicia la redirección de arranque para reflejar el cambio en la próxima carga
+      try { sessionStorage.removeItem("inicio_done"); } catch (e) { /* noop */ }
       toast.success("Ajustes guardados");
     } catch { toast.error("Error al guardar ajustes"); }
     finally { setSaving(false); }
@@ -289,6 +294,42 @@ export default function Ajustes() {
         />
 
         <NotifEditor notif={notif} setNotif={setNotif} />
+
+        <div className="bg-white border border-zinc-200 rounded-lg shadow-sm overflow-hidden" data-testid="modulo-inicio-card">
+          <div className="px-5 py-4 border-b border-zinc-100 flex items-center gap-3">
+            <span className="inline-flex h-9 w-9 items-center justify-center rounded-md bg-indigo-50 text-indigo-600"><House size={18} weight="duotone" /></span>
+            <div>
+              <h3 className="font-heading font-semibold tracking-tight text-zinc-900">Módulo de inicio</h3>
+              <p className="text-xs text-zinc-500">Elige qué pantalla se abre al entrar en la aplicación</p>
+            </div>
+          </div>
+          <div className="p-5 grid grid-cols-2 gap-4">
+            <button
+              type="button"
+              data-testid="modulo-inicio-panel"
+              onClick={() => setModuloInicio("panel")}
+              className={`flex items-center gap-3 rounded-lg border p-4 text-left transition-colors ${moduloInicio === "panel" ? "border-indigo-500 bg-indigo-50 ring-1 ring-indigo-500" : "border-zinc-200 hover:border-zinc-300"}`}
+            >
+              <House size={22} className={moduloInicio === "panel" ? "text-indigo-600" : "text-zinc-400"} weight="duotone" />
+              <div>
+                <div className="font-semibold text-sm text-zinc-900">Panel principal</div>
+                <div className="text-xs text-zinc-500">Resumen del ERP (ventas, compras, facturas)</div>
+              </div>
+            </button>
+            <button
+              type="button"
+              data-testid="modulo-inicio-taller"
+              onClick={() => setModuloInicio("taller")}
+              className={`flex items-center gap-3 rounded-lg border p-4 text-left transition-colors ${moduloInicio === "taller" ? "border-indigo-500 bg-indigo-50 ring-1 ring-indigo-500" : "border-zinc-200 hover:border-zinc-300"}`}
+            >
+              <Wrench size={22} className={moduloInicio === "taller" ? "text-indigo-600" : "text-zinc-400"} weight="duotone" />
+              <div>
+                <div className="font-semibold text-sm text-zinc-900">Taller</div>
+                <div className="text-xs text-zinc-500">Panel de taller (órdenes, citas, vehículos)</div>
+              </div>
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );

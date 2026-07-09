@@ -1,9 +1,11 @@
 import "@/App.css";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { Toaster } from "@/components/ui/sonner";
 import Layout from "@/components/Layout";
 import LicenseGate from "@/components/LicenseGate";
 import Dashboard from "@/pages/Dashboard";
+import { getAjustes } from "@/lib/api";
 import Contactos from "@/pages/Contactos";
 import Articulos from "@/pages/Articulos";
 import Documentos from "@/pages/Documentos";
@@ -20,6 +22,23 @@ import SubirFotos from "@/pages/SubirFotos";
 import ConfirmarCita from "@/pages/ConfirmarCita";
 import AdminLogin from "@/pages/AdminLogin";
 import AdminPanel from "@/pages/AdminPanel";
+
+// Pantalla de inicio: respeta el "módulo de inicio" de Ajustes. Redirige a Taller una sola vez
+// por sesión (así el usuario puede volver al Panel principal sin quedar atrapado en el bucle).
+function Inicio() {
+  const [estado, setEstado] = useState("checking");
+  useEffect(() => {
+    let cancel = false;
+    if (sessionStorage.getItem("inicio_done")) { setEstado("panel"); return; }
+    getAjustes()
+      .then((a) => { if (!cancel) { sessionStorage.setItem("inicio_done", "1"); setEstado(a.modulo_inicio === "taller" ? "taller" : "panel"); } })
+      .catch(() => { if (!cancel) setEstado("panel"); });
+    return () => { cancel = true; };
+  }, []);
+  if (estado === "checking") return null;
+  if (estado === "taller") return <Navigate to="/taller" replace />;
+  return <Dashboard />;
+}
 
 function App() {
   return (
@@ -44,7 +63,7 @@ function App() {
               </LicenseGate>
             }
           >
-            <Route path="/" element={<Dashboard />} />
+            <Route path="/" element={<Inicio />} />
             <Route path="/clientes" element={<Contactos tipo="cliente" key="cliente" />} />
             <Route path="/proveedores" element={<Contactos tipo="proveedor" key="proveedor" />} />
             <Route path="/articulos" element={<Articulos />} />
