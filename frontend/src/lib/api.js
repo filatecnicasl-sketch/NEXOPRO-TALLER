@@ -28,6 +28,51 @@ export async function descargarPdf(url, filename) {
   setTimeout(() => URL.revokeObjectURL(objUrl), 4000);
 }
 
+// Imprime un PDF directamente: abre el diálogo de imprimir del navegador sin descargar.
+// Usa un iframe oculto con el PDF (fiable en Chrome de escritorio, sin ventanas emergentes).
+// Si el navegador no lo permite, abre el PDF en una pestaña nueva como respaldo.
+export async function imprimirPdf(url) {
+  const r = await fetch(url);
+  if (!r.ok) throw new Error("No se pudo generar el PDF");
+  const blob = await r.blob();
+  const objUrl = URL.createObjectURL(blob);
+
+  const prev = document.getElementById("__print_frame__");
+  if (prev) prev.remove();
+
+  const iframe = document.createElement("iframe");
+  iframe.id = "__print_frame__";
+  iframe.style.position = "fixed";
+  iframe.style.right = "0";
+  iframe.style.bottom = "0";
+  iframe.style.width = "0";
+  iframe.style.height = "0";
+  iframe.style.border = "0";
+  iframe.style.visibility = "hidden";
+
+  let done = false;
+  const fallback = () => { try { window.open(objUrl, "_blank"); } catch (e) { /* noop */ } };
+
+  iframe.onload = () => {
+    setTimeout(() => {
+      try {
+        iframe.contentWindow.focus();
+        iframe.contentWindow.print();
+        done = true;
+      } catch (e) {
+        fallback();
+      }
+    }, 400);
+  };
+
+  document.body.appendChild(iframe);
+  iframe.src = objUrl;
+
+  // Respaldo si el iframe no llega a cargar (algunos navegadores/config)
+  setTimeout(() => { if (!done) fallback(); }, 4000);
+  setTimeout(() => URL.revokeObjectURL(objUrl), 60000);
+}
+
 // Gestión documental (PDF original)
 export const uploadArchivo = (file) => {
   const fd = new FormData();

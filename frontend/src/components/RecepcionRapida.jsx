@@ -3,7 +3,7 @@ import { Lightning, Plus, Printer, Check, ArrowLeft } from "@phosphor-icons/reac
 import { toast } from "sonner";
 import {
   getVehiculos, getContactos, createVehiculo, createContacto, createOrden, getOrdenes,
-  guardarFirmaOrden, mediaUrl, hojaEntradaUrl, descargarPdf,
+  guardarFirmaOrden, mediaUrl, hojaEntradaUrl, imprimirPdf,
 } from "@/lib/api";
 import { TIPOS_TRABAJO } from "@/lib/taller";
 import FotosGaleria from "@/components/FotosGaleria";
@@ -74,7 +74,7 @@ export default function RecepcionRapida({ open, onOpenChange, vehiculos, cliente
     finally { setFirmando(false); }
   };
   const imprimir = async () => {
-    try { await descargarPdf(hojaEntradaUrl(orden.id), `hoja-entrada-${orden.numero || orden.id}.pdf`); }
+    try { await imprimirPdf(hojaEntradaUrl(orden.id)); }
     catch { toast.error("No se pudo generar el PDF"); }
   };
 
@@ -164,7 +164,7 @@ export default function RecepcionRapida({ open, onOpenChange, vehiculos, cliente
           ) : (
             <>
               <Button variant="outline" onClick={cerrar} className="rounded-md" data-testid="rr-cerrar">Cerrar sin imprimir</Button>
-              <Button onClick={async () => { await imprimir(); cerrar(); }} className="rounded-md bg-emerald-600 hover:bg-emerald-700" data-testid="rr-imprimir-finalizar"><Printer size={16} className="mr-1.5" /> Descargar hoja y finalizar</Button>
+              <Button onClick={async () => { await imprimir(); cerrar(); }} className="rounded-md bg-emerald-600 hover:bg-emerald-700" data-testid="rr-imprimir-finalizar"><Printer size={16} className="mr-1.5" /> Imprimir hoja y finalizar</Button>
             </>
           )}
         </DialogFooter>

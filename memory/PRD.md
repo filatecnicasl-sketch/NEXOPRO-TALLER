@@ -92,6 +92,13 @@ Autónomos y pymes españolas que gestionan compras/ventas y facturación con ob
   PDF servidor (GET /api/taller/ordenes/{oid}/parte-trabajo.pdf, A4 vertical, con fotos) y se descarga
   igual; se eliminó la impresión HTML en navegador (imprimirParteOrden/imprimirHojaEntrada ya no se
   usan). Verificado end-to-end por testing_agent (iteration_18: backend 4/4, frontend 3/3, 100%).
+- TALLER — IMPRESIÓN DIRECTA (sin descarga) (2026-06 fork): a petición del usuario, los botones de
+  impresión (Parte de trabajo, Hoja de entrada y Recepción rápida) ahora abren DIRECTAMENTE el diálogo
+  de imprimir del navegador vía api.js imprimirPdf(url): fetch→blob→iframe oculto→contentWindow.print().
+  Sin ventanas emergentes (evita el bloqueo de Radix dropdown) y sin descargar el archivo. Respaldo:
+  si el navegador no permite print(), abre el PDF en pestaña nueva. Verificado (smoke test Chrome):
+  clic "Imprimir orden" dispara GET parte-trabajo.pdf (200) y crea el iframe #__print_frame__.
+  Objetivo del usuario: PC Windows + Chrome. Queda pendiente que el usuario confirme en su Chrome real.
 
 - TALLER — HOJA DE ENTRADA + BUSCADOR DE ARTÍCULOS + CONFIRMAR CITA (2026-07-08):
   · Hoja de entrada/recepción de vehículo (lib/taller_print.js imprimirHojaEntrada): A4 con DOS
