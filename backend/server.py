@@ -2124,6 +2124,19 @@ async def hoja_entrada_pdf(oid: str):
                     headers={"Content-Disposition": f'inline; filename="hoja-entrada-{orden.get("numero","")}.pdf"'})
 
 
+@api_router.get("/taller/ordenes/{oid}/hoja-entrada.html")
+async def hoja_entrada_html(oid: str):
+    orden = await db.ordenes_trabajo.find_one({"id": oid}, {"_id": 0})
+    if not orden:
+        raise HTTPException(404, "Orden no encontrada")
+    vehiculo = await db.vehiculos.find_one({"id": orden.get("vehiculo_id")}, {"_id": 0}) or {}
+    cliente = await db.contactos.find_one({"id": orden.get("cliente_id") or vehiculo.get("cliente_id")}, {"_id": 0}) or {}
+    cfg = await _get_ajustes()
+    empresa = cfg.get("empresa", {}) or {}
+    html = _build_resguardo_html(orden, vehiculo, cliente, empresa)
+    return Response(content=html, media_type="text/html; charset=utf-8")
+
+
 def _build_parte_html(orden, vehiculo, cliente, empresa):
     def e(v):
         return str(v if v is not None else "").replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
@@ -2272,6 +2285,19 @@ async def parte_trabajo_pdf(oid: str):
     pdf = await asyncio.to_thread(lambda: _WHTML(string=html).write_pdf())
     return Response(content=pdf, media_type="application/pdf",
                     headers={"Content-Disposition": f'inline; filename="parte-{orden.get("numero","")}.pdf"'})
+
+
+@api_router.get("/taller/ordenes/{oid}/parte-trabajo.html")
+async def parte_trabajo_html(oid: str):
+    orden = await db.ordenes_trabajo.find_one({"id": oid}, {"_id": 0})
+    if not orden:
+        raise HTTPException(404, "Orden no encontrada")
+    vehiculo = await db.vehiculos.find_one({"id": orden.get("vehiculo_id")}, {"_id": 0}) or {}
+    cliente = await db.contactos.find_one({"id": orden.get("cliente_id") or vehiculo.get("cliente_id")}, {"_id": 0}) or {}
+    cfg = await _get_ajustes()
+    empresa = cfg.get("empresa", {}) or {}
+    html = _build_parte_html(orden, vehiculo, cliente, empresa)
+    return Response(content=html, media_type="text/html; charset=utf-8")
 
 
 

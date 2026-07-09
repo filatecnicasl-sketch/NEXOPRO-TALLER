@@ -105,6 +105,15 @@ Autónomos y pymes españolas que gestionan compras/ventas y facturación con ob
   el iframe no puede imprimir, cae a DESCARGA (anchor download), nunca a pestaña nueva. Verificado
   (smoke test Chrome): clic imprimir → GET parte-trabajo.pdf 200, iframe #__print_frame__ creado,
   window.open llamado 0 veces.
+- IMPRESIÓN DEFINITIVA POR HTML (2026-06 fork): el usuario tenía Acrobat como visor de PDF por
+  defecto, así que cualquier PDF se descargaba (saturaba carpeta Descargas, poco profesional).
+  Solución final: NO se imprime PDF. Backend expone versiones HTML: GET
+  /api/taller/ordenes/{oid}/hoja-entrada.html y /parte-trabajo.html (reutilizan _build_resguardo_html
+  y _build_parte_html, con imágenes incrustadas y @page A4). Frontend api.js imprimirDocumento(url):
+  fetch HTML → iframe oculto (document.write) → contentWindow.print(). Sin descargas, sin pestañas,
+  sin Acrobat. Los PDF (hoja-entrada.pdf/parte-trabajo.pdf) siguen existiendo por si se quieren guardar.
+  Verificado (smoke test Chrome): clic imprimir → GET parte-trabajo.html 200, iframe creado,
+  window.open 0 veces, ningún .pdf solicitado; HTML renderiza A4 horizontal correcto.
 
 - TALLER — HOJA DE ENTRADA + BUSCADOR DE ARTÍCULOS + CONFIRMAR CITA (2026-07-08):
   · Hoja de entrada/recepción de vehículo (lib/taller_print.js imprimirHojaEntrada): A4 con DOS

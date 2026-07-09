@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import {
   getOrdenes, createOrden, updateOrden, deleteOrden, estadoOrden,
   getVehiculos, getContactos, getArticulos, createVehiculo, createContacto, getAjustes, eur,
-  guardarFirmaOrden, borrarFirmaOrden, mediaUrl, hojaEntradaUrl, parteTrabajoUrl, imprimirPdf,
+  guardarFirmaOrden, borrarFirmaOrden, mediaUrl, hojaEntradaHtmlUrl, parteTrabajoHtmlUrl, imprimirDocumento,
 } from "@/lib/api";
 import PageHeader from "@/components/PageHeader";
 import LineasEditor from "@/components/LineasEditor";
@@ -64,13 +64,13 @@ export default function OrdenesTrabajo() {
   }, []);
 
   const imprimir = async (o) => {
-    try { await imprimirPdf(parteTrabajoUrl(o.id), `parte-${o.numero || o.id}.pdf`); }
-    catch { toast.error("No se pudo generar el PDF del parte"); }
+    try { await imprimirDocumento(parteTrabajoHtmlUrl(o.id)); }
+    catch { toast.error("No se pudo generar el parte"); }
   };
 
   const imprimirEntrada = async (o) => {
-    try { await imprimirPdf(hojaEntradaUrl(o.id), `hoja-entrada-${o.numero || o.id}.pdf`); }
-    catch { toast.error("No se pudo generar el PDF de la hoja de entrada"); }
+    try { await imprimirDocumento(hojaEntradaHtmlUrl(o.id)); }
+    catch { toast.error("No se pudo generar la hoja de entrada"); }
   };
 
   const openNew = () => { setForm(EMPTY); setLineas([]); setEditId(null); setOpen(true); };

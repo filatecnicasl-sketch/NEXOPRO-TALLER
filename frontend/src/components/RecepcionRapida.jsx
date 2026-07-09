@@ -3,7 +3,7 @@ import { Lightning, Plus, Printer, Check, ArrowLeft } from "@phosphor-icons/reac
 import { toast } from "sonner";
 import {
   getVehiculos, getContactos, createVehiculo, createContacto, createOrden, getOrdenes,
-  guardarFirmaOrden, mediaUrl, hojaEntradaUrl, imprimirPdf,
+  guardarFirmaOrden, mediaUrl, hojaEntradaHtmlUrl, imprimirDocumento,
 } from "@/lib/api";
 import { TIPOS_TRABAJO } from "@/lib/taller";
 import FotosGaleria from "@/components/FotosGaleria";
@@ -74,8 +74,8 @@ export default function RecepcionRapida({ open, onOpenChange, vehiculos, cliente
     finally { setFirmando(false); }
   };
   const imprimir = async () => {
-    try { await imprimirPdf(hojaEntradaUrl(orden.id), `hoja-entrada-${orden.numero || orden.id}.pdf`); }
-    catch { toast.error("No se pudo generar el PDF"); }
+    try { await imprimirDocumento(hojaEntradaHtmlUrl(orden.id)); }
+    catch { toast.error("No se pudo generar la hoja"); }
   };
 
   return (

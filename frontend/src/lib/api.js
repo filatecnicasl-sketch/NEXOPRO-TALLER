@@ -12,6 +12,47 @@ export const facturaeUrl = (id) => `${API}/facturas-emitidas/${id}/facturae`;
 export const hojaEntradaUrl = (id) => `${API}/taller/ordenes/${id}/hoja-entrada.pdf`;
 // Parte de trabajo (PDF A4 generado en servidor)
 export const parteTrabajoUrl = (id) => `${API}/taller/ordenes/${id}/parte-trabajo.pdf`;
+// Versiones HTML (para imprimir directamente en el navegador, sin descargar PDF)
+export const hojaEntradaHtmlUrl = (id) => `${API}/taller/ordenes/${id}/hoja-entrada.html`;
+export const parteTrabajoHtmlUrl = (id) => `${API}/taller/ordenes/${id}/parte-trabajo.html`;
+
+// Imprime un documento HTML directamente en el navegador (sin descargar nada, sin abrir pestañas
+// ni depender de Acrobat/visor de PDF). Renderiza el HTML en un iframe oculto y lanza el diálogo
+// de imprimir. El HTML lleva las imágenes incrustadas y @page con el tamaño A4 correcto.
+export async function imprimirDocumento(url) {
+  const r = await fetch(url);
+  if (!r.ok) throw new Error("No se pudo generar el documento");
+  const html = await r.text();
+
+  const prev = document.getElementById("__print_frame__");
+  if (prev) prev.remove();
+
+  const iframe = document.createElement("iframe");
+  iframe.id = "__print_frame__";
+  iframe.style.position = "fixed";
+  iframe.style.right = "0";
+  iframe.style.bottom = "0";
+  iframe.style.width = "0";
+  iframe.style.height = "0";
+  iframe.style.border = "0";
+  iframe.style.visibility = "hidden";
+  document.body.appendChild(iframe);
+
+  const doc = iframe.contentWindow.document;
+  doc.open();
+  doc.write(html);
+  doc.close();
+
+  const win = iframe.contentWindow;
+  let printed = false;
+  const doPrint = () => {
+    if (printed) return;
+    printed = true;
+    try { win.focus(); win.print(); } catch (e) { /* noop */ }
+  };
+  win.addEventListener("load", () => setTimeout(doPrint, 250));
+  setTimeout(doPrint, 800);
+}
 
 // Descarga fiable de un PDF (funciona en todos los navegadores, sin ventanas emergentes)
 export async function descargarPdf(url, filename) {
