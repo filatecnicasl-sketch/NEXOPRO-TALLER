@@ -251,7 +251,7 @@ export function imprimirInformePeritaje({ empresa = {}, peritaje = {}, vehiculo 
   const filas = (peritaje.danios || []).map((d) =>
     `<tr><td style="padding:7px 8px;border-bottom:1px solid #f1f1f4">${esc(d.descripcion)}</td>
       <td style="padding:7px 8px;border-bottom:1px solid #f1f1f4;text-align:right;font-weight:600">${money(d.importe)}</td></tr>`).join("");
-  const body = `${cabecera(empresa, "Informe de peritaje", peritaje.numero, peritaje.fecha)}
+  const body = `${cabecera(empresa, "Informe de valoración", peritaje.numero, peritaje.fecha)}
     ${bloque("Vehículo y siniestro", [["Matrícula", peritaje.vehiculo_matricula || vehiculo.matricula], ["Marca / Modelo", [vehiculo.marca, vehiculo.modelo].filter(Boolean).join(" ")], ["Cliente", peritaje.cliente_nombre], ["Compañía", peritaje.compania], ["Nº póliza", peritaje.poliza], ["Nº siniestro", peritaje.siniestro], ["Estado", peritaje.estado]])}
     ${peritaje.descripcion ? `<div style="margin-bottom:18px"><div style="font-size:11px;font-weight:700;color:${ACCENT};text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px">Descripción de los daños</div><div style="font-size:13px;color:#3f3f46">${esc(peritaje.descripcion)}</div></div>` : ""}
     <table><thead><tr style="background:#f4f4f5">
@@ -262,5 +262,5 @@ export function imprimirInformePeritaje({ empresa = {}, peritaje = {}, vehiculo 
       <tr style="border-top:2px solid ${ACCENT}"><td style="padding:8px;font-weight:800">TOTAL VALORACIÓN</td><td style="padding:8px;text-align:right;font-weight:800" class="accent">${money(peritaje.importe_total)}</td></tr>
     </table></div>
     ${galeria(peritaje.fotos)}`;
-  open(shell(`Peritaje ${peritaje.numero || ""}`, body));
+  open(shell(`Valoración ${peritaje.numero || ""}`, body));
 }

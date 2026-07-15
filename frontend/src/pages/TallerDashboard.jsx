@@ -66,7 +66,7 @@ export default function TallerDashboard() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <Kpi testid="kpi-vehiculos" icon={Car} label="Vehículos" value={data.total_vehiculos || 0} tone="bg-indigo-50 text-indigo-600" to="/taller/vehiculos" nav={nav} />
         <Kpi testid="kpi-ordenes" icon={Wrench} label="Órdenes abiertas" value={data.ordenes_abiertas || 0} tone="bg-blue-50 text-blue-600" to="/taller/ordenes" nav={nav} />
-        <Kpi testid="kpi-peritajes" icon={MagnifyingGlass} label="Peritajes pendientes" value={data.peritajes_pendientes || 0} tone="bg-amber-50 text-amber-600" to="/taller/peritajes" nav={nav} />
+        <Kpi testid="kpi-peritajes" icon={MagnifyingGlass} label="Valoraciones pendientes" value={data.peritajes_pendientes || 0} tone="bg-amber-50 text-amber-600" to="/taller/peritajes" nav={nav} />
         <Kpi testid="kpi-cortesias" icon={Car} label="Cortesías activas" value={(data.cortesias_activas || []).length} tone="bg-emerald-50 text-emerald-600" to="/taller/cortesia" nav={nav} />
       </div>
 

@@ -93,12 +93,12 @@ export default function Peritajes() {
       else {
         const p = await createPeritaje(payload);
         setEditId(p.id); setEditFotos(p.fotos || []);
-        toast.success("Peritaje creado. Ya puedes añadir fotos.");
+        toast.success("Valoración creada. Ya puedes añadir fotos.");
         load();
         return; // mantener abierto para adjuntar fotos
       }
       setOpen(false); load();
-    } catch { toast.error("Error al guardar el peritaje"); }
+    } catch { toast.error("Error al guardar la valoración"); }
   };
 
   const cambiarEstado = async (p, estado) => {
@@ -106,7 +106,7 @@ export default function Peritajes() {
     catch { toast.error("No se pudo cambiar el estado"); }
   };
 
-  const remove = async () => { await deletePeritaje(delId); setDelId(null); toast.success("Peritaje eliminado"); load(); };
+  const remove = async () => { await deletePeritaje(delId); setDelId(null); toast.success("Valoración eliminada"); load(); };
 
   const addCompania = async () => {
     if (!nuevaComp.trim()) return;
@@ -144,9 +144,9 @@ export default function Peritajes() {
 
   return (
     <div className="p-8 max-w-[1400px]" data-testid="peritajes-page">
-      <PageHeader title="Peritajes" subtitle="Daños, compañía de seguros y reportaje fotográfico" chip={`${items.length} ${items.length === 1 ? "peritaje" : "peritajes"}`}>
+      <PageHeader title="Valoraciones" subtitle="Daños, compañía de seguros y reportaje fotográfico" chip={`${items.length} ${items.length === 1 ? "valoración" : "valoraciones"}`}>
         <Button variant="outline" onClick={() => setCompOpen(true)} className="rounded-md" data-testid="gestionar-companias-button"><Gear size={16} className="mr-1.5" /> Compañías</Button>
-        <Button data-testid="nuevo-peritaje-button" onClick={openNew} className="rounded-md bg-primary hover:bg-indigo-700"><Plus size={16} className="mr-1.5" /> Nuevo peritaje</Button>
+        <Button data-testid="nuevo-peritaje-button" onClick={openNew} className="rounded-md bg-primary hover:bg-indigo-700"><Plus size={16} className="mr-1.5" /> Nueva valoración</Button>
       </PageHeader>
 
       <div className="relative mb-4 max-w-sm">
@@ -169,9 +169,9 @@ export default function Peritajes() {
               <TableRow>
                 <TableCell colSpan={8} className="py-16 text-center">
                   <div className="mx-auto h-14 w-14 rounded-full bg-zinc-100 flex items-center justify-center mb-3"><ShieldCheck size={26} className="text-zinc-400" /></div>
-                  <p className="text-zinc-700 text-sm font-medium">No hay peritajes todavía</p>
-                  <p className="text-zinc-400 text-xs mt-0.5">Crea el primer peritaje con sus daños y fotos.</p>
-                  <Button onClick={openNew} className="mt-4 rounded-md bg-primary hover:bg-indigo-700"><Plus size={15} className="mr-1.5" /> Nuevo peritaje</Button>
+                  <p className="text-zinc-700 text-sm font-medium">No hay valoraciones todavía</p>
+                  <p className="text-zinc-400 text-xs mt-0.5">Crea la primera valoración con sus daños y fotos.</p>
+                  <Button onClick={openNew} className="mt-4 rounded-md bg-primary hover:bg-indigo-700"><Plus size={15} className="mr-1.5" /> Nueva valoración</Button>
                 </TableCell>
               </TableRow>
             )}
@@ -202,7 +202,7 @@ export default function Peritajes() {
       {/* Alta / edición */}
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="sm:max-w-3xl rounded-sm max-h-[92vh] overflow-y-auto" data-testid="peritaje-dialog">
-          <DialogHeader><DialogTitle className="font-heading">{editId ? `Peritaje ${form.numero || ""}` : "Nuevo peritaje"}</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle className="font-heading">{editId ? `Valoración ${form.numero || ""}` : "Nueva valoración"}</DialogTitle></DialogHeader>
           <div className="grid grid-cols-2 gap-4 py-2">
             <div>
               <div className="flex items-center justify-between">
@@ -271,13 +271,13 @@ export default function Peritajes() {
               {editId ? (
                 <FotosGaleria tipo="peritajes" id={editId} fotos={editFotos} onChange={refreshFotos} titulo="Reportaje fotográfico de daños" />
               ) : (
-                <p className="text-sm text-zinc-400">Guarda el peritaje para poder adjuntar fotos (subida directa o por QR desde el móvil).</p>
+                <p className="text-sm text-zinc-400">Guarda la valoración para poder adjuntar fotos (subida directa o por QR desde el móvil).</p>
               )}
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => { setOpen(false); }} className="rounded-sm">Cerrar</Button>
-            <Button data-testid="guardar-peritaje-button" onClick={save} className="rounded-sm bg-primary">{editId ? "Guardar cambios" : "Crear peritaje"}</Button>
+            <Button data-testid="guardar-peritaje-button" onClick={save} className="rounded-sm bg-primary">{editId ? "Guardar cambios" : "Crear valoración"}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -376,7 +376,7 @@ export default function Peritajes() {
       <AlertDialog open={!!delId} onOpenChange={(o) => !o && setDelId(null)}>
         <AlertDialogContent className="rounded-sm">
           <AlertDialogHeader>
-            <AlertDialogTitle>¿Eliminar peritaje?</AlertDialogTitle>
+            <AlertDialogTitle>¿Eliminar valoración?</AlertDialogTitle>
             <AlertDialogDescription>Esta acción no se puede deshacer.</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

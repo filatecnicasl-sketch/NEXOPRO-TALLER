@@ -51,7 +51,7 @@ const MODULES = [
       { to: "/taller", label: "Panel", icon: Gauge, tone: "indigo", testid: "nav-taller-panel", end: true },
       { to: "/taller/vehiculos", label: "Vehículos", icon: Car, tone: "blue", testid: "nav-taller-vehiculos" },
       { to: "/taller/ordenes", label: "Órdenes de trabajo", icon: Wrench, tone: "violet", testid: "nav-taller-ordenes" },
-      { to: "/taller/peritajes", label: "Peritajes", icon: MagnifyingGlass, tone: "amber", testid: "nav-taller-peritajes" },
+      { to: "/taller/peritajes", label: "Valoraciones", icon: MagnifyingGlass, tone: "amber", testid: "nav-taller-peritajes" },
       { to: "/taller/citas", label: "Citas", icon: CalendarCheck, tone: "emerald", testid: "nav-taller-citas" },
       { to: "/taller/cortesia", label: "Cortesía", icon: Car, tone: "rose", testid: "nav-taller-cortesia" },
     ],

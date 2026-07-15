@@ -24,7 +24,7 @@ const ESTADOS = [
   { value: "realizada", label: "Realizada", cls: "bg-emerald-50 text-emerald-700 ring-emerald-200" },
   { value: "cancelada", label: "Cancelada", cls: "bg-red-50 text-red-700 ring-red-200" },
 ];
-const TIPOS = ["", "Chapa", "Pintura", "Mecánica", "Revisión", "Peritaje", "Recepción", "Entrega"];
+const TIPOS = ["", "Chapa", "Pintura", "Mecánica", "Revisión", "Valoración", "Recepción", "Entrega"];
 const DIAS = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
 const selectCls = "h-10 w-full text-sm rounded-md border border-input bg-white px-3 mt-1";
 
@@ -158,7 +158,7 @@ export default function Citas() {
     });
     peritajes.forEach((p) => {
       if (!p.fecha) return;
-      push(p.fecha.split("T")[0], { key: "p" + p.id, hora: "", texto: `Peritaje ${p.vehiculo_matricula || ""}`.trim(), cls: "bg-amber-50 text-amber-700 ring-amber-200", kind: "peritaje", ref: p });
+      push(p.fecha.split("T")[0], { key: "p" + p.id, hora: "", texto: `Valoración ${p.vehiculo_matricula || ""}`.trim(), cls: "bg-amber-50 text-amber-700 ring-amber-200", kind: "peritaje", ref: p });
     });
     prestamos.forEach((pr) => {
       const k = (pr.fecha_devolucion_prevista || pr.fecha_entrega || "").split("T")[0];
@@ -178,7 +178,7 @@ export default function Citas() {
   const Leyenda = () => (
     <div className="flex flex-wrap items-center gap-4 px-4 py-2 border-t border-zinc-100 text-[11px] text-zinc-500">
       <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-blue-400" /> Citas</span>
-      <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-amber-400" /> Peritajes pendientes</span>
+      <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-amber-400" /> Valoraciones pendientes</span>
       <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-emerald-400" /> Devolución cortesía</span>
     </div>
   );

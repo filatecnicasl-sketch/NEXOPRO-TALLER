@@ -44,7 +44,7 @@ export default function Vehiculos() {
     const ev = [];
     (f.presupuestos || []).forEach((p) => ev.push({ k: "pre" + p.id, fecha: p.fecha || p.created_at, tipo: "Presupuesto", label: `${p.numero} · ${p.contacto_nombre || ""}`, importe: p.total, color: "bg-indigo-500" }));
     (f.ordenes || []).forEach((o) => ev.push({ k: "ord" + o.id, fecha: o.fecha_entrada || o.created_at, tipo: "Orden", label: `${o.numero} · ${o.estado}`, importe: o.total, color: "bg-blue-500" }));
-    (f.peritajes || []).forEach((p) => ev.push({ k: "per" + p.id, fecha: p.fecha || p.created_at, tipo: "Peritaje", label: `${p.numero} · ${p.compania || ""}`, importe: p.importe_total, color: "bg-amber-500" }));
+    (f.peritajes || []).forEach((p) => ev.push({ k: "per" + p.id, fecha: p.fecha || p.created_at, tipo: "Valoración", label: `${p.numero} · ${p.compania || ""}`, importe: p.importe_total, color: "bg-amber-500" }));
     (f.citas || []).forEach((c) => ev.push({ k: "cit" + c.id, fecha: c.fecha, tipo: "Cita", label: c.motivo || c.tipo_trabajo || "Cita", importe: null, color: "bg-violet-500" }));
     (f.compras || []).forEach((c) => ev.push({ k: "com" + c.tipo + c.id, fecha: c.fecha, tipo: c.tipo, label: `${c.numero || ""} · ${c.proveedor || ""}`, importe: c.total, color: "bg-zinc-400" }));
     (f.prestamos || []).forEach((p) => ev.push({ k: "prest" + p.id, fecha: p.fecha_entrega || p.created_at, tipo: "Cortesía", label: p.cliente_nombre || "Préstamo", importe: null, color: "bg-emerald-500" }));
@@ -323,9 +323,9 @@ export default function Vehiculos() {
                     )}
               </div>
               <div className="border-t border-zinc-100 pt-4">
-                <h4 className="font-heading font-semibold text-zinc-900 mb-2 text-sm">Peritajes</h4>
+                <h4 className="font-heading font-semibold text-zinc-900 mb-2 text-sm">Valoraciones</h4>
                 {ficha.loading ? <p className="text-sm text-zinc-400">Cargando...</p>
-                  : (ficha.peritajes || []).length === 0 ? <p className="text-sm text-zinc-400">Sin peritajes para este vehículo.</p>
+                  : (ficha.peritajes || []).length === 0 ? <p className="text-sm text-zinc-400">Sin valoraciones para este vehículo.</p>
                     : (
                       <div className="space-y-2">
                         {ficha.peritajes.map((p) => (
