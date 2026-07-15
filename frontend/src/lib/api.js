@@ -59,8 +59,10 @@ export function imprimirHtmlString(html) {
   document.body.appendChild(root);
 
   const cleanup = () => {
-    document.getElementById("__print_style__")?.remove();
-    document.getElementById("__print_root__")?.remove();
+    try {
+      document.getElementById("__print_style__")?.remove();
+      document.getElementById("__print_root__")?.remove();
+    } catch (e) { /* noop */ }
     window.removeEventListener("afterprint", cleanup);
   };
   window.addEventListener("afterprint", cleanup);
