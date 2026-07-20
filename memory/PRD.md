@@ -35,6 +35,11 @@ Autónomos y pymes españolas que gestionan compras/ventas y facturación con ob
   Admin: admin@nexopro.com / Admin1234!. Licencia demo: NEXO-DEMO-0001 (frontend/.env REACT_APP_LICENSE_KEY).
 
 ## Estado / Bloqueos
+- AJUSTES REORGANIZADO EN NAVEGACIÓN POR ICONOS (2026-07-20): Ajustes.jsx con barra lateral de secciones
+  (data-testid ajustes-nav-{id}): empresa (incluye Módulo de inicio), series (venta+compra), notificaciones,
+  facturae (Certificado/FACe), formatos y usuarios (solo admin). "Guardar cambios" solo en secciones
+  guardables (empresa/series/notificaciones/formatos). Verificado por screenshot.
+
 - PERMISOS POR MÓDULO POR USUARIO (2026-07-20, iteration_23: backend 6/6, frontend 100%): IMPLEMENTADO Y VERIFICADO.
   · El admin asigna a cada usuario qué módulos puede usar (articulos, ventas, compras, taller).
     Ajustes es exclusivo del admin; el admin siempre tiene acceso a todo (es_admin=true → permisos completos).

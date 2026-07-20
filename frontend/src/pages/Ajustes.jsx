@@ -299,6 +299,18 @@ export default function Ajustes() {
   const [formatoHojaEntrada, setFormatoHojaEntrada] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [section, setSection] = useState("empresa");
+
+  const isAdmin = user?.role === "admin";
+  const SECTIONS = [
+    { id: "empresa", label: "Datos de empresa", icon: Buildings },
+    { id: "series", label: "Series", icon: Stack },
+    { id: "notificaciones", label: "Notificaciones", icon: BellRinging },
+    { id: "facturae", label: "Certificado / FACe", icon: Certificate },
+    { id: "formatos", label: "Formatos", icon: Printer },
+    ...(isAdmin ? [{ id: "usuarios", label: "Usuarios", icon: UsersThree }] : []),
+  ];
+  const savableSections = ["empresa", "series", "notificaciones", "formatos"];
 
   useEffect(() => {
     getAjustes().then((d) => {
@@ -345,160 +357,187 @@ export default function Ajustes() {
   };
 
   return (
-    <div className="p-8 max-w-[1100px]" data-testid="ajustes-page">
-      <PageHeader title="Ajustes" subtitle="Configura los datos de tu empresa y la numeración de series de compra y venta">
-        <Button data-testid="guardar-ajustes-button" onClick={save} disabled={saving} className="rounded-md bg-primary hover:bg-indigo-700">
-          <FloppyDisk size={16} className="mr-1.5" weight="fill" /> {saving ? "Guardando..." : "Guardar cambios"}
-        </Button>
+    <div className="p-8 max-w-[1150px]" data-testid="ajustes-page">
+      <PageHeader title="Ajustes" subtitle="Configura tu empresa, series, notificaciones, certificado y formatos">
+        {savableSections.includes(section) && (
+          <Button data-testid="guardar-ajustes-button" onClick={save} disabled={saving} className="rounded-md bg-primary hover:bg-indigo-700">
+            <FloppyDisk size={16} className="mr-1.5" weight="fill" /> {saving ? "Guardando..." : "Guardar cambios"}
+          </Button>
+        )}
       </PageHeader>
 
-      <div className="space-y-6">
-        <div className="bg-white border border-zinc-200 rounded-lg shadow-sm overflow-hidden">
-          <div className="px-5 py-4 border-b border-zinc-100 flex items-center gap-3">
-            <span className="inline-flex h-9 w-9 items-center justify-center rounded-md bg-indigo-50 text-indigo-600"><Buildings size={18} weight="duotone" /></span>
-            <div>
-              <h3 className="font-heading font-semibold tracking-tight text-zinc-900">Datos de empresa</h3>
-              <p className="text-xs text-zinc-500">Aparecerán en tus documentos y facturas</p>
-            </div>
+      <div className="flex flex-col md:flex-row gap-6">
+        {/* Navegación por iconos */}
+        <nav className="md:w-60 shrink-0" data-testid="ajustes-nav">
+          <div className="flex md:flex-col gap-1.5 overflow-x-auto md:overflow-visible bg-white border border-zinc-200 rounded-lg p-2 shadow-sm">
+            {SECTIONS.map((s) => {
+              const Icon = s.icon;
+              const active = section === s.id;
+              return (
+                <button
+                  key={s.id}
+                  data-testid={`ajustes-nav-${s.id}`}
+                  onClick={() => setSection(s.id)}
+                  className={`flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium whitespace-nowrap transition-colors text-left ${active ? "bg-primary text-white shadow-sm" : "text-zinc-600 hover:bg-zinc-100"}`}
+                >
+                  <Icon size={19} weight={active ? "fill" : "duotone"} className={active ? "" : "text-indigo-500"} />
+                  {s.label}
+                </button>
+              );
+            })}
           </div>
-          <div className="p-5 pt-5 flex items-center gap-4 border-b border-zinc-100">
-            <div className="h-20 w-24 rounded-lg border border-zinc-200 bg-zinc-50 flex items-center justify-center overflow-hidden shrink-0" data-testid="empresa-logo-preview">
-              {empresa.logo
-                ? <img src={empresa.logo} alt="logo" className="max-h-full max-w-full object-contain" />
-                : <ImageIcon size={26} className="text-zinc-300" />}
-            </div>
-            <div>
-              <div className="flex items-center gap-3">
-                <label className="inline-flex items-center gap-2 text-sm cursor-pointer border border-zinc-200 rounded-md px-3 py-1.5 hover:bg-zinc-50 transition-colors">
-                  <UploadSimple size={16} /> {empresa.logo ? "Cambiar logo" : "Subir logo"}
-                  <input type="file" accept="image/png,image/jpeg,image/webp" className="hidden" data-testid="empresa-logo-input" onChange={(e) => onLogo(e.target.files[0])} />
-                </label>
-                {empresa.logo && (
-                  <button data-testid="empresa-logo-remove" onClick={() => setEmpresa({ ...empresa, logo: "" })} className="text-xs text-red-500 hover:underline">Quitar</button>
-                )}
+        </nav>
+
+        {/* Contenido de la sección activa */}
+        <div className="flex-1 min-w-0 space-y-6">
+          {section === "empresa" && (
+            <>
+              <div className="bg-white border border-zinc-200 rounded-lg shadow-sm overflow-hidden">
+                <div className="px-5 py-4 border-b border-zinc-100 flex items-center gap-3">
+                  <span className="inline-flex h-9 w-9 items-center justify-center rounded-md bg-indigo-50 text-indigo-600"><Buildings size={18} weight="duotone" /></span>
+                  <div>
+                    <h3 className="font-heading font-semibold tracking-tight text-zinc-900">Datos de empresa</h3>
+                    <p className="text-xs text-zinc-500">Aparecerán en tus documentos y facturas</p>
+                  </div>
+                </div>
+                <div className="p-5 pt-5 flex items-center gap-4 border-b border-zinc-100">
+                  <div className="h-20 w-24 rounded-lg border border-zinc-200 bg-zinc-50 flex items-center justify-center overflow-hidden shrink-0" data-testid="empresa-logo-preview">
+                    {empresa.logo
+                      ? <img src={empresa.logo} alt="logo" className="max-h-full max-w-full object-contain" />
+                      : <ImageIcon size={26} className="text-zinc-300" />}
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-3">
+                      <label className="inline-flex items-center gap-2 text-sm cursor-pointer border border-zinc-200 rounded-md px-3 py-1.5 hover:bg-zinc-50 transition-colors">
+                        <UploadSimple size={16} /> {empresa.logo ? "Cambiar logo" : "Subir logo"}
+                        <input type="file" accept="image/png,image/jpeg,image/webp" className="hidden" data-testid="empresa-logo-input" onChange={(e) => onLogo(e.target.files[0])} />
+                      </label>
+                      {empresa.logo && (
+                        <button data-testid="empresa-logo-remove" onClick={() => setEmpresa({ ...empresa, logo: "" })} className="text-xs text-red-500 hover:underline">Quitar</button>
+                      )}
+                    </div>
+                    <p className="text-xs text-zinc-400 mt-1.5">PNG, JPG o WEBP · máx 600 KB. Aparecerá en tus documentos.</p>
+                  </div>
+                </div>
+                <div className="p-5 grid grid-cols-2 gap-4">
+                  {EMPRESA_FIELDS.map((f) => (
+                    <div key={f.k} className={f.span === 2 ? "col-span-2" : ""}>
+                      <Label className="text-xs">{f.label}</Label>
+                      <Input
+                        data-testid={`empresa-${f.k}`}
+                        value={empresa[f.k] || ""}
+                        onChange={(e) => setEmpresa({ ...empresa, [f.k]: e.target.value })}
+                        className={`rounded-md mt-1 ${f.mono ? "font-mono-plex" : ""}`}
+                      />
+                    </div>
+                  ))}
+                </div>
               </div>
-              <p className="text-xs text-zinc-400 mt-1.5">PNG, JPG o WEBP · máx 600 KB. Aparecerá en tus documentos.</p>
-            </div>
-          </div>
-          <div className="p-5 grid grid-cols-2 gap-4">
-            {EMPRESA_FIELDS.map((f) => (
-              <div key={f.k} className={f.span === 2 ? "col-span-2" : ""}>
-                <Label className="text-xs">{f.label}</Label>
-                <Input
-                  data-testid={`empresa-${f.k}`}
-                  value={empresa[f.k] || ""}
-                  onChange={(e) => setEmpresa({ ...empresa, [f.k]: e.target.value })}
-                  className={`rounded-md mt-1 ${f.mono ? "font-mono-plex" : ""}`}
-                />
+
+              <div className="bg-white border border-zinc-200 rounded-lg shadow-sm overflow-hidden" data-testid="modulo-inicio-card">
+                <div className="px-5 py-4 border-b border-zinc-100 flex items-center gap-3">
+                  <span className="inline-flex h-9 w-9 items-center justify-center rounded-md bg-indigo-50 text-indigo-600"><House size={18} weight="duotone" /></span>
+                  <div>
+                    <h3 className="font-heading font-semibold tracking-tight text-zinc-900">Módulo de inicio</h3>
+                    <p className="text-xs text-zinc-500">Elige qué pantalla se abre al entrar en la aplicación</p>
+                  </div>
+                </div>
+                <div className="p-5 grid grid-cols-2 gap-4">
+                  <button type="button" data-testid="modulo-inicio-panel" onClick={() => setModuloInicio("panel")}
+                    className={`flex items-center gap-3 rounded-lg border p-4 text-left transition-colors ${moduloInicio === "panel" ? "border-indigo-500 bg-indigo-50 ring-1 ring-indigo-500" : "border-zinc-200 hover:border-zinc-300"}`}>
+                    <House size={22} className={moduloInicio === "panel" ? "text-indigo-600" : "text-zinc-400"} weight="duotone" />
+                    <div>
+                      <div className="font-semibold text-sm text-zinc-900">Panel principal</div>
+                      <div className="text-xs text-zinc-500">Resumen del ERP (ventas, compras, facturas)</div>
+                    </div>
+                  </button>
+                  <button type="button" data-testid="modulo-inicio-taller" onClick={() => setModuloInicio("taller")}
+                    className={`flex items-center gap-3 rounded-lg border p-4 text-left transition-colors ${moduloInicio === "taller" ? "border-indigo-500 bg-indigo-50 ring-1 ring-indigo-500" : "border-zinc-200 hover:border-zinc-300"}`}>
+                    <Wrench size={22} className={moduloInicio === "taller" ? "text-indigo-600" : "text-zinc-400"} weight="duotone" />
+                    <div>
+                      <div className="font-semibold text-sm text-zinc-900">Taller</div>
+                      <div className="text-xs text-zinc-500">Panel de taller (órdenes, citas, vehículos)</div>
+                    </div>
+                  </button>
+                </div>
               </div>
-            ))}
-          </div>
-        </div>
+            </>
+          )}
 
-        <SeriesEditor
-          titulo="Series de venta"
-          subtitulo="Numeración de presupuestos, pedidos, albaranes y facturas emitidas"
-          tipos={["presupuestos", "pedidos", "albaranes", "facturas"]}
-          labels={{ presupuestos: "Presup.", pedidos: "Pedido", albaranes: "Albarán", facturas: "Factura" }}
-          series={seriesVenta}
-          setSeries={setSeriesVenta}
-        />
+          {section === "series" && (
+            <>
+              <SeriesEditor
+                titulo="Series de venta"
+                subtitulo="Numeración de presupuestos, pedidos, albaranes y facturas emitidas"
+                tipos={["presupuestos", "pedidos", "albaranes", "facturas"]}
+                labels={{ presupuestos: "Presup.", pedidos: "Pedido", albaranes: "Albarán", facturas: "Factura" }}
+                series={seriesVenta}
+                setSeries={setSeriesVenta}
+              />
+              <SeriesEditor
+                titulo="Series de compra"
+                subtitulo="Numeración interna de pedidos y albaranes recibidos"
+                tipos={["pedidos", "albaranes"]}
+                labels={{ pedidos: "Pedido", albaranes: "Albarán" }}
+                series={seriesCompra}
+                setSeries={setSeriesCompra}
+              />
+            </>
+          )}
 
-        <SeriesEditor
-          titulo="Series de compra"
-          subtitulo="Numeración interna de pedidos y albaranes recibidos"
-          tipos={["pedidos", "albaranes"]}
-          labels={{ pedidos: "Pedido", albaranes: "Albarán" }}
-          series={seriesCompra}
-          setSeries={setSeriesCompra}
-        />
+          {section === "notificaciones" && <NotifEditor notif={notif} setNotif={setNotif} />}
 
-        <NotifEditor notif={notif} setNotif={setNotif} />
+          {section === "facturae" && <FacturaeCard fe={facturae} setFe={setFacturae} />}
 
-        {user?.role === "admin" && (
-          <div className="bg-white border border-zinc-200 rounded-lg shadow-sm overflow-hidden" data-testid="usuarios-card">
-            <div className="px-5 py-4 border-b border-zinc-100 flex items-center gap-3">
-              <span className="inline-flex h-9 w-9 items-center justify-center rounded-md bg-indigo-50 text-indigo-600"><UsersThree size={18} weight="duotone" /></span>
-              <div>
-                <h3 className="font-heading font-semibold tracking-tight text-zinc-900">Usuarios y permisos</h3>
-                <p className="text-xs text-zinc-500">Da de alta empleados (administrador, recepción, mecánico) y gestiona su acceso</p>
+          {section === "formatos" && (
+            <div className="bg-white border border-zinc-200 rounded-lg shadow-sm overflow-hidden" data-testid="formatos-card">
+              <div className="px-5 py-4 border-b border-zinc-100 flex items-center gap-3">
+                <span className="inline-flex h-9 w-9 items-center justify-center rounded-md bg-blue-50 text-blue-600"><Printer size={18} weight="duotone" /></span>
+                <div>
+                  <h3 className="font-heading font-semibold tracking-tight text-zinc-900">Formatos de impresión</h3>
+                  <p className="text-xs text-zinc-500">Diseña tus propias plantillas (recepción de vehículo, resguardos…) y rellénalas para imprimir</p>
+                </div>
+              </div>
+              <div className="p-5 space-y-4">
+                <div>
+                  <label className="text-xs font-medium text-zinc-600 block mb-1.5">Plantilla para la "Hoja de entrada"</label>
+                  <select
+                    data-testid="select-formato-hoja-entrada"
+                    value={formatoHojaEntrada}
+                    onChange={(e) => setFormatoHojaEntrada(e.target.value)}
+                    className="w-full max-w-md rounded-md border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
+                  >
+                    <option value="">Automático (usar "Recepción de Vehículo")</option>
+                    {formatos.map((f) => (<option key={f.id} value={f.id}>{f.name}</option>))}
+                  </select>
+                  <p className="text-xs text-zinc-400 mt-1">Al imprimir la hoja de entrada de una orden/recepción se usará esta plantilla con los datos reales del vehículo.</p>
+                </div>
+                <Link to="/ajustes/formatos" data-testid="abrir-editor-formatos">
+                  <Button className="rounded-md bg-blue-600 hover:bg-blue-700 text-white">
+                    <Printer size={16} className="mr-1.5" weight="bold" /> Abrir editor de formatos
+                    <CaretRight size={16} className="ml-1.5" />
+                  </Button>
+                </Link>
               </div>
             </div>
-            <div className="p-5">
-              <Link to="/usuarios" data-testid="abrir-usuarios">
-                <Button className="rounded-md bg-primary hover:bg-indigo-700"><UsersThree size={16} className="mr-1.5" weight="bold" /> Gestionar usuarios <CaretRight size={16} className="ml-1.5" /></Button>
-              </Link>
-            </div>
-          </div>
-        )}
+          )}
 
-        <FacturaeCard fe={facturae} setFe={setFacturae} />
-
-        <div className="bg-white border border-zinc-200 rounded-lg shadow-sm overflow-hidden" data-testid="modulo-inicio-card">
-          <div className="px-5 py-4 border-b border-zinc-100 flex items-center gap-3">
-            <span className="inline-flex h-9 w-9 items-center justify-center rounded-md bg-indigo-50 text-indigo-600"><House size={18} weight="duotone" /></span>
-            <div>
-              <h3 className="font-heading font-semibold tracking-tight text-zinc-900">Módulo de inicio</h3>
-              <p className="text-xs text-zinc-500">Elige qué pantalla se abre al entrar en la aplicación</p>
-            </div>
-          </div>
-          <div className="p-5 grid grid-cols-2 gap-4">
-            <button
-              type="button"
-              data-testid="modulo-inicio-panel"
-              onClick={() => setModuloInicio("panel")}
-              className={`flex items-center gap-3 rounded-lg border p-4 text-left transition-colors ${moduloInicio === "panel" ? "border-indigo-500 bg-indigo-50 ring-1 ring-indigo-500" : "border-zinc-200 hover:border-zinc-300"}`}
-            >
-              <House size={22} className={moduloInicio === "panel" ? "text-indigo-600" : "text-zinc-400"} weight="duotone" />
-              <div>
-                <div className="font-semibold text-sm text-zinc-900">Panel principal</div>
-                <div className="text-xs text-zinc-500">Resumen del ERP (ventas, compras, facturas)</div>
+          {section === "usuarios" && isAdmin && (
+            <div className="bg-white border border-zinc-200 rounded-lg shadow-sm overflow-hidden" data-testid="usuarios-card">
+              <div className="px-5 py-4 border-b border-zinc-100 flex items-center gap-3">
+                <span className="inline-flex h-9 w-9 items-center justify-center rounded-md bg-indigo-50 text-indigo-600"><UsersThree size={18} weight="duotone" /></span>
+                <div>
+                  <h3 className="font-heading font-semibold tracking-tight text-zinc-900">Usuarios y permisos</h3>
+                  <p className="text-xs text-zinc-500">Da de alta empleados (administrador, recepción, mecánico) y gestiona su acceso</p>
+                </div>
               </div>
-            </button>
-            <button
-              type="button"
-              data-testid="modulo-inicio-taller"
-              onClick={() => setModuloInicio("taller")}
-              className={`flex items-center gap-3 rounded-lg border p-4 text-left transition-colors ${moduloInicio === "taller" ? "border-indigo-500 bg-indigo-50 ring-1 ring-indigo-500" : "border-zinc-200 hover:border-zinc-300"}`}
-            >
-              <Wrench size={22} className={moduloInicio === "taller" ? "text-indigo-600" : "text-zinc-400"} weight="duotone" />
-              <div>
-                <div className="font-semibold text-sm text-zinc-900">Taller</div>
-                <div className="text-xs text-zinc-500">Panel de taller (órdenes, citas, vehículos)</div>
+              <div className="p-5">
+                <Link to="/usuarios" data-testid="abrir-usuarios">
+                  <Button className="rounded-md bg-primary hover:bg-indigo-700"><UsersThree size={16} className="mr-1.5" weight="bold" /> Gestionar usuarios <CaretRight size={16} className="ml-1.5" /></Button>
+                </Link>
               </div>
-            </button>
-          </div>
-        </div>
-
-        <div className="bg-white border border-zinc-200 rounded-lg shadow-sm overflow-hidden" data-testid="formatos-card">
-          <div className="px-5 py-4 border-b border-zinc-100 flex items-center gap-3">
-            <span className="inline-flex h-9 w-9 items-center justify-center rounded-md bg-blue-50 text-blue-600"><Printer size={18} weight="duotone" /></span>
-            <div>
-              <h3 className="font-heading font-semibold tracking-tight text-zinc-900">Formatos de impresión</h3>
-              <p className="text-xs text-zinc-500">Diseña tus propias plantillas (recepción de vehículo, resguardos…) y rellénalas para imprimir</p>
             </div>
-          </div>
-          <div className="p-5 space-y-4">
-            <div>
-              <label className="text-xs font-medium text-zinc-600 block mb-1.5">Plantilla para la "Hoja de entrada"</label>
-              <select
-                data-testid="select-formato-hoja-entrada"
-                value={formatoHojaEntrada}
-                onChange={(e) => setFormatoHojaEntrada(e.target.value)}
-                className="w-full max-w-md rounded-md border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
-              >
-                <option value="">Automático (usar "Recepción de Vehículo")</option>
-                {formatos.map((f) => (<option key={f.id} value={f.id}>{f.name}</option>))}
-              </select>
-              <p className="text-xs text-zinc-400 mt-1">Al imprimir la hoja de entrada de una orden/recepción se usará esta plantilla con los datos reales del vehículo.</p>
-            </div>
-            <Link to="/ajustes/formatos" data-testid="abrir-editor-formatos">
-              <Button className="rounded-md bg-blue-600 hover:bg-blue-700 text-white">
-                <Printer size={16} className="mr-1.5" weight="bold" /> Abrir editor de formatos
-                <CaretRight size={16} className="ml-1.5" />
-              </Button>
-            </Link>
-          </div>
+          )}
         </div>
       </div>
     </div>
