@@ -35,7 +35,26 @@ Autónomos y pymes españolas que gestionan compras/ventas y facturación con ob
   Admin: admin@nexopro.com / Admin1234!. Licencia demo: NEXO-DEMO-0001 (frontend/.env REACT_APP_LICENSE_KEY).
 
 ## Estado / Bloqueos
-- FACTURAE FASE 2 — FIRMA XAdES-EPES + ENVÍO A FACe (2026-07-20): IMPLEMENTADO Y VERIFICADO (backend 100%, frontend 100%, iteration_21).
+- ACCESO DE USUARIOS DEL TALLER (login del ERP) — IMPLEMENTADO Y VERIFICADO (2026-07-20, iteration_22: backend 15/15, frontend flujo completo).
+  · Sistema de autenticación SEPARADO del panel de licencias /admin (colección `app_users`, rutas `/api/app/...`).
+  · Roles: admin, recepcion, operario. Login email+contraseña. Token JWT kind=app (8h).
+  · Seguridad: bcrypt + política (mín 8, 1 mayúscula, 1 número); bloqueo anti fuerza bruta (5 intentos → 423,
+    15 min); auto-logout por inactividad (30 min, frontend); 2FA TOTP opcional (pyotp+QR, recomendado admin);
+    cambio de contraseña forzado en el primer acceso (must_change_password).
+  · Gestión por admin: pantalla /usuarios (CRUD, editar rol, activar/suspender, restablecer contraseña).
+    RBAC servidor: operario recibe 403 en /api/app/usuarios. reset-password limpia failed_attempts/locked_until.
+  · Frontend: appAuth.jsx (AppAuthProvider/useAppAuth), Login.jsx, ForzarCambioPassword.jsx, Usuarios.jsx,
+    MiCuentaCard.jsx (Ajustes: cambio pwd + 2FA con QR), UserMenu+logout en Layout, AppAuthGate en App.js.
+    Interceptor axios adjunta el Bearer token del taller a todas las peticiones.
+  · Seed startup: admin del taller (env APP_ADMIN_EMAIL/APP_ADMIN_PASSWORD; por defecto administrador@taller.com
+    / Taller1234!, must_change_password=true).
+  · NOTA/LÍMITE: los endpoints de DATOS del ERP (contactos, taller, facturas...) por ahora se protegen a nivel
+    de UI (gate de login) + los de gestión de usuarios a nivel de servidor. Endurecimiento futuro: exigir el
+    token en cada endpoint de datos (cuidado con recursos cargados por URL sin cabecera: PDFs, media, .xsig).
+- DESPLIEGUE EN PRODUCCIÓN (2026-07-20): app publicada en https://invoice-hub-861.emergent.host (Emergent).
+  Bloqueador de despliegue corregido: .gitignore ya no ignora los .env. Los cambios de código en preview
+  requieren volver a "Publicar" para llegar a producción.
+- FACTURAE FASE 2 — FIRMA XAdES-EPES + ENVÍO A FACe (2026-07-20): IMPLEMENTADO Y VERIFICADO (iteration_21).
   · Nuevo apartado en Ajustes "Facturación electrónica (FACe)" (FacturaeCard): subir certificado .p12/.pfx
     + contraseña (se valida al subir y muestra titular/validez), selector de entorno (pruebas/producción)
     y email del proveedor. El certificado y la contraseña se guardan en ajustes.facturae pero NUNCA se
