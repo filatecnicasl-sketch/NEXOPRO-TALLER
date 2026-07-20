@@ -3,6 +3,9 @@ import { Link } from "react-router-dom";
 import { Plus, Trash, FloppyDisk, Buildings, Stack, Star, UploadSimple, Image as ImageIcon, BellRinging, EnvelopeSimple, WhatsappLogo, PaperPlaneTilt, House, Wrench, Printer, CaretRight, Certificate, ShieldCheck } from "@phosphor-icons/react";
 import { toast } from "sonner";
 import { getAjustes, updateAjustes, probarNotificacion, getFormatos, subirCertificadoFacturae, guardarConfigFacturae, eliminarCertificadoFacturae } from "@/lib/api";
+import { useAppAuth } from "@/lib/appAuth";
+import MiCuentaCard from "@/components/MiCuentaCard";
+import { UsersThree } from "@phosphor-icons/react";
 import PageHeader from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -286,6 +289,7 @@ function FacturaeCard({ fe, setFe }) {
 
 
 export default function Ajustes() {
+  const { user } = useAppAuth();
   const [empresa, setEmpresa] = useState({});
   const [seriesVenta, setSeriesVenta] = useState([]);
   const [seriesCompra, setSeriesCompra] = useState([]);
@@ -411,6 +415,25 @@ export default function Ajustes() {
         />
 
         <NotifEditor notif={notif} setNotif={setNotif} />
+
+        <MiCuentaCard />
+
+        {user?.role === "admin" && (
+          <div className="bg-white border border-zinc-200 rounded-lg shadow-sm overflow-hidden" data-testid="usuarios-card">
+            <div className="px-5 py-4 border-b border-zinc-100 flex items-center gap-3">
+              <span className="inline-flex h-9 w-9 items-center justify-center rounded-md bg-indigo-50 text-indigo-600"><UsersThree size={18} weight="duotone" /></span>
+              <div>
+                <h3 className="font-heading font-semibold tracking-tight text-zinc-900">Usuarios y permisos</h3>
+                <p className="text-xs text-zinc-500">Da de alta empleados (administrador, recepción, mecánico) y gestiona su acceso</p>
+              </div>
+            </div>
+            <div className="p-5">
+              <Link to="/usuarios" data-testid="abrir-usuarios">
+                <Button className="rounded-md bg-primary hover:bg-indigo-700"><UsersThree size={16} className="mr-1.5" weight="bold" /> Gestionar usuarios <CaretRight size={16} className="ml-1.5" /></Button>
+              </Link>
+            </div>
+          </div>
+        )}
 
         <FacturaeCard fe={facturae} setFe={setFacturae} />
 

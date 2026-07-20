@@ -5,6 +5,16 @@ export const API = `${BACKEND_URL}/api`;
 
 const client = axios.create({ baseURL: API });
 
+// Adjunta el token del usuario del taller (si existe) a todas las peticiones.
+client.interceptors.request.use((config) => {
+  const t = localStorage.getItem("nexopro_app_token");
+  if (t && !config.headers?.Authorization) {
+    config.headers = config.headers || {};
+    config.headers.Authorization = `Bearer ${t}`;
+  }
+  return config;
+});
+
 // Facturae 3.2.2 (descarga XML)
 export const facturaeUrl = (id) => `${API}/facturas-emitidas/${id}/facturae`;
 // Facturae firmado (XAdES-EPES .xsig)
@@ -340,7 +350,22 @@ export const getResumen = () => client.get("/dashboard/resumen").then((r) => r.d
 // Consumo IA
 export const getConsumoIA = () => client.get("/consumos-ia/resumen").then((r) => r.data);
 
-// ---- Auth admin ----
+// ---- Auth usuarios del taller (login del ERP) ----
+export const appLogin = (email, password, totp_code) =>
+  client.post("/app/auth/login", { email, password, totp_code }).then((r) => r.data);
+export const appMe = () => client.get("/app/auth/me").then((r) => r.data);
+export const appChangePassword = (actual, nueva) =>
+  client.post("/app/auth/change-password", { actual, nueva }).then((r) => r.data);
+export const app2faSetup = () => client.post("/app/auth/2fa/setup", {}).then((r) => r.data);
+export const app2faEnable = (code) => client.post("/app/auth/2fa/enable", { code }).then((r) => r.data);
+export const app2faDisable = (code) => client.post("/app/auth/2fa/disable", { code }).then((r) => r.data);
+export const getAppUsuarios = () => client.get("/app/usuarios").then((r) => r.data);
+export const createAppUsuario = (data) => client.post("/app/usuarios", data).then((r) => r.data);
+export const updateAppUsuario = (id, data) => client.put(`/app/usuarios/${id}`, data).then((r) => r.data);
+export const resetAppUsuarioPassword = (id, nueva) => client.post(`/app/usuarios/${id}/reset-password`, { nueva }).then((r) => r.data);
+export const deleteAppUsuario = (id) => client.delete(`/app/usuarios/${id}`).then((r) => r.data);
+
+// ---- Auth admin (panel central de licencias) ----
 const authHeader = () => {
   const t = localStorage.getItem("nexopro_admin_token");
   return t ? { Authorization: `Bearer ${t}` } : {};

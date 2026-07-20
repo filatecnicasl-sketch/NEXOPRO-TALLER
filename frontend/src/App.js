@@ -23,6 +23,26 @@ import SubirFotos from "@/pages/SubirFotos";
 import ConfirmarCita from "@/pages/ConfirmarCita";
 import AdminLogin from "@/pages/AdminLogin";
 import AdminPanel from "@/pages/AdminPanel";
+import Login from "@/pages/Login";
+import Usuarios from "@/pages/Usuarios";
+import ForzarCambioPassword from "@/pages/ForzarCambioPassword";
+import { AppAuthProvider, useAppAuth } from "@/lib/appAuth";
+import { ArrowClockwise } from "@phosphor-icons/react";
+
+// Gate de sesión de usuario del taller: exige login para usar el ERP.
+function AppAuthGate({ children }) {
+  const { user } = useAppAuth();
+  if (user === null) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background" data-testid="auth-checking">
+        <div className="flex items-center gap-2 text-slate-400 text-sm"><ArrowClockwise size={18} className="animate-spin" /> Cargando…</div>
+      </div>
+    );
+  }
+  if (user === false) return <Login />;
+  if (user.must_change_password) return <ForzarCambioPassword />;
+  return children;
+}
 
 // Pantalla de inicio: respeta el "módulo de inicio" de Ajustes. Redirige a Taller una sola vez
 // por sesión (así el usuario puede volver al Panel principal sin quedar atrapado en el bucle).
@@ -45,6 +65,7 @@ function App() {
   return (
     <div className="App">
       <BrowserRouter>
+        <AppAuthProvider>
         <Routes>
           {/* Panel central (solo administrador) — fuera del gate de licencia */}
           <Route path="/admin/login" element={<AdminLogin />} />
@@ -57,13 +78,15 @@ function App() {
           <Route path="/cita/:token" element={<ConfirmarCita />} />
 
           {/* Editor de formatos de impresión — a pantalla completa (fuera del Layout) */}
-          <Route path="/ajustes/formatos" element={<LicenseGate><FormatosEditor /></LicenseGate>} />
+          <Route path="/ajustes/formatos" element={<LicenseGate><AppAuthGate><FormatosEditor /></AppAuthGate></LicenseGate>} />
 
-          {/* Aplicación cliente — protegida por licencia */}
+          {/* Aplicación cliente — protegida por licencia + login de usuario */}
           <Route
             element={
               <LicenseGate>
-                <Layout />
+                <AppAuthGate>
+                  <Layout />
+                </AppAuthGate>
               </LicenseGate>
             }
           >
@@ -79,6 +102,7 @@ function App() {
             <Route path="/facturas-emitidas" element={<FacturasEmitidas />} />
             <Route path="/facturas-recibidas" element={<FacturasRecibidas />} />
             <Route path="/ajustes" element={<Ajustes />} />
+            <Route path="/usuarios" element={<Usuarios />} />
 
             {/* Módulo Taller (sectorial) */}
             <Route path="/taller" element={<TallerDashboard />} />
@@ -89,6 +113,7 @@ function App() {
             <Route path="/taller/cortesia" element={<Cortesia />} />
           </Route>
         </Routes>
+        </AppAuthProvider>
       </BrowserRouter>
       <Toaster position="top-right" richColors />
     </div>

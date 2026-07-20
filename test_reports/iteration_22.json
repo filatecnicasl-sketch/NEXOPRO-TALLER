@@ -1,0 +1,36 @@
+{
+  "summary": "Testing completo de iter22 (auth del ERP del taller): login-gate, cambio forzado, política de contraseña, gestión de usuarios (CRUD + reset), RBAC, anti-fuerza-bruta (5 intentos → 423), ciclo 2FA TOTP (setup/enable/login requires_2fa/disable) y aislamiento del panel /admin. Backend: 15/15 pytest OK. Frontend: flujo completo verificado (login → forzar-cambio → topbar/user-menu → /usuarios → crear/eliminar operario → logout). /admin panel es independiente del gate del taller.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "/api/app/usuarios/{id}/reset-password", "issue": "Reset-password NO limpia locked_until ni failed_attempts. Si una cuenta queda bloqueada por brute-force, el admin no la puede desbloquear con reset-password: debe usar PUT (editar_usuario) o esperar 15 min. Recomendado: al hacer reset, resetear también failed_attempts=0 y locked_until=None."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter22_app_auth.py",
+    "/app/test_reports/pytest/iter22_results.xml"
+  ],
+  "action_items": [
+    "(Menor) Considerar limpiar failed_attempts y locked_until en el endpoint /api/app/usuarios/{id}/reset-password para que el admin pueda desbloquear cuentas rápidamente."
+  ],
+  "critical_code_review_comments": [
+    "server.py: los endpoints principales del ERP (contactos, taller, facturas, ajustes, etc.) NO tienen protección server-side; sólo el gate de UI evita el acceso. Está declarado intencional en esta iteración, pero es un riesgo real: cualquiera con la URL pública puede llamar /api/contactos, /api/facturas... sin token. Recomendado añadir Depends(get_current_app_user) globalmente en la siguiente iteración.",
+    "server.py: MAX_INTENTOS/BLOQUEO_MINUTOS parecen constantes; comprobar que están definidas y son razonables (test verificado con 5 intentos → 423).",
+    "reset-password no limpia estado de bloqueo (ver issue backend minor)."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter22_app_auth.py (creado)"
+  ],
+  "success_rate": {"backend": "100% (15/15)", "frontend": "100% (flujos críticos verificados)"},
+  "test_credentials": "administrador@taller.com / Taller1234! (must_change_password=true, NO se cambió durante la prueba — estado preservado). Panel /admin: admin@nexopro.com / Admin1234!.",
+  "seed_data_creation": "Se creó y BORRÓ un usuario de prueba admin (ui_admin_iter22@taller.com) y un operario (juan_ui_iter22@taller.com) durante la prueba de UI. Limpieza verificada: solo queda administrador@taller.com en app_users.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "El admin del taller (administrador@taller.com / Taller1234!) mantiene must_change_password=true — al primer login se muestra ForzarCambioPassword. En pruebas UI futuras: crear un usuario nuevo vía API con token del admin y usar ese usuario para probar el ERP, o completar el cambio forzado y actualizar test_credentials.md con la nueva contraseña. Pytest de iter22 debe correrse con -n0 (sin xdist) porque los fixtures module-scope colisionan al paralelizar (mismo email de operario en dos workers).",
+  "rca_of_the_issue": "N/A — no se encontraron bugs bloqueantes. Único hallazgo menor: reset-password no limpia locked_until."
+}

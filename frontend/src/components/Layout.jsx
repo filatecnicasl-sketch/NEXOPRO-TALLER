@@ -2,7 +2,9 @@ import { NavLink, Outlet, Link, useLocation, useNavigate } from "react-router-do
 import {
   UsersThree, Truck, Package, ClipboardText, FileText, Receipt, FileArrowDown,
   ShieldCheck, Gear, FileDashed, Wrench, Car, MagnifyingGlass, CalendarCheck, Gauge,
+  SignOut, UserCircle,
 } from "@phosphor-icons/react";
+import { useAppAuth } from "@/lib/appAuth";
 
 const LOGO = "https://customer-assets.emergentagent.com/job_invoice-hub-861/artifacts/7wiurgv7_favicom.png";
 
@@ -67,6 +69,26 @@ const MODULES = [
 const matchItem = (pathname, item) =>
   item.end ? pathname === item.to : pathname === item.to || pathname.startsWith(item.to + "/");
 
+function UserMenu() {
+  const { user, logout } = useAppAuth();
+  const ROLE_LABEL = { admin: "Administrador", recepcion: "Recepción", operario: "Mecánico" };
+  if (!user) return null;
+  return (
+    <div className="flex items-center gap-2" data-testid="user-menu">
+      <div className="hidden sm:flex flex-col items-end leading-tight">
+        <span className="text-xs font-semibold text-zinc-800">{user.nombre || user.email}</span>
+        <span className="text-[10px] text-zinc-400">{ROLE_LABEL[user.role] || user.role}</span>
+      </div>
+      <UserCircle size={26} className="text-zinc-400" weight="duotone" />
+      <button data-testid="logout-button" onClick={logout} title="Cerrar sesión"
+        className="inline-flex items-center gap-1 text-xs text-zinc-500 hover:text-red-500 border border-zinc-200 rounded-md px-2 py-1.5 transition-colors">
+        <SignOut size={15} /> <span className="hidden sm:inline">Salir</span>
+      </button>
+    </div>
+  );
+}
+
+
 export default function Layout() {
   const { pathname } = useLocation();
   const navigate = useNavigate();
@@ -109,9 +131,12 @@ export default function Layout() {
             })}
           </nav>
 
-          <div className="hidden md:flex items-center gap-2 text-[11px] shrink-0">
-            <ShieldCheck size={15} weight="fill" className="text-emerald-600" />
-            <span className="text-zinc-500">Compatible <span className="text-zinc-700 font-medium">Verifactu</span></span>
+          <div className="flex items-center gap-3 shrink-0">
+            <div className="hidden md:flex items-center gap-2 text-[11px]">
+              <ShieldCheck size={15} weight="fill" className="text-emerald-600" />
+              <span className="text-zinc-500">Compatible <span className="text-zinc-700 font-medium">Verifactu</span></span>
+            </div>
+            <UserMenu />
           </div>
         </div>
 

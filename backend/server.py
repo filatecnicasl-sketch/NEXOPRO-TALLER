@@ -265,6 +265,240 @@ async def verificar_licencia(license_key: str):
     }
 
 
+# ---------------------------------------------------------------------------
+# USUARIOS DEL TALLER (login del ERP) — roles, 2FA, anti fuerza bruta
+# ---------------------------------------------------------------------------
+import pyotp
+
+APP_ROLES = ("admin", "operario", "recepcion")
+MAX_INTENTOS = 5
+BLOQUEO_MINUTOS = 15
+APP_TOKEN_HORAS = 8
+
+
+def _politica_password(pwd: str):
+    if len(pwd or "") < 8:
+        raise HTTPException(400, "La contraseña debe tener al menos 8 caracteres.")
+    if not re.search(r"[A-Z]", pwd):
+        raise HTTPException(400, "La contraseña debe incluir al menos una mayúscula.")
+    if not re.search(r"[0-9]", pwd):
+        raise HTTPException(400, "La contraseña debe incluir al menos un número.")
+
+
+def _app_token(user: dict) -> str:
+    payload = {"sub": user["id"], "email": user["email"], "role": user.get("role", "operario"),
+               "kind": "app", "exp": datetime.now(timezone.utc) + timedelta(hours=APP_TOKEN_HORAS)}
+    return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
+
+
+def _app_user_publico(u: dict) -> dict:
+    return {"id": u["id"], "nombre": u.get("nombre", ""), "email": u["email"],
+            "role": u.get("role", "operario"), "activo": u.get("activo", True),
+            "totp_enabled": bool(u.get("totp_enabled")), "last_login": u.get("last_login")}
+
+
+async def get_current_app_user(request: Request) -> dict:
+    auth_header = request.headers.get("Authorization", "")
+    token = auth_header[7:] if auth_header.startswith("Bearer ") else None
+    if not token:
+        raise HTTPException(401, "No autenticado")
+    try:
+        payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        if payload.get("kind") != "app":
+            raise HTTPException(401, "Token inválido")
+        user = await db.app_users.find_one({"id": payload["sub"]}, {"_id": 0})
+        if not user or not user.get("activo", True):
+            raise HTTPException(401, "Usuario no disponible")
+        return user
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(401, "Sesión expirada")
+    except jwt.InvalidTokenError:
+        raise HTTPException(401, "Token inválido")
+
+
+def require_app_role(*roles):
+    async def _dep(user: dict = Depends(get_current_app_user)) -> dict:
+        if user.get("role") not in roles:
+            raise HTTPException(403, "No tienes permisos para esta acción")
+        return user
+    return _dep
+
+
+class AppLoginInput(BaseModel):
+    email: str
+    password: str
+    totp_code: Optional[str] = None
+
+
+@api_router.post("/app/auth/login")
+async def app_login(data: AppLoginInput):
+    email = data.email.lower().strip()
+    user = await db.app_users.find_one({"email": email})
+    cred_error = HTTPException(401, "Email o contraseña incorrectos.")
+    if not user:
+        raise cred_error
+    if not user.get("activo", True):
+        raise HTTPException(403, "Tu cuenta está desactivada. Contacta con el administrador.")
+    # Bloqueo por fuerza bruta
+    bloqueo = user.get("locked_until")
+    if bloqueo and datetime.fromisoformat(bloqueo) > datetime.now(timezone.utc):
+        restan = int((datetime.fromisoformat(bloqueo) - datetime.now(timezone.utc)).total_seconds() // 60) + 1
+        raise HTTPException(423, f"Cuenta bloqueada por intentos fallidos. Inténtalo de nuevo en {restan} min.")
+    if not verify_password(data.password, user["password_hash"]):
+        intentos = int(user.get("failed_attempts", 0)) + 1
+        upd = {"failed_attempts": intentos}
+        if intentos >= MAX_INTENTOS:
+            upd["locked_until"] = (datetime.now(timezone.utc) + timedelta(minutes=BLOQUEO_MINUTOS)).isoformat()
+            upd["failed_attempts"] = 0
+        await db.app_users.update_one({"id": user["id"]}, {"$set": upd})
+        if upd.get("locked_until"):
+            raise HTTPException(423, f"Demasiados intentos. Cuenta bloqueada {BLOQUEO_MINUTOS} min.")
+        raise cred_error
+    # 2FA
+    if user.get("totp_enabled"):
+        if not data.totp_code:
+            return {"requires_2fa": True}
+        if not pyotp.TOTP(user["totp_secret"]).verify(data.totp_code.strip(), valid_window=1):
+            raise HTTPException(401, "Código de verificación incorrecto.")
+    await db.app_users.update_one({"id": user["id"]}, {"$set": {
+        "failed_attempts": 0, "locked_until": None, "last_login": now_iso()}})
+    return {"token": _app_token(user), "user": _app_user_publico(user),
+            "must_change_password": bool(user.get("must_change_password"))}
+
+
+@api_router.get("/app/auth/me")
+async def app_me(user: dict = Depends(get_current_app_user)):
+    out = _app_user_publico(user)
+    out["must_change_password"] = bool(user.get("must_change_password"))
+    return out
+
+
+class CambioPasswordInput(BaseModel):
+    actual: str
+    nueva: str
+
+
+@api_router.post("/app/auth/change-password")
+async def app_change_password(data: CambioPasswordInput, user: dict = Depends(get_current_app_user)):
+    if not verify_password(data.actual, user["password_hash"]):
+        raise HTTPException(400, "La contraseña actual no es correcta.")
+    _politica_password(data.nueva)
+    await db.app_users.update_one({"id": user["id"]}, {"$set": {
+        "password_hash": hash_password(data.nueva), "must_change_password": False}})
+    return {"ok": True}
+
+
+# ---- 2FA (TOTP) ----
+@api_router.post("/app/auth/2fa/setup")
+async def app_2fa_setup(user: dict = Depends(get_current_app_user)):
+    secret = pyotp.random_base32()
+    await db.app_users.update_one({"id": user["id"]}, {"$set": {"totp_secret": secret, "totp_enabled": False}})
+    uri = pyotp.TOTP(secret).provisioning_uri(name=user["email"], issuer_name="NexoPro")
+    return {"secret": secret, "otpauth_uri": uri}
+
+
+class TotpCodeInput(BaseModel):
+    code: str
+
+
+@api_router.post("/app/auth/2fa/enable")
+async def app_2fa_enable(data: TotpCodeInput, user: dict = Depends(get_current_app_user)):
+    if not user.get("totp_secret"):
+        raise HTTPException(400, "Primero genera el código QR (setup).")
+    if not pyotp.TOTP(user["totp_secret"]).verify(data.code.strip(), valid_window=1):
+        raise HTTPException(400, "Código incorrecto. Revisa la app de autenticación.")
+    await db.app_users.update_one({"id": user["id"]}, {"$set": {"totp_enabled": True}})
+    return {"ok": True}
+
+
+@api_router.post("/app/auth/2fa/disable")
+async def app_2fa_disable(data: TotpCodeInput, user: dict = Depends(get_current_app_user)):
+    if user.get("totp_enabled") and not pyotp.TOTP(user.get("totp_secret", "")).verify(data.code.strip(), valid_window=1):
+        raise HTTPException(400, "Código incorrecto.")
+    await db.app_users.update_one({"id": user["id"]}, {"$set": {"totp_enabled": False, "totp_secret": None}})
+    return {"ok": True}
+
+
+# ---- Gestión de usuarios (solo admin) ----
+class AppUsuarioInput(BaseModel):
+    nombre: str = ""
+    email: str
+    password: Optional[str] = None
+    role: str = "operario"
+    activo: bool = True
+
+
+@api_router.get("/app/usuarios")
+async def app_listar_usuarios(_: dict = Depends(require_app_role("admin"))):
+    docs = await db.app_users.find({}, {"_id": 0}).sort("created_at", 1).to_list(500)
+    return [_app_user_publico(d) for d in docs]
+
+
+@api_router.post("/app/usuarios")
+async def app_crear_usuario(data: AppUsuarioInput, _: dict = Depends(require_app_role("admin"))):
+    email = data.email.lower().strip()
+    if not email:
+        raise HTTPException(400, "El email es obligatorio.")
+    if data.role not in APP_ROLES:
+        raise HTTPException(400, "Rol no válido.")
+    if await db.app_users.find_one({"email": email}):
+        raise HTTPException(409, "Ya existe un usuario con ese email.")
+    if not data.password:
+        raise HTTPException(400, "La contraseña es obligatoria.")
+    _politica_password(data.password)
+    doc = {"id": new_id(), "nombre": data.nombre, "email": email,
+           "password_hash": hash_password(data.password), "role": data.role,
+           "activo": data.activo, "failed_attempts": 0, "locked_until": None,
+           "totp_secret": None, "totp_enabled": False, "must_change_password": True,
+           "last_login": None, "created_at": now_iso()}
+    await db.app_users.insert_one(dict(doc))
+    return _app_user_publico(doc)
+
+
+@api_router.put("/app/usuarios/{uid}")
+async def app_editar_usuario(uid: str, data: AppUsuarioInput, admin: dict = Depends(require_app_role("admin"))):
+    user = await db.app_users.find_one({"id": uid})
+    if not user:
+        raise HTTPException(404, "Usuario no encontrado")
+    if data.role not in APP_ROLES:
+        raise HTTPException(400, "Rol no válido.")
+    # No permitir que el admin se quite a sí mismo el rol/acceso y quede sin administradores
+    if user["id"] == admin["id"] and (data.role != "admin" or not data.activo):
+        raise HTTPException(400, "No puedes quitarte a ti mismo el rol de administrador ni desactivarte.")
+    upd = {"nombre": data.nombre, "role": data.role, "activo": data.activo}
+    await db.app_users.update_one({"id": uid}, {"$set": upd})
+    return _app_user_publico({**user, **upd})
+
+
+class ResetPasswordInput(BaseModel):
+    nueva: str
+
+
+@api_router.post("/app/usuarios/{uid}/reset-password")
+async def app_reset_password(uid: str, data: ResetPasswordInput, _: dict = Depends(require_app_role("admin"))):
+    user = await db.app_users.find_one({"id": uid})
+    if not user:
+        raise HTTPException(404, "Usuario no encontrado")
+    _politica_password(data.nueva)
+    await db.app_users.update_one({"id": uid}, {"$set": {
+        "password_hash": hash_password(data.nueva), "must_change_password": True,
+        "failed_attempts": 0, "locked_until": None}})
+    return {"ok": True}
+
+
+@api_router.delete("/app/usuarios/{uid}")
+async def app_eliminar_usuario(uid: str, admin: dict = Depends(require_app_role("admin"))):
+    if uid == admin["id"]:
+        raise HTTPException(400, "No puedes eliminar tu propia cuenta.")
+    total_admins = await db.app_users.count_documents({"role": "admin", "activo": True})
+    target = await db.app_users.find_one({"id": uid})
+    if target and target.get("role") == "admin" and total_admins <= 1:
+        raise HTTPException(400, "Debe existir al menos un administrador.")
+    await db.app_users.delete_one({"id": uid})
+    return {"ok": True}
+
+
+
 
 # ---------------------------------------------------------------------------
 # Models
@@ -3279,6 +3513,23 @@ async def startup_seed():
             "notas": "Licencia de demostración", "created_at": now_iso(),
         })
 
+
+    # Usuario administrador del TALLER (login del ERP) idempotente
+    try:
+        await db.app_users.create_index("email", unique=True)
+    except Exception as e:
+        logger.warning(f"Index app_users warning: {e}")
+    if await db.app_users.count_documents({}) == 0:
+        app_admin_email = os.environ.get("APP_ADMIN_EMAIL", "administrador@taller.com").lower()
+        app_admin_pwd = os.environ.get("APP_ADMIN_PASSWORD", "Taller1234!")
+        await db.app_users.insert_one({
+            "id": new_id(), "nombre": "Administrador", "email": app_admin_email,
+            "password_hash": hash_password(app_admin_pwd), "role": "admin", "activo": True,
+            "failed_attempts": 0, "locked_until": None, "totp_secret": None,
+            "totp_enabled": False, "must_change_password": True, "last_login": None,
+            "created_at": now_iso(),
+        })
+        logger.info("Usuario admin del taller creado")
 
     # Contador de referencias de artículo (evita colisión con los existentes)
     if not await db.counters.find_one({"_id": "articulo_ref"}):
