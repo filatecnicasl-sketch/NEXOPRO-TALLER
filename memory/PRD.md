@@ -35,6 +35,19 @@ Autónomos y pymes españolas que gestionan compras/ventas y facturación con ob
   Admin: admin@nexopro.com / Admin1234!. Licencia demo: NEXO-DEMO-0001 (frontend/.env REACT_APP_LICENSE_KEY).
 
 ## Estado / Bloqueos
+- PERMISOS POR MÓDULO POR USUARIO (2026-07-20, iteration_23: backend 6/6, frontend 100%): IMPLEMENTADO Y VERIFICADO.
+  · El admin asigna a cada usuario qué módulos puede usar (articulos, ventas, compras, taller).
+    Ajustes es exclusivo del admin; el admin siempre tiene acceso a todo (es_admin=true → permisos completos).
+  · Backend: app_users.permisos (List[str] filtrada por APP_MODULOS); _app_user_publico añade permisos+es_admin;
+    create/update filtran 'ajustes' fuera. /api/app/auth/me devuelve permisos y es_admin.
+  · Frontend: Layout filtra las pestañas por permisos (visibleModules) y un useEffect redirige a homeRoute si
+    el usuario abre un módulo no autorizado. UserMenu con enlace a /mi-cuenta (MiCuenta.jsx) accesible a todos
+    (cambiar contraseña + 2FA), fuera de Ajustes. Usuarios.jsx: checkboxes de módulos (solo si role!=admin) y
+    columna 'Acceso' en la tabla.
+  · Credencial preview: admin administrador@taller.com / Taller1234! (must_change_password=False en preview).
+    Usuario demo mecanico@taller.com / Mecanico1 (solo Taller). En producción el seed crea el admin con
+    cambio de contraseña forzado.
+
 - ACCESO DE USUARIOS DEL TALLER (login del ERP) — IMPLEMENTADO Y VERIFICADO (2026-07-20, iteration_22: backend 15/15, frontend flujo completo).
   · Sistema de autenticación SEPARADO del panel de licencias /admin (colección `app_users`, rutas `/api/app/...`).
   · Roles: admin, recepcion, operario. Login email+contraseña. Token JWT kind=app (8h).
