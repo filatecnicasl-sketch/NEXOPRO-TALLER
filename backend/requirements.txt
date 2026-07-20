@@ -136,3 +136,4 @@ xades==1.0.0
 xmlsig==1.0.1
 zeep==4.3.3
 lxml==6.1.1
+xmlsec==1.3.17

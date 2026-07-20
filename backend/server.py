@@ -953,46 +953,65 @@ async def enviar_factura_face(doc_id: str):
     wsdl = FACE_WSDL[entorno]
 
     def _enviar():
-        import ssl, tempfile as _tmp
+        import tempfile as _tmp
         from zeep import Client, Settings
         from zeep.transports import Transport
+        from zeep.wsse.signature import BinarySignature
         from requests import Session
-        # Certificado cliente para TLS mutuo / WS-Security básico
+
+        class _SignOnly(BinarySignature):
+            def verify(self, envelope):
+                return envelope  # FACe firma la respuesta con su propio cert; no la verificamos
         p12 = base64.b64decode(fe["cert_p12_base64"])
         from cryptography.hazmat.primitives.serialization import pkcs12, Encoding, PrivateFormat, NoEncryption
         key, cert, _ = pkcs12.load_key_and_certificates(p12, fe["cert_password"].encode())
+        keyf = _tmp.NamedTemporaryFile(delete=False, suffix=".pem")
+        keyf.write(key.private_bytes(Encoding.PEM, PrivateFormat.PKCS8, NoEncryption()))
+        keyf.flush()
         certf = _tmp.NamedTemporaryFile(delete=False, suffix=".pem")
         certf.write(cert.public_bytes(Encoding.PEM))
-        certf.write(key.private_bytes(Encoding.PEM, PrivateFormat.PKCS8, NoEncryption()))
         certf.flush()
+        # TLS cliente (mutuo) + firma WS-Security del sobre SOAP (exigida por FACe)
+        combf = _tmp.NamedTemporaryFile(delete=False, suffix=".pem")
+        combf.write(cert.public_bytes(Encoding.PEM))
+        combf.write(key.private_bytes(Encoding.PEM, PrivateFormat.PKCS8, NoEncryption()))
+        combf.flush()
         session = Session()
-        session.cert = certf.name
-        transport = Transport(session=session, timeout=30)
-        client = Client(wsdl, transport=transport, settings=Settings(strict=False, xml_huge_tree=True))
-        b64 = base64.b64encode(firmado).decode()
-        return client.service.enviarFactura(
-            factura={
-                "factura": b64,
-                "nombre": _nombre,
-                "anexos": [],
-                "mensaje": "",
-            }
+        session.cert = combf.name
+        transport = Transport(session=session, timeout=40)
+        wsse = _SignOnly(keyf.name, certf.name)
+        client = Client(wsdl, transport=transport, wsse=wsse,
+                        settings=Settings(strict=False, xml_huge_tree=True))
+        factura_file = {
+            "factura": base64.b64encode(firmado).decode(),
+            "nombre": _nombre,
+            "mime": "text/xml",
+        }
+        req_type = client.get_type("ns0:EnviarFacturaRequest")
+        request = req_type(
+            correo=fe.get("proveedor_email") or "",
+            factura=factura_file,
+            anexos=[],
         )
+        return client.service.enviarFactura(request)
 
     try:
         resultado = await asyncio.get_event_loop().run_in_executor(None, _enviar)
     except Exception as e:
         logging.exception("Error enviando a FACe")
-        raise HTTPException(502, f"Error al presentar en FACe ({entorno}): {e}")
+        raise HTTPException(400, f"Error al presentar en FACe ({entorno}): {e}")
 
-    num_registro = getattr(getattr(resultado, "factura", None), "numeroRegistro", None) or \
-        getattr(resultado, "numeroRegistro", None) or ""
-    codigo = getattr(getattr(resultado, "resultado", None), "codigo", None) or ""
+    res = getattr(resultado, "resultado", None)
+    fac = getattr(resultado, "factura", None)
+    codigo = getattr(res, "codigo", "") if res is not None else ""
+    descripcion = getattr(res, "descripcion", "") if res is not None else ""
+    num_registro = getattr(fac, "numeroRegistro", "") if fac is not None else ""
     face = {
         "presentada_at": now_iso(),
         "entorno": entorno,
-        "numero_registro": str(num_registro),
-        "codigo": str(codigo),
+        "numero_registro": str(num_registro or ""),
+        "codigo": str(codigo or ""),
+        "descripcion": str(descripcion or ""),
     }
     await db.facturas_emitidas.update_one({"id": doc_id}, {"$set": {"face": face}})
     return {"ok": True, "face": face}

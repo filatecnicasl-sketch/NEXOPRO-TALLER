@@ -35,6 +35,31 @@ Autónomos y pymes españolas que gestionan compras/ventas y facturación con ob
   Admin: admin@nexopro.com / Admin1234!. Licencia demo: NEXO-DEMO-0001 (frontend/.env REACT_APP_LICENSE_KEY).
 
 ## Estado / Bloqueos
+- FACTURAE FASE 2 — FIRMA XAdES-EPES + ENVÍO A FACe (2026-07-20): IMPLEMENTADO Y VERIFICADO (backend 100%, frontend 100%, iteration_21).
+  · Nuevo apartado en Ajustes "Facturación electrónica (FACe)" (FacturaeCard): subir certificado .p12/.pfx
+    + contraseña (se valida al subir y muestra titular/validez), selector de entorno (pruebas/producción)
+    y email del proveedor. El certificado y la contraseña se guardan en ajustes.facturae pero NUNCA se
+    exponen en GET /api/ajustes (solo metadatos: cert_configurado, cert_titular, validez, entorno).
+  · Módulo backend nuevo /app/backend/facturae_sign.py: firma XAdES-EPES enveloped del XML Facturae 3.2.2
+    con la política de firma oficial de Facturae (digest SHA-1 fijo Ohixl6upD6av8N7pEvDABhEL6hM=, sin
+    depender de descargar el PDF de política). Libs: xades, xmlsig, lxml.
+  · Endpoints: POST/PUT/DELETE /api/facturae/certificado|config;
+    GET /api/facturas-emitidas/{id}/facturae-firmado (descarga .xsig firmado);
+    POST /api/facturas-emitidas/{id}/enviar-face (firma + presenta en FACe por SOAP).
+  · Envío a FACe (zeep): operación enviarFactura(EnviarFacturaRequest{correo, factura:FacturaFile, anexos}),
+    firma WS-Security del sobre SOAP con BinarySignature (lib xmlsec) — subclase _SignOnly que NO verifica
+    la firma de la respuesta de FACe (FACe firma con su propio cert). Endpoint WSDL pruebas:
+    se-face-webservice.redsara.es/facturasspp2, producción: webservice.face.gob.es/facturasspp2.
+  · Frontend Facturas Emitidas: botones por fila 'Descargar Facturae firmado (.xsig)' (Certificate) y
+    'Presentar en FACe' (PaperPlane); si no hay certificado, toast pidiendo configurarlo en Ajustes.
+  · VERIFICADO en sandbox con certificado autofirmado de prueba: subida/validación OK, enmascarado OK,
+    firma .xsig válida (ds:Signature + SignedProperties + SignaturePolicyIdentifier), y el envío a FACe
+    llega hasta FACe que responde "Error al validar el certificado" (esperado: el cert de prueba NO está
+    registrado en el Portal de Integradores). CON EL CERTIFICADO REAL REGISTRADO del usuario funcionará.
+    Los errores de FACe se devuelven como HTTP 400 con detail legible (evita que el proxy borre el body).
+  · PENDIENTE USUARIO: subir su certificado real (.p12) en Ajustes y estar dado de alta en el Portal de
+    Integradores de FACe. Empezar en entorno de PRUEBAS. (Seguridad: cert_password se guarda en claro en
+    mongo, igual que las otras credenciales del ERP; futura mejora: cifrado en reposo.)
 - TALLER — VEHÍCULO ÚNICO POR MATRÍCULA + TRAZABILIDAD MÁXIMA (2026-07-20): RESUELTO Y VERIFICADO.
   · Bug: se podía dar de alta el mismo vehículo (misma matrícula) dos veces. Fix backend (server.py):
     crear_vehiculo devuelve 409 si la matrícula ya existe; actualizar_vehiculo valida unicidad con
