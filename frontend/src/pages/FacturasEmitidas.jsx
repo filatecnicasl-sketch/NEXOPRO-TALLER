@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
-import { Plus, ArrowUUpLeft, Eye, Receipt, ShieldCheck, CheckCircle, Printer, Warning, FileCode } from "@phosphor-icons/react";
+import { Plus, ArrowUUpLeft, Eye, Receipt, ShieldCheck, CheckCircle, Printer, Warning, FileCode, Certificate, PaperPlaneTilt } from "@phosphor-icons/react";
 import { toast } from "sonner";
 import {
-  getFacturasEmitidas, createFacturaEmitida, rectificarFacturaEmitida, estadoFacturaEmitida, getContactos, getArticulos, getAjustes, facturaeUrl, eur,
+  getFacturasEmitidas, createFacturaEmitida, rectificarFacturaEmitida, estadoFacturaEmitida, getContactos, getArticulos, getAjustes, facturaeUrl, facturaeFirmadoUrl, enviarFacturaFace, eur,
 } from "@/lib/api";
 import { imprimirDocumento, imprimirListado } from "@/lib/print";
 import PageHeader from "@/components/PageHeader";
@@ -39,9 +39,11 @@ export default function FacturasEmitidas() {
   const [detalle, setDetalle] = useState(null);
   const [rectId, setRectId] = useState(null);
   const [confirmarEmitir, setConfirmarEmitir] = useState(false);
+  const [feCfg, setFeCfg] = useState({});
+  const [enviandoFace, setEnviandoFace] = useState(null);
 
   const load = () => { setLoading(true); getFacturasEmitidas().then((d) => { setItems(d); setLoading(false); }); };
-  useEffect(() => { load(); getContactos("cliente").then(setClientes); getArticulos().then(setArticulos); getAjustes().then((a) => { setSeries(a.series_venta || []); setEmpresa(a.empresa || {}); }); }, []);
+  useEffect(() => { load(); getContactos("cliente").then(setClientes); getArticulos().then(setArticulos); getAjustes().then((a) => { setSeries(a.series_venta || []); setEmpresa(a.empresa || {}); setFeCfg(a.facturae || {}); }); }, []);
 
   const openNew = () => {
     const def = series.find((s) => s.por_defecto) || series[0];
@@ -108,6 +110,28 @@ export default function FacturasEmitidas() {
     a.click();
     a.remove();
     toast.success("Descargando Facturae 3.2.2 (XML)");
+  };
+
+  const descargarFirmado = (f) => {
+    if (!feCfg.cert_configurado) return toast.error("Configura primero el certificado en Ajustes → Facturación electrónica");
+    const a = document.createElement("a");
+    a.href = facturaeFirmadoUrl(f.id);
+    a.download = `facturae_${(f.numero_completo || f.id).replace(/\s/g, "_")}.xsig`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    toast.success("Descargando Facturae firmado (.xsig)");
+  };
+
+  const enviarFace = async (f) => {
+    if (!feCfg.cert_configurado) return toast.error("Configura primero el certificado en Ajustes → Facturación electrónica");
+    setEnviandoFace(f.id);
+    try {
+      const r = await enviarFacturaFace(f.id);
+      toast.success(`Presentada en FACe (${r.face?.entorno}). Registro: ${r.face?.numero_registro || "—"}`);
+      load();
+    } catch (e) { toast.error(e?.response?.data?.detail || "Error al presentar en FACe"); }
+    finally { setEnviandoFace(null); }
   };
 
   return (
@@ -192,7 +216,9 @@ export default function FacturasEmitidas() {
                   </span>
                 </TableCell>
                 <TableCell className="text-right">
-                  <button data-testid={`facturae-${f.id}`} onClick={() => descargarFacturae(f)} title="Descargar Facturae 3.2.2 (FACe)" className="text-zinc-400 hover:text-emerald-600 p-1.5 transition-colors"><FileCode size={16} /></button>
+                  <button data-testid={`facturae-${f.id}`} onClick={() => descargarFacturae(f)} title="Descargar Facturae 3.2.2 (XML sin firmar)" className="text-zinc-400 hover:text-emerald-600 p-1.5 transition-colors"><FileCode size={16} /></button>
+                  <button data-testid={`facturae-firmado-${f.id}`} onClick={() => descargarFirmado(f)} title="Descargar Facturae firmado (XAdES-EPES .xsig)" className="text-zinc-400 hover:text-emerald-600 p-1.5 transition-colors"><Certificate size={16} /></button>
+                  <button data-testid={`enviar-face-${f.id}`} onClick={() => enviarFace(f)} disabled={enviandoFace === f.id} title="Presentar en FACe" className="text-zinc-400 hover:text-blue-600 p-1.5 transition-colors disabled:opacity-40"><PaperPlaneTilt size={16} /></button>
                   <button data-testid={`imprimir-${f.id}`} onClick={() => printFactura(f)} title="Imprimir" className="text-zinc-400 hover:text-primary p-1.5 transition-colors"><Printer size={16} /></button>
                   <button data-testid={`ver-${f.id}`} onClick={() => setDetalle(f)} title="Ver" className="text-zinc-400 hover:text-primary p-1.5 transition-colors"><Eye size={16} /></button>
                   {f.tipo_factura !== "rectificativa" && f.estado !== "rectificada" && (

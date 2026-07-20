@@ -7,6 +7,26 @@ const client = axios.create({ baseURL: API });
 
 // Facturae 3.2.2 (descarga XML)
 export const facturaeUrl = (id) => `${API}/facturas-emitidas/${id}/facturae`;
+// Facturae firmado (XAdES-EPES .xsig)
+export const facturaeFirmadoUrl = (id) => `${API}/facturas-emitidas/${id}/facturae-firmado`;
+
+// Certificado digital + envío FACe (Facturae Fase 2)
+export const subirCertificadoFacturae = (file, password, entorno, proveedor_email) => {
+  const fd = new FormData();
+  fd.append("file", file);
+  fd.append("password", password);
+  fd.append("entorno", entorno || "pruebas");
+  fd.append("proveedor_email", proveedor_email || "");
+  return client.post("/facturae/certificado", fd, { headers: { "Content-Type": "multipart/form-data" } }).then((r) => r.data);
+};
+export const guardarConfigFacturae = (entorno, proveedor_email) => {
+  const fd = new FormData();
+  if (entorno != null) fd.append("entorno", entorno);
+  if (proveedor_email != null) fd.append("proveedor_email", proveedor_email);
+  return client.put("/facturae/config", fd, { headers: { "Content-Type": "multipart/form-data" } }).then((r) => r.data);
+};
+export const eliminarCertificadoFacturae = () => client.delete("/facturae/certificado").then((r) => r.data);
+export const enviarFacturaFace = (id) => client.post(`/facturas-emitidas/${id}/enviar-face`, {}).then((r) => r.data);
 
 // Hoja de entrada de taller (PDF A4 horizontal generado en servidor)
 export const hojaEntradaUrl = (id) => `${API}/taller/ordenes/${id}/hoja-entrada.pdf`;

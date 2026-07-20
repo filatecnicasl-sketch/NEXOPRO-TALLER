@@ -23,6 +23,7 @@ import asyncio
 import resend
 from twilio.rest import Client as TwilioClient
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from facturae_sign import firmar_facturae, leer_datos_certificado
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -789,6 +790,17 @@ async def obtener_ajustes():
         notif[seccion][f"{campo}_set"] = bool(val)
         notif[seccion][campo] = MASK if val else ""
     cfg["notificaciones"] = notif
+    # Facturae/FACe: exponer solo metadatos, nunca el certificado ni la contraseña
+    fe = cfg.get("facturae") or {}
+    cfg["facturae"] = {
+        "entorno": fe.get("entorno") or "pruebas",
+        "proveedor_email": fe.get("proveedor_email") or "",
+        "cert_configurado": bool(fe.get("cert_p12_base64")),
+        "cert_titular": fe.get("cert_titular") or "",
+        "cert_valido_desde": fe.get("cert_valido_desde") or "",
+        "cert_valido_hasta": fe.get("cert_valido_hasta") or "",
+        "cert_emisor": fe.get("cert_emisor") or "",
+    }
     return clean(cfg)
 
 
@@ -828,6 +840,162 @@ async def guardar_ajustes(data: AjustesInput):
         set_doc["notificaciones"] = notif
     await db.ajustes.update_one({"_id": "config"}, {"$set": set_doc}, upsert=True)
     return await obtener_ajustes()
+
+
+# ---------------------------------------------------------------------------
+# FACTURAE FASE 2 — Certificado digital (.p12/.pfx) + firma XAdES-EPES + FACe
+# ---------------------------------------------------------------------------
+FACE_WSDL = {
+    "pruebas": "https://se-face-webservice.redsara.es/facturasspp2?wsdl",
+    "produccion": "https://webservice.face.gob.es/facturasspp2?wsdl",
+}
+
+
+@api_router.post("/facturae/certificado")
+async def subir_certificado_facturae(
+    file: UploadFile = File(...),
+    password: str = Form(...),
+    entorno: str = Form("pruebas"),
+    proveedor_email: str = Form(""),
+):
+    """Sube y valida el certificado .p12/.pfx para la firma de facturas electrónicas."""
+    raw = await file.read()
+    if len(raw) > 5 * 1024 * 1024:
+        raise HTTPException(400, "El certificado no puede superar 5 MB")
+    try:
+        datos = leer_datos_certificado(raw, password)
+    except Exception:
+        raise HTTPException(400, "No se pudo abrir el certificado. Revisa el fichero .p12/.pfx y la contraseña.")
+    await _get_ajustes()
+    fe = {
+        "cert_p12_base64": base64.b64encode(raw).decode(),
+        "cert_password": password,
+        "entorno": entorno if entorno in FACE_WSDL else "pruebas",
+        "proveedor_email": proveedor_email or "",
+        "cert_titular": datos["titular"],
+        "cert_valido_desde": datos["valido_desde"],
+        "cert_valido_hasta": datos["valido_hasta"],
+        "cert_emisor": datos["emisor"],
+        "cert_subido_at": now_iso(),
+    }
+    await db.ajustes.update_one({"_id": "config"}, {"$set": {"facturae": fe}}, upsert=True)
+    return await obtener_ajustes()
+
+
+@api_router.put("/facturae/config")
+async def guardar_config_facturae(entorno: str = Form(None), proveedor_email: str = Form(None)):
+    """Actualiza entorno/email sin volver a subir el certificado."""
+    cfg = await _get_ajustes()
+    fe = dict(cfg.get("facturae") or {})
+    if entorno is not None and entorno in FACE_WSDL:
+        fe["entorno"] = entorno
+    if proveedor_email is not None:
+        fe["proveedor_email"] = proveedor_email
+    await db.ajustes.update_one({"_id": "config"}, {"$set": {"facturae": fe}}, upsert=True)
+    return await obtener_ajustes()
+
+
+@api_router.delete("/facturae/certificado")
+async def eliminar_certificado_facturae():
+    await db.ajustes.update_one({"_id": "config"}, {"$unset": {"facturae": ""}})
+    return await obtener_ajustes()
+
+
+async def _cert_facturae() -> dict:
+    cfg = await _get_ajustes()
+    fe = cfg.get("facturae") or {}
+    if not fe.get("cert_p12_base64"):
+        raise HTTPException(400, "No hay certificado configurado. Súbelo en Ajustes → Facturación electrónica.")
+    return fe
+
+
+async def _factura_firmada(doc_id: str) -> tuple:
+    """Genera el XML Facturae y lo firma. Devuelve (factura, xml_firmado_bytes, nombre)."""
+    f = await db.facturas_emitidas.find_one({"id": doc_id}, {"_id": 0})
+    if not f:
+        raise HTTPException(404, "Factura no encontrada")
+    fe = await _cert_facturae()
+    cfg = await _get_ajustes()
+    empresa = cfg.get("empresa", {})
+    cliente = {}
+    if f.get("cliente_id"):
+        cliente = await db.contactos.find_one({"id": f["cliente_id"]}, {"_id": 0}) or {}
+    if not cliente and f.get("cliente_nif"):
+        cliente = await db.contactos.find_one({"tipo": "cliente", "nif": f["cliente_nif"]}, {"_id": 0}) or {}
+    if not cliente:
+        cliente = {"nombre": f.get("cliente_nombre", ""), "nif": f.get("cliente_nif", "")}
+    xml = _facturae_xml(f, empresa, cliente)
+    p12 = base64.b64decode(fe["cert_p12_base64"])
+    try:
+        firmado = firmar_facturae(xml.encode("utf-8"), p12, fe["cert_password"])
+    except Exception as e:
+        logging.exception("Error firmando Facturae")
+        raise HTTPException(500, f"No se pudo firmar la factura: {e}")
+    nombre = f"facturae_{(f.get('numero_completo') or doc_id).replace(' ', '_')}.xsig"
+    return f, firmado, nombre
+
+
+@api_router.get("/facturas-emitidas/{doc_id}/facturae-firmado")
+async def facturae_firmado(doc_id: str):
+    _f, firmado, nombre = await _factura_firmada(doc_id)
+    return Response(content=firmado, media_type="application/xml",
+                    headers={"Content-Disposition": f'attachment; filename="{nombre}"'})
+
+
+@api_router.post("/facturas-emitidas/{doc_id}/enviar-face")
+async def enviar_factura_face(doc_id: str):
+    """Firma la factura y la presenta en FACe (SOAP). Guarda el resultado en la factura."""
+    fe = await _cert_facturae()
+    f, firmado, _nombre = await _factura_firmada(doc_id)
+    if not (f.get("cliente_id") or f.get("cliente_nif")):
+        raise HTTPException(400, "La factura no tiene cliente para presentar en FACe.")
+    entorno = fe.get("entorno") or "pruebas"
+    wsdl = FACE_WSDL[entorno]
+
+    def _enviar():
+        import ssl, tempfile as _tmp
+        from zeep import Client, Settings
+        from zeep.transports import Transport
+        from requests import Session
+        # Certificado cliente para TLS mutuo / WS-Security básico
+        p12 = base64.b64decode(fe["cert_p12_base64"])
+        from cryptography.hazmat.primitives.serialization import pkcs12, Encoding, PrivateFormat, NoEncryption
+        key, cert, _ = pkcs12.load_key_and_certificates(p12, fe["cert_password"].encode())
+        certf = _tmp.NamedTemporaryFile(delete=False, suffix=".pem")
+        certf.write(cert.public_bytes(Encoding.PEM))
+        certf.write(key.private_bytes(Encoding.PEM, PrivateFormat.PKCS8, NoEncryption()))
+        certf.flush()
+        session = Session()
+        session.cert = certf.name
+        transport = Transport(session=session, timeout=30)
+        client = Client(wsdl, transport=transport, settings=Settings(strict=False, xml_huge_tree=True))
+        b64 = base64.b64encode(firmado).decode()
+        return client.service.enviarFactura(
+            factura={
+                "factura": b64,
+                "nombre": _nombre,
+                "anexos": [],
+                "mensaje": "",
+            }
+        )
+
+    try:
+        resultado = await asyncio.get_event_loop().run_in_executor(None, _enviar)
+    except Exception as e:
+        logging.exception("Error enviando a FACe")
+        raise HTTPException(502, f"Error al presentar en FACe ({entorno}): {e}")
+
+    num_registro = getattr(getattr(resultado, "factura", None), "numeroRegistro", None) or \
+        getattr(resultado, "numeroRegistro", None) or ""
+    codigo = getattr(getattr(resultado, "resultado", None), "codigo", None) or ""
+    face = {
+        "presentada_at": now_iso(),
+        "entorno": entorno,
+        "numero_registro": str(num_registro),
+        "codigo": str(codigo),
+    }
+    await db.facturas_emitidas.update_one({"id": doc_id}, {"$set": {"face": face}})
+    return {"ok": True, "face": face}
 
 
 # ---------------------------------------------------------------------------

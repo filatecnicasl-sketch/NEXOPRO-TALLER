@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="10" time="2.419" timestamp="2026-07-20T17:58:57.917322+00:00" hostname="agent-env-ab20570c-75e4-4c28-911d-5a2fbf47c1b3"><testcase classname="tests.test_iter21_facturae_face.TestCertificado" name="test_subir_cert_valido" time="0.246" /><testcase classname="tests.test_iter21_facturae_face.TestCertificado" name="test_subir_cert_password_incorrecta" time="0.116" /><testcase classname="tests.test_iter21_facturae_face.TestFirma" name="test_firmado_sin_certificado_400" time="0.532" /><testcase classname="tests.test_iter21_facturae_face.TestCertificado" name="test_subir_cert_fichero_invalido" time="0.216" /><testcase classname="tests.test_iter21_facturae_face.TestFirma" name="test_firmado_con_certificado_ok" time="0.360" /><testcase classname="tests.test_iter21_facturae_face.TestCertificado" name="test_put_config_no_borra_cert" time="0.340" /><testcase classname="tests.test_iter21_facturae_face.TestEnviarFace" name="test_enviar_face_error_controlado" time="1.012"><failure message="requests.exceptions.JSONDecodeError: Expecting value: line 1 column 1 (char 0)">/root/.venv/lib/python3.11/site-packages/requests/models.py:1116: in json
+    return complexjson.loads(self.text, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/usr/local/lib/python3.11/json/__init__.py:346: in loads
+    return _default_decoder.decode(s)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+/usr/local/lib/python3.11/json/decoder.py:337: in decode
+    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/usr/local/lib/python3.11/json/decoder.py:355: in raw_decode
+    raise JSONDecodeError("Expecting value", s, err.value) from None
+E   json.decoder.JSONDecodeError: Expecting value: line 1 column 1 (char 0)
+
+During handling of the above exception, another exception occurred:
+backend/tests/test_iter21_facturae_face.py:122: in test_enviar_face_error_controlado
+    j = r.json()
+        ^^^^^^^^
+/root/.venv/lib/python3.11/site-packages/requests/models.py:1120: in json
+    raise RequestsJSONDecodeError(e.msg, e.doc, e.pos)
+E   requests.exceptions.JSONDecodeError: Expecting value: line 1 column 1 (char 0)</failure></testcase><testcase classname="tests.test_iter21_facturae_face.TestCertificado" name="test_delete_cert" time="0.130" /><testcase classname="tests.test_iter21_facturae_face.TestAjustesFacturaeMetadata" name="test_get_ajustes_facturae_metadata" time="0.175" /><testcase classname="tests.test_iter21_facturae_face.TestEnviarFace" name="test_backend_sigue_vivo" time="0.104" /></testsuite></testsuites>

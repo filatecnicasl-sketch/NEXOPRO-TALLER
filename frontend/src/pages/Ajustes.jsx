@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { Plus, Trash, FloppyDisk, Buildings, Stack, Star, UploadSimple, Image as ImageIcon, BellRinging, EnvelopeSimple, WhatsappLogo, PaperPlaneTilt, House, Wrench, Printer, CaretRight } from "@phosphor-icons/react";
+import { Plus, Trash, FloppyDisk, Buildings, Stack, Star, UploadSimple, Image as ImageIcon, BellRinging, EnvelopeSimple, WhatsappLogo, PaperPlaneTilt, House, Wrench, Printer, CaretRight, Certificate, ShieldCheck } from "@phosphor-icons/react";
 import { toast } from "sonner";
-import { getAjustes, updateAjustes, probarNotificacion, getFormatos } from "@/lib/api";
+import { getAjustes, updateAjustes, probarNotificacion, getFormatos, subirCertificadoFacturae, guardarConfigFacturae, eliminarCertificadoFacturae } from "@/lib/api";
 import PageHeader from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -176,11 +176,121 @@ function NotifEditor({ notif, setNotif }) {
   );
 }
 
+function FacturaeCard({ fe, setFe }) {
+  const [file, setFile] = useState(null);
+  const [password, setPassword] = useState("");
+  const [busy, setBusy] = useState(false);
+  const configurado = !!fe?.cert_configurado;
+
+  const subir = async () => {
+    if (!file) return toast.error("Selecciona el fichero del certificado (.p12 / .pfx)");
+    if (!password) return toast.error("Introduce la contraseña del certificado");
+    setBusy(true);
+    try {
+      const d = await subirCertificadoFacturae(file, password, fe?.entorno || "pruebas", fe?.proveedor_email || "");
+      setFe(d.facturae || {});
+      setFile(null); setPassword("");
+      toast.success("Certificado subido y validado correctamente");
+    } catch (e) { toast.error(e?.response?.data?.detail || "No se pudo validar el certificado"); }
+    finally { setBusy(false); }
+  };
+
+  const guardarConfig = async () => {
+    setBusy(true);
+    try {
+      const d = await guardarConfigFacturae(fe?.entorno || "pruebas", fe?.proveedor_email || "");
+      setFe(d.facturae || {});
+      toast.success("Configuración de FACe guardada");
+    } catch { toast.error("Error al guardar la configuración"); }
+    finally { setBusy(false); }
+  };
+
+  const eliminar = async () => {
+    setBusy(true);
+    try {
+      const d = await eliminarCertificadoFacturae();
+      setFe(d.facturae || {});
+      toast.success("Certificado eliminado");
+    } catch { toast.error("Error al eliminar el certificado"); }
+    finally { setBusy(false); }
+  };
+
+  return (
+    <div className="bg-white border border-zinc-200 rounded-lg shadow-sm overflow-hidden" data-testid="facturae-card">
+      <div className="px-5 py-4 border-b border-zinc-100 flex items-center gap-3">
+        <span className="inline-flex h-9 w-9 items-center justify-center rounded-md bg-emerald-50 text-emerald-600"><Certificate size={18} weight="duotone" /></span>
+        <div>
+          <h3 className="font-heading font-semibold tracking-tight text-zinc-900">Facturación electrónica (FACe)</h3>
+          <p className="text-xs text-zinc-500">Certificado digital para firmar (XAdES-EPES) y enviar facturas a la Administración Pública</p>
+        </div>
+      </div>
+      <div className="p-5 space-y-5">
+        {configurado ? (
+          <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4" data-testid="facturae-cert-estado">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-start gap-3">
+                <ShieldCheck size={22} weight="fill" className="text-emerald-600 mt-0.5" />
+                <div className="text-sm">
+                  <div className="font-semibold text-emerald-800">Certificado configurado</div>
+                  <div className="text-emerald-700">{fe.cert_titular}</div>
+                  <div className="text-xs text-emerald-600 mt-0.5">Válido: {fe.cert_valido_desde} → {fe.cert_valido_hasta}</div>
+                </div>
+              </div>
+              <Button type="button" variant="outline" size="sm" disabled={busy} onClick={eliminar} className="rounded-md border-red-200 text-red-600 hover:bg-red-50" data-testid="facturae-eliminar-cert">
+                <Trash size={14} className="mr-1" /> Quitar
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <div className="rounded-lg border border-zinc-200 p-4 space-y-3" data-testid="facturae-cert-subir">
+            <p className="text-sm text-zinc-600">Sube tu certificado digital (fichero <span className="font-mono-plex">.p12</span> o <span className="font-mono-plex">.pfx</span>) de representante o sello de empresa.</p>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs">Fichero del certificado</Label>
+                <label className="mt-1 flex items-center gap-2 text-sm cursor-pointer border border-zinc-200 rounded-md px-3 py-2 hover:bg-zinc-50 transition-colors">
+                  <UploadSimple size={16} /> {file ? file.name : "Seleccionar .p12 / .pfx"}
+                  <input type="file" accept=".p12,.pfx" className="hidden" data-testid="facturae-file-input" onChange={(e) => setFile(e.target.files[0])} />
+                </label>
+              </div>
+              <div>
+                <Label className="text-xs">Contraseña del certificado</Label>
+                <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" className="rounded-md mt-1 font-mono-plex" data-testid="facturae-password-input" />
+              </div>
+            </div>
+            <Button type="button" disabled={busy} onClick={subir} className="rounded-md bg-emerald-600 hover:bg-emerald-700" data-testid="facturae-subir-cert">
+              <UploadSimple size={15} className="mr-1.5" /> {busy ? "Validando…" : "Subir y validar certificado"}
+            </Button>
+          </div>
+        )}
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <Label className="text-xs">Entorno de FACe</Label>
+            <select data-testid="facturae-entorno" value={fe?.entorno || "pruebas"} onChange={(e) => setFe({ ...fe, entorno: e.target.value })} className="h-10 w-full text-sm rounded-md border border-input bg-white px-3 mt-1">
+              <option value="pruebas">Pruebas (staging)</option>
+              <option value="produccion">Producción</option>
+            </select>
+          </div>
+          <div>
+            <Label className="text-xs">Email de contacto del proveedor</Label>
+            <Input value={fe?.proveedor_email || ""} onChange={(e) => setFe({ ...fe, proveedor_email: e.target.value })} placeholder="facturacion@empresa.com" className="rounded-md mt-1" data-testid="facturae-email" />
+          </div>
+        </div>
+        <div className="flex items-center justify-between">
+          <p className="text-[11px] text-zinc-400">Empieza en <b>Pruebas</b>. Tu certificado debe estar dado de alta en el Portal de Integradores de FACe.</p>
+          <Button type="button" variant="outline" size="sm" disabled={busy} onClick={guardarConfig} className="rounded-md" data-testid="facturae-guardar-config"><FloppyDisk size={14} className="mr-1" /> Guardar</Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
 export default function Ajustes() {
   const [empresa, setEmpresa] = useState({});
   const [seriesVenta, setSeriesVenta] = useState([]);
   const [seriesCompra, setSeriesCompra] = useState([]);
   const [notif, setNotif] = useState(null);
+  const [facturae, setFacturae] = useState({});
   const [moduloInicio, setModuloInicio] = useState("panel");
   const [formatos, setFormatos] = useState([]);
   const [formatoHojaEntrada, setFormatoHojaEntrada] = useState("");
@@ -193,6 +303,7 @@ export default function Ajustes() {
       setSeriesVenta(d.series_venta || []);
       setSeriesCompra(d.series_compra || []);
       setNotif(d.notificaciones || null);
+      setFacturae(d.facturae || {});
       setModuloInicio(d.modulo_inicio || "panel");
       setFormatoHojaEntrada(d.formato_hoja_entrada || "");
       setLoading(false);
@@ -300,6 +411,8 @@ export default function Ajustes() {
         />
 
         <NotifEditor notif={notif} setNotif={setNotif} />
+
+        <FacturaeCard fe={facturae} setFe={setFacturae} />
 
         <div className="bg-white border border-zinc-200 rounded-lg shadow-sm overflow-hidden" data-testid="modulo-inicio-card">
           <div className="px-5 py-4 border-b border-zinc-100 flex items-center gap-3">
