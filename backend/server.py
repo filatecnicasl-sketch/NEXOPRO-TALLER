@@ -1710,6 +1710,14 @@ async def _normaliza_vehiculo(d: dict) -> dict:
 @api_router.post("/taller/vehiculos")
 async def crear_vehiculo(data: VehiculoInput):
     d = await _normaliza_vehiculo(data.model_dump())
+    mat = d.get("matricula", "")
+    if mat:
+        ex = await db.vehiculos.find_one({"matricula": mat}, {"_id": 0})
+        if ex:
+            raise HTTPException(409, f"Ya existe un vehículo con la matrícula {mat}. La matrícula debe ser única.")
+    d["propietarios"] = []
+    if d.get("cliente_id"):
+        d["propietarios"] = [{"cliente_id": d["cliente_id"], "cliente_nombre": d.get("cliente_nombre", ""), "desde": now_iso(), "hasta": None}]
     v = Vehiculo(**d)
     await db.vehiculos.insert_one(v.model_dump())
     return v.model_dump()
@@ -1757,16 +1765,51 @@ async def ficha_vehiculo(vid: str):
                 "total": d.get("total", 0),
             })
     coste_compras = round(sum(c["total"] for c in compras), 2)
-    return {"vehiculo": v, "ordenes": ordenes, "peritajes": peritajes, "presupuestos": presupuestos,
-            "prestamos": prestamos, "citas": citas, "compras": compras, "coste_compras": coste_compras}
+    facturas = await db.facturas_emitidas.find({"vehiculo_id": vid}, {"_id": 0}).sort("created_at", -1).to_list(500)
+    # Material y mano de obra asignados al vehículo (líneas de las órdenes de trabajo)
+    materiales = []
+    for o in ordenes:
+        for l in (o.get("lineas") or []):
+            materiales.append({
+                "orden_id": o.get("id"),
+                "orden_numero": o.get("numero", ""),
+                "fecha": o.get("fecha_entrada") or o.get("created_at", ""),
+                "descripcion": l.get("descripcion", ""),
+                "cantidad": l.get("cantidad"),
+                "unidad": l.get("unidad", ""),
+                "articulo_id": l.get("articulo_id") or l.get("articulo") or None,
+                "es_material": bool(l.get("articulo_id")) or (l.get("tipo") in ("material", "articulo")),
+                "precio_unitario": l.get("precio_unitario"),
+                "total": l.get("total"),
+            })
+    return {"vehiculo": v, "propietarios": v.get("propietarios", []), "ordenes": ordenes,
+            "peritajes": peritajes, "presupuestos": presupuestos, "prestamos": prestamos,
+            "citas": citas, "compras": compras, "coste_compras": coste_compras,
+            "facturas": facturas, "materiales": materiales}
 
 
 @api_router.put("/taller/vehiculos/{vid}")
 async def actualizar_vehiculo(vid: str, data: VehiculoInput):
     d = await _normaliza_vehiculo(data.model_dump())
-    res = await db.vehiculos.update_one({"id": vid}, {"$set": d})
-    if res.matched_count == 0:
+    cur = await db.vehiculos.find_one({"id": vid}, {"_id": 0})
+    if not cur:
         raise HTTPException(404, "Vehículo no encontrado")
+    mat = d.get("matricula", "")
+    if mat:
+        other = await db.vehiculos.find_one({"matricula": mat, "id": {"$ne": vid}}, {"_id": 0})
+        if other:
+            raise HTTPException(409, f"Ya existe otro vehículo con la matrícula {mat}. La matrícula debe ser única.")
+    props = list(cur.get("propietarios") or [])
+    nuevo = d.get("cliente_id")
+    anterior = cur.get("cliente_id")
+    if nuevo and nuevo != anterior:
+        if props and props[-1].get("hasta") is None:
+            props[-1]["hasta"] = now_iso()
+        props.append({"cliente_id": nuevo, "cliente_nombre": d.get("cliente_nombre", ""), "desde": now_iso(), "hasta": None})
+    elif nuevo and not props:
+        props = [{"cliente_id": nuevo, "cliente_nombre": d.get("cliente_nombre", ""), "desde": cur.get("created_at", now_iso()), "hasta": None}]
+    d["propietarios"] = props
+    await db.vehiculos.update_one({"id": vid}, {"$set": d})
     return await db.vehiculos.find_one({"id": vid}, {"_id": 0})
 
 
