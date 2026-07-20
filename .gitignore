@@ -108,3 +108,6 @@ frontend/node_modules/.cache/default-development/34.pack
 frontend/node_modules/.cache/default-development/22.pack
 frontend/node_modules/.cache/default-development/39.pack
 frontend/node_modules/.cache/default-development/44.pack
+.env
+.env.*
+*.env
