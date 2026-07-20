@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Plus, Trash, FloppyDisk, Buildings, Stack, Star, UploadSimple, Image as ImageIcon, BellRinging, EnvelopeSimple, WhatsappLogo, PaperPlaneTilt, House, Wrench, Printer, CaretRight } from "@phosphor-icons/react";
 import { toast } from "sonner";
-import { getAjustes, updateAjustes, probarNotificacion } from "@/lib/api";
+import { getAjustes, updateAjustes, probarNotificacion, getFormatos } from "@/lib/api";
 import PageHeader from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -182,6 +182,8 @@ export default function Ajustes() {
   const [seriesCompra, setSeriesCompra] = useState([]);
   const [notif, setNotif] = useState(null);
   const [moduloInicio, setModuloInicio] = useState("panel");
+  const [formatos, setFormatos] = useState([]);
+  const [formatoHojaEntrada, setFormatoHojaEntrada] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -192,8 +194,10 @@ export default function Ajustes() {
       setSeriesCompra(d.series_compra || []);
       setNotif(d.notificaciones || null);
       setModuloInicio(d.modulo_inicio || "panel");
+      setFormatoHojaEntrada(d.formato_hoja_entrada || "");
       setLoading(false);
     });
+    getFormatos().then(setFormatos).catch(() => {});
   }, []);
 
   const save = async () => {
@@ -201,12 +205,13 @@ export default function Ajustes() {
     const sc = seriesCompra.filter((s) => (s.nombre || "").trim());
     setSaving(true);
     try {
-      const d = await updateAjustes({ empresa, series_venta: sv, series_compra: sc, notificaciones: notif, modulo_inicio: moduloInicio, app_url: window.location.origin });
+      const d = await updateAjustes({ empresa, series_venta: sv, series_compra: sc, notificaciones: notif, modulo_inicio: moduloInicio, formato_hoja_entrada: formatoHojaEntrada || null, app_url: window.location.origin });
       setEmpresa(d.empresa || {});
       setSeriesVenta(d.series_venta || []);
       setSeriesCompra(d.series_compra || []);
       setNotif(d.notificaciones || null);
       setModuloInicio(d.modulo_inicio || "panel");
+      setFormatoHojaEntrada(d.formato_hoja_entrada || "");
       // Reinicia la redirección de arranque para reflejar el cambio en la próxima carga
       try { sessionStorage.removeItem("inicio_done"); } catch (e) { /* noop */ }
       toast.success("Ajustes guardados");
@@ -340,7 +345,20 @@ export default function Ajustes() {
               <p className="text-xs text-zinc-500">Diseña tus propias plantillas (recepción de vehículo, resguardos…) y rellénalas para imprimir</p>
             </div>
           </div>
-          <div className="p-5">
+          <div className="p-5 space-y-4">
+            <div>
+              <label className="text-xs font-medium text-zinc-600 block mb-1.5">Plantilla para la "Hoja de entrada"</label>
+              <select
+                data-testid="select-formato-hoja-entrada"
+                value={formatoHojaEntrada}
+                onChange={(e) => setFormatoHojaEntrada(e.target.value)}
+                className="w-full max-w-md rounded-md border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
+              >
+                <option value="">Automático (usar "Recepción de Vehículo")</option>
+                {formatos.map((f) => (<option key={f.id} value={f.id}>{f.name}</option>))}
+              </select>
+              <p className="text-xs text-zinc-400 mt-1">Al imprimir la hoja de entrada de una orden/recepción se usará esta plantilla con los datos reales del vehículo.</p>
+            </div>
             <Link to="/ajustes/formatos" data-testid="abrir-editor-formatos">
               <Button className="rounded-md bg-blue-600 hover:bg-blue-700 text-white">
                 <Printer size={16} className="mr-1.5" weight="bold" /> Abrir editor de formatos

@@ -6,6 +6,7 @@ import {
   getVehiculos, getContactos, getArticulos, createVehiculo, createContacto, getAjustes, eur,
   guardarFirmaOrden, borrarFirmaOrden, mediaUrl, hojaEntradaHtmlUrl, parteTrabajoHtmlUrl, imprimirDocumento,
 } from "@/lib/api";
+import { getPlantillaHojaEntrada, printTemplateWithData, mapOrdenToFormData } from "@/formatos/printTemplate";
 import PageHeader from "@/components/PageHeader";
 import LineasEditor from "@/components/LineasEditor";
 import FotosGaleria from "@/components/FotosGaleria";
@@ -69,8 +70,16 @@ export default function OrdenesTrabajo() {
   };
 
   const imprimirEntrada = async (o) => {
-    try { await imprimirDocumento(hojaEntradaHtmlUrl(o.id)); }
-    catch { toast.error("No se pudo generar la hoja de entrada"); }
+    try {
+      const tpl = await getPlantillaHojaEntrada();
+      if (tpl) {
+        const veh = vehiculos.find((v) => v.id === o.vehiculo_id) || {};
+        const cli = clientes.find((c) => c.id === (o.cliente_id || veh.cliente_id)) || { nombre: o.cliente_nombre };
+        printTemplateWithData(tpl, mapOrdenToFormData(o, veh, cli, empresa));
+      } else {
+        await imprimirDocumento(hojaEntradaHtmlUrl(o.id));
+      }
+    } catch { toast.error("No se pudo imprimir la hoja de entrada"); }
   };
 
   const openNew = () => { setForm(EMPTY); setLineas([]); setEditId(null); setOpen(true); };

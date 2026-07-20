@@ -6,6 +6,7 @@ import {
   guardarFirmaOrden, mediaUrl, hojaEntradaHtmlUrl, imprimirDocumento,
 } from "@/lib/api";
 import { TIPOS_TRABAJO } from "@/lib/taller";
+import { getPlantillaHojaEntrada, printTemplateWithData, mapOrdenToFormData } from "@/formatos/printTemplate";
 import FotosGaleria from "@/components/FotosGaleria";
 import SignaturePad from "@/components/SignaturePad";
 import { Button } from "@/components/ui/button";
@@ -74,8 +75,14 @@ export default function RecepcionRapida({ open, onOpenChange, vehiculos, cliente
     finally { setFirmando(false); }
   };
   const imprimir = async () => {
-    try { await imprimirDocumento(hojaEntradaHtmlUrl(orden.id)); }
-    catch { toast.error("No se pudo generar la hoja"); }
+    try {
+      const tpl = await getPlantillaHojaEntrada();
+      if (tpl) {
+        printTemplateWithData(tpl, mapOrdenToFormData(orden, veh || {}, cli || {}, empresa || {}));
+      } else {
+        await imprimirDocumento(hojaEntradaHtmlUrl(orden.id));
+      }
+    } catch { toast.error("No se pudo imprimir la hoja"); }
   };
 
   return (

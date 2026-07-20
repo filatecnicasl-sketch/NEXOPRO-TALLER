@@ -755,6 +755,7 @@ class AjustesInput(BaseModel):
     notificaciones: Optional[dict] = None
     app_url: Optional[str] = None
     modulo_inicio: Optional[str] = None
+    formato_hoja_entrada: Optional[str] = None
 
 
 def _norm_series(series: list, tipos: list) -> list:
@@ -779,6 +780,8 @@ def _norm_series(series: list, tipos: list) -> list:
 @api_router.get("/ajustes")
 async def obtener_ajustes():
     cfg = dict(await _get_ajustes())
+    cfg.setdefault("modulo_inicio", "panel")
+    cfg.setdefault("formato_hoja_entrada", None)
     notif = _merge_notif(cfg)
     # Enmascara secretos y expone si están configurados
     for seccion, campo in NOTIF_SECRETOS:
@@ -806,6 +809,8 @@ async def guardar_ajustes(data: AjustesInput):
         set_doc["app_url"] = data.app_url.rstrip("/")
     if data.modulo_inicio in ("panel", "taller"):
         set_doc["modulo_inicio"] = data.modulo_inicio
+    if data.formato_hoja_entrada is not None:
+        set_doc["formato_hoja_entrada"] = data.formato_hoja_entrada or None
     if data.notificaciones is not None:
         prev_notif = _merge_notif(prev)
         notif = {}
