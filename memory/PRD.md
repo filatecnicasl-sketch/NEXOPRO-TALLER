@@ -35,6 +35,23 @@ Autónomos y pymes españolas que gestionan compras/ventas y facturación con ob
   Admin: admin@nexopro.com / Admin1234!. Licencia demo: NEXO-DEMO-0001 (frontend/.env REACT_APP_LICENSE_KEY).
 
 ## Estado / Bloqueos
+- TALLER — VEHÍCULO ÚNICO POR MATRÍCULA + TRAZABILIDAD MÁXIMA (2026-07-20): RESUELTO Y VERIFICADO.
+  · Bug: se podía dar de alta el mismo vehículo (misma matrícula) dos veces. Fix backend (server.py):
+    crear_vehiculo devuelve 409 si la matrícula ya existe; actualizar_vehiculo valida unicidad con
+    id!=vid (editar sin cambiar matrícula no da falso 409). El modelo Vehiculo ahora declara
+    'propietarios: List[dict]' (antes NO se persistía → dead code). Histórico de propietarios:
+    al cambiar el cliente en PUT se cierra 'hasta' del anterior y se añade el nuevo (varios dueños
+    en el tiempo, misma matrícula única).
+  · ficha_vehiculo (GET .../ficha) ahora agrega 'materiales' (líneas de las órdenes, flag es_material)
+    y 'facturas' (facturas_emitidas por vehiculo_id) además de propietarios/ordenes/peritajes/
+    presupuestos/compras/citas/prestamos.
+  · Frontend Vehiculos.jsx: save() muestra el detail del servidor en el toast (mensaje de duplicado);
+    ficha (Resumen) con secciones Propietarios (ficha-propietarios), Material asignado (ficha-materiales)
+    y Facturas del vehículo (ficha-facturas); la línea de tiempo del Historial incluye eventos Material y
+    Factura. Se añadió el useNavigate() que faltaba (botón 'Nuevo presupuesto' de la ficha).
+  · Verificado testing_agent iteration_20 (backend 6/6, frontend E2E 100%).
+  · PENDIENTE OPCIONAL: existen 2 filas antiguas con matrícula 7765HGJ (duplicado creado ANTES del fix,
+    dato real del usuario). El fix impide NUEVOS duplicados pero no borra los existentes.
 - FIX IMPRESIÓN (no imprimía) — RESUELTO Y VERIFICADO (2026-07-08):
   · open() en taller_print.js reescrita: iframe oculto con srcdoc=html e impresión en su evento
     onload (iframe.contentWindow.print()) + fallback setTimeout(1500) + fallback window.open si

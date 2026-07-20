@@ -1,0 +1,35 @@
+{
+  "summary": "Verificado bug fix de unicidad de matrícula en Vehículos + histórico de propietarios + ficha con nuevas secciones. 6/6 tests pytest backend PASS. Flujo UI end-to-end validado con Playwright: creación única, toast de error 409 en duplicado con mensaje del servidor, edición sin duplicar, ficha con secciones condicionales y pestaña Historial. Datos de prueba creados y eliminados; NO se tocaron los registros 7765HGJ del usuario.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Vehiculo dialog / Ficha dialog", "issues": ["Radix DialogContent sin aria-describedby (warnings de consola, no bloqueante)"]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_vehiculos_unique.py",
+    "/app/test_reports/pytest/vehiculos_unique.xml"
+  ],
+  "action_items": [
+    "(Opcional) Añadir DialogDescription/aria-describedby a los DialogContent de Vehiculos.jsx para silenciar warnings de accesibilidad de Radix."
+  ],
+  "critical_code_review_comments": [
+    "OK: modelo Vehiculo persiste 'propietarios' (línea ~1697 server.py).",
+    "OK: POST y PUT validan matrícula única (409 con mensaje claro en español).",
+    "OK: PUT cierra propietario anterior (hasta = now_iso) y añade el nuevo sin duplicar el vehículo.",
+    "OK: GET /ficha devuelve claves propietarios, materiales, facturas, ordenes, peritajes, presupuestos, compras, coste_compras.",
+    "OK: Frontend save() muestra err.response.data.detail en el toast. eventosHistorial incluye Material y Factura.",
+    "OK: Secciones ficha-propietarios / ficha-materiales / ficha-facturas se renderizan de forma condicional (sólo cuando hay datos), coherente con el requisito.",
+    "Nota menor: el user ya tiene 2 filas legacy con matrícula 7765HGJ (creadas antes del fix). Considerar migración/limpieza opcional o un script one-off para consolidar."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100% (6/6)", "frontend": "100% (todos los flujos verificados)"},
+  "test_credentials": "No requerido (módulo Taller no exige login; REACT_APP_LICENSE_KEY=NEXO-DEMO-0001 preconfigurada).",
+  "seed_data_creation": "Se crearon vehículos con matrículas 'UI....' y contactos 'TEST_CliA/CliB_...'; todos eliminados al final de los tests.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Backend tests reutilizables en /app/backend/tests/test_vehiculos_unique.py. Los tests UI cubrieron: crear duplicado→toast, editar sin duplicar, sección Propietarios visible cuando hay cliente asignado. Las secciones Material/Facturas requieren datos vinculados (líneas de OT con articulo_id / facturas_emitidas con vehiculo_id) para renderizarse — se validó que la lógica condicional funciona (no aparecen cuando no hay datos).",
+  "rca of the issue": "Root cause del bug original: el modelo Vehiculo no incluía el campo 'propietarios' y no había validación de unicidad de matrícula en POST/PUT, permitiendo insertar duplicados. Fix aplicado por E1: (1) VehiculoInput+Vehiculo con propietarios: List[dict]; (2) chequeo previo find_one({matricula}) en POST → 409; (3) PUT usa filtro id != vid para permitir editar sin falsos duplicados; (4) gestión de histórico cerrando 'hasta' del propietario anterior. Verificado."
+}

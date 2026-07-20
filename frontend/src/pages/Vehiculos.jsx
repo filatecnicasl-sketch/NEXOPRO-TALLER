@@ -28,6 +28,7 @@ const COMBUSTIBLES = ["Gasolina", "Diésel", "Híbrido", "Eléctrico", "GLP", "G
 const selectCls = "h-10 w-full text-sm rounded-md border border-input bg-white px-3 mt-1";
 
 export default function Vehiculos() {
+  const navigate = useNavigate();
   const [items, setItems] = useState([]);
   const [clientes, setClientes] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -48,6 +49,8 @@ export default function Vehiculos() {
     (f.citas || []).forEach((c) => ev.push({ k: "cit" + c.id, fecha: c.fecha, tipo: "Cita", label: c.motivo || c.tipo_trabajo || "Cita", importe: null, color: "bg-violet-500" }));
     (f.compras || []).forEach((c) => ev.push({ k: "com" + c.tipo + c.id, fecha: c.fecha, tipo: c.tipo, label: `${c.numero || ""} · ${c.proveedor || ""}`, importe: c.total, color: "bg-zinc-400" }));
     (f.prestamos || []).forEach((p) => ev.push({ k: "prest" + p.id, fecha: p.fecha_entrega || p.created_at, tipo: "Cortesía", label: p.cliente_nombre || "Préstamo", importe: null, color: "bg-emerald-500" }));
+    (f.facturas || []).forEach((fa) => ev.push({ k: "fac" + fa.id, fecha: fa.fecha || fa.created_at, tipo: "Factura", label: `${fa.numero || ""} · ${fa.contacto_nombre || fa.cliente_nombre || ""}`, importe: fa.total, color: "bg-rose-500" }));
+    (f.materiales || []).filter((m) => m.es_material).forEach((m, i) => ev.push({ k: "mat" + m.orden_id + i, fecha: m.fecha, tipo: "Material", label: `${m.descripcion || "Material"}${m.cantidad ? ` · ${m.cantidad} ${m.unidad || "ud"}` : ""} (${m.orden_numero || ""})`, importe: m.total, color: "bg-teal-500" }));
     return ev.filter((e) => e.fecha).sort((a, b) => String(b.fecha).localeCompare(String(a.fecha)));
   };
   const fmtFechaHist = (iso) => (iso ? new Date(iso).toLocaleDateString("es-ES", { day: "2-digit", month: "short", year: "numeric" }) : "—");
@@ -77,7 +80,10 @@ export default function Vehiculos() {
       if (editId) { await updateVehiculo(editId, payload); toast.success("Vehículo actualizado"); }
       else { await createVehiculo(payload); toast.success("Vehículo creado"); }
       setOpen(false); load();
-    } catch { toast.error("Error al guardar el vehículo"); }
+    } catch (err) {
+      const msg = err?.response?.data?.detail || "Error al guardar el vehículo";
+      toast.error(msg);
+    }
   };
 
   const remove = async () => {
@@ -282,6 +288,24 @@ export default function Vehiculos() {
               </div>
               {ficha.vehiculo.notas && <p className="text-sm text-zinc-500 border-t border-zinc-100 pt-3">{ficha.vehiculo.notas}</p>}
               <div className="border-t border-zinc-100 pt-4">
+                <h4 className="font-heading font-semibold text-zinc-900 mb-2 text-sm">Propietarios</h4>
+                {ficha.loading ? <p className="text-sm text-zinc-400">Cargando...</p>
+                  : (ficha.propietarios || []).length === 0 ? <p className="text-sm text-zinc-400">Sin histórico de propietarios. El propietario actual es {ficha.vehiculo.cliente_nombre || "—"}.</p>
+                    : (
+                      <div className="space-y-2" data-testid="ficha-propietarios">
+                        {[...(ficha.propietarios || [])].reverse().map((p, i) => (
+                          <div key={`${p.cliente_id}-${i}`} className="flex items-center justify-between border border-zinc-100 rounded-md px-3 py-2 text-sm">
+                            <div className="flex items-center gap-3 min-w-0">
+                              {p.hasta == null && <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200 shrink-0">Actual</span>}
+                              <span className="text-zinc-800 font-medium truncate">{p.cliente_nombre || "—"}</span>
+                            </div>
+                            <span className="text-xs text-zinc-400 shrink-0">{fmtFechaHist(p.desde)} — {p.hasta ? fmtFechaHist(p.hasta) : "hoy"}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+              </div>
+              <div className="border-t border-zinc-100 pt-4">
                 <div className="flex items-center justify-between mb-2">
                   <h4 className="font-heading font-semibold text-zinc-900 text-sm">Presupuestos</h4>
                   <button data-testid="nuevo-presupuesto-vehiculo" onClick={() => navigate(`/ventas/presupuestos?vehiculo=${ficha.vehiculo.id}`)} className="text-xs text-primary hover:underline inline-flex items-center gap-1"><Plus size={13} /> Nuevo presupuesto</button>
@@ -358,6 +382,44 @@ export default function Vehiculos() {
                               <span className="text-zinc-600 truncate">{c.proveedor || "—"}</span>
                             </div>
                             <span className="tabular-nums font-medium text-zinc-900">{eur(c.total)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+              </div>
+              <div className="border-t border-zinc-100 pt-4">
+                <h4 className="font-heading font-semibold text-zinc-900 mb-2 text-sm">Material asignado</h4>
+                {ficha.loading ? <p className="text-sm text-zinc-400">Cargando...</p>
+                  : (ficha.materiales || []).filter((m) => m.es_material).length === 0 ? <p className="text-sm text-zinc-400">Sin material asignado a este vehículo.</p>
+                    : (
+                      <div className="space-y-2" data-testid="ficha-materiales">
+                        {(ficha.materiales || []).filter((m) => m.es_material).map((m, i) => (
+                          <div key={`${m.orden_id}-${i}`} className="flex items-center justify-between border border-zinc-100 rounded-md px-3 py-2 text-sm">
+                            <div className="flex items-center gap-3 min-w-0">
+                              <span className="font-mono-plex text-xs text-zinc-500 shrink-0">{m.orden_numero || "—"}</span>
+                              <span className="text-zinc-700 truncate">{m.descripcion || "—"}</span>
+                              {m.cantidad != null && <span className="text-xs text-zinc-400 shrink-0">{m.cantidad} {m.unidad || "ud"}</span>}
+                            </div>
+                            {m.total != null && <span className="tabular-nums font-medium text-zinc-900 shrink-0">{eur(m.total)}</span>}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+              </div>
+              <div className="border-t border-zinc-100 pt-4">
+                <h4 className="font-heading font-semibold text-zinc-900 mb-2 text-sm">Facturas del vehículo</h4>
+                {ficha.loading ? <p className="text-sm text-zinc-400">Cargando...</p>
+                  : (ficha.facturas || []).length === 0 ? <p className="text-sm text-zinc-400">Sin facturas emitidas para este vehículo.</p>
+                    : (
+                      <div className="space-y-2" data-testid="ficha-facturas">
+                        {(ficha.facturas || []).map((fa) => (
+                          <div key={fa.id} className="flex items-center justify-between border border-zinc-100 rounded-md px-3 py-2 text-sm">
+                            <div className="flex items-center gap-3 min-w-0">
+                              <span className="font-mono-plex text-xs text-zinc-500 shrink-0">{fa.numero || "—"}</span>
+                              <span className="text-zinc-600 truncate">{fa.contacto_nombre || fa.cliente_nombre || "—"}</span>
+                              <span className="text-xs text-zinc-400 shrink-0">{fmtFechaHist(fa.fecha || fa.created_at)}</span>
+                            </div>
+                            <span className="tabular-nums font-medium text-zinc-900 shrink-0">{eur(fa.total)}</span>
                           </div>
                         ))}
                       </div>

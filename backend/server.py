@@ -1694,6 +1694,7 @@ class VehiculoInput(BaseModel):
 
 class Vehiculo(VehiculoInput):
     id: str = Field(default_factory=new_id)
+    propietarios: List[dict] = []
     created_at: str = Field(default_factory=now_iso)
 
 
