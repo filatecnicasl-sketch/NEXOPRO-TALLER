@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/sonner";
 import Layout from "@/components/Layout";
 import LicenseGate from "@/components/LicenseGate";
 import Dashboard from "@/pages/Dashboard";
+import FormatosEditor from "@/formatos/FormatosEditor";
 import { getAjustes } from "@/lib/api";
 import Contactos from "@/pages/Contactos";
 import Articulos from "@/pages/Articulos";
@@ -54,6 +55,9 @@ function App() {
 
           {/* Confirmar/cancelar cita desde el recordatorio (pública) — fuera del gate */}
           <Route path="/cita/:token" element={<ConfirmarCita />} />
+
+          {/* Editor de formatos de impresión — a pantalla completa (fuera del Layout) */}
+          <Route path="/ajustes/formatos" element={<LicenseGate><FormatosEditor /></LicenseGate>} />
 
           {/* Aplicación cliente — protegida por licencia */}
           <Route

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { Plus, Trash, FloppyDisk, Buildings, Stack, Star, UploadSimple, Image as ImageIcon, BellRinging, EnvelopeSimple, WhatsappLogo, PaperPlaneTilt, House, Wrench } from "@phosphor-icons/react";
+import { Link } from "react-router-dom";
+import { Plus, Trash, FloppyDisk, Buildings, Stack, Star, UploadSimple, Image as ImageIcon, BellRinging, EnvelopeSimple, WhatsappLogo, PaperPlaneTilt, House, Wrench, Printer, CaretRight } from "@phosphor-icons/react";
 import { toast } from "sonner";
 import { getAjustes, updateAjustes, probarNotificacion } from "@/lib/api";
 import PageHeader from "@/components/PageHeader";
@@ -328,6 +329,24 @@ export default function Ajustes() {
                 <div className="text-xs text-zinc-500">Panel de taller (órdenes, citas, vehículos)</div>
               </div>
             </button>
+          </div>
+        </div>
+
+        <div className="bg-white border border-zinc-200 rounded-lg shadow-sm overflow-hidden" data-testid="formatos-card">
+          <div className="px-5 py-4 border-b border-zinc-100 flex items-center gap-3">
+            <span className="inline-flex h-9 w-9 items-center justify-center rounded-md bg-blue-50 text-blue-600"><Printer size={18} weight="duotone" /></span>
+            <div>
+              <h3 className="font-heading font-semibold tracking-tight text-zinc-900">Formatos de impresión</h3>
+              <p className="text-xs text-zinc-500">Diseña tus propias plantillas (recepción de vehículo, resguardos…) y rellénalas para imprimir</p>
+            </div>
+          </div>
+          <div className="p-5">
+            <Link to="/ajustes/formatos" data-testid="abrir-editor-formatos">
+              <Button className="rounded-md bg-blue-600 hover:bg-blue-700 text-white">
+                <Printer size={16} className="mr-1.5" weight="bold" /> Abrir editor de formatos
+                <CaretRight size={16} className="ml-1.5" />
+              </Button>
+            </Link>
           </div>
         </div>
       </div>

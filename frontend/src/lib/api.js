@@ -295,6 +295,13 @@ export const subirContrato = (id, file) => {
   return client.post(`/taller/prestamos/${id}/contrato`, fd, { headers: { "Content-Type": "multipart/form-data" } }).then((r) => r.data);
 };
 
+// Formatos de impresión (editor de plantillas)
+export const getFormatos = () => client.get("/formatos").then((r) => r.data);
+export const createFormato = (data) => client.post("/formatos", data).then((r) => r.data);
+export const updateFormato = (id, data) => client.put(`/formatos/${id}`, data).then((r) => r.data);
+export const deleteFormato = (id) => client.delete(`/formatos/${id}`).then((r) => r.data);
+
+
 // Contactos — importación Excel
 export const importarContactos = (tipo, file) => {
   const fd = new FormData();

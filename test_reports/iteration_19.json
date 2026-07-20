@@ -1,0 +1,31 @@
+{
+  "summary": "Phase 1 formatos de impresión editor tested end-to-end. Backend CRUD (list/create/update/delete + 404) all PASS. Regressions (hoja-entrada.html, ajustes modulo_inicio) PASS. Frontend: editor loads at /ajustes/formatos, builtin 'Recepción de Vehículo' auto-created, template selector works, new template persists across reload (DB persistence confirmed), rename debounced auto-save works, palette add-text adds element to canvas, fill mode toggles palette/props off and typing into field input works (86 inputs rendered, value persisted), fmt-print calls window.print(), Ajustes card + navigate button work.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "/ajustes/formatos template selector", "issues": ["Two 'Recepción de Vehículo' entries appear in the selector (builtin was created twice historically — likely from a prior race when list was empty on concurrent loads, or from earlier test runs). Consider deduping by name or seeding only once via a marker doc."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter19_formatos.py",
+    "/app/test_reports/pytest/iter19.xml"
+  ],
+  "action_items": [
+    "(Optional) Add data-testid to canvas elements (e.g. data-testid=fmt-el-{id}) to enable robust element-level UI automation.",
+    "(Optional) Prevent duplicate builtin 'Recepción de Vehículo' creation — check by name before seeding."
+  ],
+  "critical_code_review_comments": [
+    "Backend endpoints look clean, use dict projection to exclude _id, and return updated docs after PUT.",
+    "FormatoInput allows any dict shape for elements — acceptable for Phase 1 but consider stricter schema later.",
+    "Fill-mode inputs render as <input> with no explicit type attr; works but 'input[type=\"text\"]' CSS selectors won't match — cosmetic."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "test_credentials": "License auto-configured via REACT_APP_LICENSE_KEY=NEXO-DEMO-0001; no auth needed for /api/formatos.",
+  "seed_data_creation": "Test template 'TEST_Formato' created and deleted by pytest. One 'Formato 3' new template was created via UI during persistence test and left behind (can be cleaned via DELETE /api/formatos/{id}).",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "All 5 backend tests pass. Frontend editor + fill mode confirmed. Canvas child elements do not carry per-element data-testid — use '[style*=\"position: absolute\"]' or 'input' selectors instead. Two duplicate 'Recepción' rows exist from prior seeding — may need cleanup script."
+}

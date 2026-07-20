@@ -2952,6 +2952,56 @@ async def root():
     return {"message": "ERP Base API", "status": "ok"}
 
 
+# ==========================================================================
+# FORMATOS DE IMPRESIÓN (editor de plantillas)
+# ==========================================================================
+class FormatoInput(BaseModel):
+    name: str = "Formato"
+    page: dict = {"size": "A4", "orientation": "portrait"}
+    elements: List[dict] = []
+
+
+@api_router.get("/formatos")
+async def listar_formatos():
+    cur = db.formatos_impresion.find({}, {"_id": 0}).sort("created_at", 1)
+    return [f async for f in cur]
+
+
+@api_router.post("/formatos")
+async def crear_formato(data: FormatoInput):
+    doc = {
+        "id": new_id(),
+        "name": data.name,
+        "page": data.page,
+        "elements": data.elements,
+        "created_at": now_iso(),
+        "updated_at": now_iso(),
+    }
+    await db.formatos_impresion.insert_one(dict(doc))
+    doc.pop("_id", None)
+    return doc
+
+
+@api_router.put("/formatos/{fid}")
+async def actualizar_formato(fid: str, data: FormatoInput):
+    res = await db.formatos_impresion.update_one(
+        {"id": fid},
+        {"$set": {"name": data.name, "page": data.page, "elements": data.elements, "updated_at": now_iso()}},
+    )
+    if res.matched_count == 0:
+        raise HTTPException(404, "Formato no encontrado")
+    doc = await db.formatos_impresion.find_one({"id": fid}, {"_id": 0})
+    return doc
+
+
+@api_router.delete("/formatos/{fid}")
+async def eliminar_formato(fid: str):
+    await db.formatos_impresion.delete_one({"id": fid})
+    return {"ok": True}
+
+
+
+
 app.include_router(api_router)
 
 app.add_middleware(
