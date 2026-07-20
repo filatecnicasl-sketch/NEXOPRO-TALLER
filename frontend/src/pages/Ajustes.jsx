@@ -4,7 +4,6 @@ import { Plus, Trash, FloppyDisk, Buildings, Stack, Star, UploadSimple, Image as
 import { toast } from "sonner";
 import { getAjustes, updateAjustes, probarNotificacion, getFormatos, subirCertificadoFacturae, guardarConfigFacturae, eliminarCertificadoFacturae } from "@/lib/api";
 import { useAppAuth } from "@/lib/appAuth";
-import MiCuentaCard from "@/components/MiCuentaCard";
 import { UsersThree } from "@phosphor-icons/react";
 import PageHeader from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
@@ -415,8 +414,6 @@ export default function Ajustes() {
         />
 
         <NotifEditor notif={notif} setNotif={setNotif} />
-
-        <MiCuentaCard />
 
         {user?.role === "admin" && (
           <div className="bg-white border border-zinc-200 rounded-lg shadow-sm overflow-hidden" data-testid="usuarios-card">

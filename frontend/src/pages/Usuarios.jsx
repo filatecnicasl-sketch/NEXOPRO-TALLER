@@ -17,8 +17,15 @@ const ROLES = [
   { v: "operario", l: "Mecánico / Operario", c: "bg-emerald-50 text-emerald-700 ring-emerald-200" },
 ];
 const roleInfo = (r) => ROLES.find((x) => x.v === r) || ROLES[2];
+const MODULOS = [
+  { v: "articulos", l: "Artículos" },
+  { v: "ventas", l: "Ventas" },
+  { v: "compras", l: "Compras" },
+  { v: "taller", l: "Taller" },
+];
+const MOD_LABEL = Object.fromEntries(MODULOS.map((m) => [m.v, m.l]));
 const selectCls = "h-10 w-full text-sm rounded-md border border-input bg-white px-3 mt-1";
-const EMPTY = { nombre: "", email: "", password: "", role: "operario", activo: true };
+const EMPTY = { nombre: "", email: "", password: "", role: "operario", activo: true, permisos: ["taller"] };
 
 export default function Usuarios() {
   const { user: yo } = useAppAuth();
@@ -35,12 +42,14 @@ export default function Usuarios() {
   useEffect(load, []);
 
   const openNew = () => { setForm(EMPTY); setEditId(null); setOpen(true); };
-  const openEdit = (u) => { setForm({ ...EMPTY, ...u, password: "" }); setEditId(u.id); setOpen(true); };
+  const openEdit = (u) => { setForm({ ...EMPTY, ...u, password: "", permisos: u.permisos || [] }); setEditId(u.id); setOpen(true); };
+
+  const toggleModulo = (m) => setForm((f) => ({ ...f, permisos: f.permisos.includes(m) ? f.permisos.filter((x) => x !== m) : [...f.permisos, m] }));
 
   const save = async () => {
     if (!form.email.trim()) return toast.error("El email es obligatorio");
     try {
-      if (editId) { await updateAppUsuario(editId, { nombre: form.nombre, email: form.email, role: form.role, activo: form.activo }); toast.success("Usuario actualizado"); }
+      if (editId) { await updateAppUsuario(editId, { nombre: form.nombre, email: form.email, role: form.role, activo: form.activo, permisos: form.permisos }); toast.success("Usuario actualizado"); }
       else { await createAppUsuario(form); toast.success("Usuario creado. Deberá cambiar la contraseña al entrar."); }
       setOpen(false); load();
     } catch (e) { toast.error(e?.response?.data?.detail || "Error al guardar"); }
@@ -66,13 +75,13 @@ export default function Usuarios() {
         <Table>
           <TableHeader>
             <TableRow className="bg-zinc-50 hover:bg-zinc-50">
-              {["Nombre", "Email", "Rol", "2FA", "Estado", "Acciones"].map((h, i) => (
-                <TableHead key={h} className={`text-[11px] uppercase tracking-wider text-zinc-500 font-semibold ${i === 5 ? "text-right" : ""}`}>{h}</TableHead>
+              {["Nombre", "Email", "Rol", "Acceso", "2FA", "Estado", "Acciones"].map((h, i) => (
+                <TableHead key={h} className={`text-[11px] uppercase tracking-wider text-zinc-500 font-semibold ${i === 6 ? "text-right" : ""}`}>{h}</TableHead>
               ))}
             </TableRow>
           </TableHeader>
           <TableBody>
-            {loading && <TableRow><TableCell colSpan={6} className="text-center text-zinc-400 py-10">Cargando...</TableCell></TableRow>}
+            {loading && <TableRow><TableCell colSpan={7} className="text-center text-zinc-400 py-10">Cargando...</TableCell></TableRow>}
             {!loading && items.map((u) => {
               const ri = roleInfo(u.role);
               return (
@@ -80,6 +89,11 @@ export default function Usuarios() {
                   <TableCell className="py-2.5 font-medium text-zinc-900 flex items-center gap-2"><User size={15} className="text-zinc-400" />{u.nombre || "—"}{u.id === yo?.id && <span className="text-[10px] text-indigo-500">(tú)</span>}</TableCell>
                   <TableCell className="text-zinc-600 text-sm font-mono-plex">{u.email}</TableCell>
                   <TableCell><span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ring-1 ${ri.c}`}>{ri.l}</span></TableCell>
+                  <TableCell>
+                    {u.role === "admin" ? <span className="text-xs text-indigo-600 font-medium">Todo</span>
+                      : (u.permisos || []).length === 0 ? <span className="text-xs text-zinc-400">Sin acceso</span>
+                        : <span className="text-xs text-zinc-600">{(u.permisos || []).map((p) => MOD_LABEL[p] || p).join(", ")}</span>}
+                  </TableCell>
                   <TableCell>{u.totp_enabled ? <span className="inline-flex items-center gap-1 text-xs text-emerald-600"><ShieldCheck size={13} weight="fill" /> Activo</span> : <span className="text-xs text-zinc-400">—</span>}</TableCell>
                   <TableCell><span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${u.activo ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-600"}`}>{u.activo ? "Activo" : "Desactivado"}</span></TableCell>
                   <TableCell className="text-right">
@@ -110,6 +124,21 @@ export default function Usuarios() {
                 {ROLES.map((r) => <option key={r.v} value={r.v}>{r.l}</option>)}
               </select>
             </div>
+            {form.role === "admin" ? (
+              <p className="text-xs text-indigo-600 bg-indigo-50 rounded-md px-3 py-2">El administrador tiene acceso a <b>todo el programa</b>, incluidos Ajustes y la gestión de usuarios.</p>
+            ) : (
+              <div>
+                <Label className="text-xs">Partes del programa que puede usar</Label>
+                <div className="grid grid-cols-2 gap-2 mt-1.5" data-testid="usuario-permisos">
+                  {MODULOS.map((m) => (
+                    <label key={m.v} className={`flex items-center gap-2 text-sm border rounded-md px-3 py-2 cursor-pointer transition-colors ${form.permisos.includes(m.v) ? "border-primary bg-indigo-50 text-indigo-700" : "border-zinc-200 hover:bg-zinc-50"}`}>
+                      <input type="checkbox" data-testid={`permiso-${m.v}`} checked={form.permisos.includes(m.v)} onChange={() => toggleModulo(m.v)} /> {m.l}
+                    </label>
+                  ))}
+                </div>
+                <p className="text-[11px] text-zinc-400 mt-1.5">Ajustes queda reservado al administrador. Todos pueden cambiar su contraseña desde "Mi cuenta".</p>
+              </div>
+            )}
             {editId && (
               <label className="flex items-center gap-2 text-sm text-zinc-700 pt-1">
                 <input type="checkbox" data-testid="usuario-activo" checked={form.activo} onChange={(e) => setForm({ ...form, activo: e.target.checked })} /> Cuenta activa

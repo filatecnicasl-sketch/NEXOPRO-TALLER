@@ -271,6 +271,7 @@ async def verificar_licencia(license_key: str):
 import pyotp
 
 APP_ROLES = ("admin", "operario", "recepcion")
+APP_MODULOS = ("articulos", "ventas", "compras", "taller")  # "ajustes" es exclusivo del admin
 MAX_INTENTOS = 5
 BLOQUEO_MINUTOS = 15
 APP_TOKEN_HORAS = 8
@@ -292,8 +293,11 @@ def _app_token(user: dict) -> str:
 
 
 def _app_user_publico(u: dict) -> dict:
+    role = u.get("role", "operario")
+    permisos = list(APP_MODULOS) if role == "admin" else [m for m in (u.get("permisos") or []) if m in APP_MODULOS]
     return {"id": u["id"], "nombre": u.get("nombre", ""), "email": u["email"],
-            "role": u.get("role", "operario"), "activo": u.get("activo", True),
+            "role": role, "activo": u.get("activo", True),
+            "permisos": permisos, "es_admin": role == "admin",
             "totp_enabled": bool(u.get("totp_enabled")), "last_login": u.get("last_login")}
 
 
@@ -426,6 +430,7 @@ class AppUsuarioInput(BaseModel):
     password: Optional[str] = None
     role: str = "operario"
     activo: bool = True
+    permisos: List[str] = []
 
 
 @api_router.get("/app/usuarios")
@@ -446,9 +451,11 @@ async def app_crear_usuario(data: AppUsuarioInput, _: dict = Depends(require_app
     if not data.password:
         raise HTTPException(400, "La contraseña es obligatoria.")
     _politica_password(data.password)
+    permisos = list(APP_MODULOS) if data.role == "admin" else [m for m in data.permisos if m in APP_MODULOS]
     doc = {"id": new_id(), "nombre": data.nombre, "email": email,
            "password_hash": hash_password(data.password), "role": data.role,
-           "activo": data.activo, "failed_attempts": 0, "locked_until": None,
+           "activo": data.activo, "permisos": permisos,
+           "failed_attempts": 0, "locked_until": None,
            "totp_secret": None, "totp_enabled": False, "must_change_password": True,
            "last_login": None, "created_at": now_iso()}
     await db.app_users.insert_one(dict(doc))
@@ -466,6 +473,7 @@ async def app_editar_usuario(uid: str, data: AppUsuarioInput, admin: dict = Depe
     if user["id"] == admin["id"] and (data.role != "admin" or not data.activo):
         raise HTTPException(400, "No puedes quitarte a ti mismo el rol de administrador ni desactivarte.")
     upd = {"nombre": data.nombre, "role": data.role, "activo": data.activo}
+    upd["permisos"] = list(APP_MODULOS) if data.role == "admin" else [m for m in data.permisos if m in APP_MODULOS]
     await db.app_users.update_one({"id": uid}, {"$set": upd})
     return _app_user_publico({**user, **upd})
 

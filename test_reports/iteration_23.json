@@ -1,0 +1,30 @@
+{
+  "summary": "Iter23 — permisos por módulo. Backend: 6/6 pytest OK (POST filtra 'ajustes', PUT filtra, role=admin fuerza permisos completos, /me devuelve permisos+es_admin, operario recibe 403 en /api/app/usuarios, sin token /me devuelve 401). Frontend: mecanico solo ve pestaña Taller; /ajustes, /articulos, /facturas-emitidas redirigen a /taller; mi-cuenta-link funciona y /mi-cuenta accesible. Admin ve las 5 pestañas, ajustes/usuarios-card OK, creación de usuario recepción con solo 'ventas' → columna Acceso muestra 'Ventas', eliminación por UI funciona. Cleanup: solo quedan administrador@taller.com y mecanico@taller.com.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter23_permisos.py",
+    "/app/test_reports/pytest/iter23_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "server.py: los permisos son enforced solo en UI (visibleModules) y en el guard de rutas del frontend. Los endpoints por módulo (contactos/ventas/compras/taller/articulos) NO validan permisos server-side — un operario con solo permiso 'taller' que conozca la URL podría llamar por ejemplo /api/facturas. Ya se comentó en iter22 la ausencia de auth en esos endpoints; con permisos por módulo el riesgo crece. Recomendado: añadir Depends que valide `modulo in current_user.permisos or current_user.role=='admin'` en cada router agrupado."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter23_permisos.py (creado)"
+  ],
+  "success_rate": {"backend": "100% (6/6)", "frontend": "100% (todos los flujos críticos)"},
+  "test_credentials": "administrador@taller.com / Taller1234! (must_change_password=False en preview, entra directo). mecanico@taller.com / Mecanico1 (rol operario, permisos=['taller']).",
+  "seed_data_creation": "Se crearon (y borraron) TEST_iter23_ventasajustes@taller.com y TEST_iter23_admin@taller.com por API, y test_iter23_ui@taller.com por UI. Todos eliminados; app_users queda con administrador + mecanico únicamente.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Feature de permisos por módulo verificada end-to-end (backend filtro, frontend visibleModules, route guard, mi-cuenta para todos). Único hallazgo pendiente heredado de iter22: los endpoints del ERP no validan permisos server-side — cuando el main agent lo aborde, añadir tests que verifiquen 403 al operario en endpoints fuera de su módulo permitido.",
+  "rca_of_the_issue": "N/A — no se encontraron bugs."
+}

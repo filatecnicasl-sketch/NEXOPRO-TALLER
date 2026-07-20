@@ -1,3 +1,5 @@
+import { useEffect } from "react";
+
 import { NavLink, Outlet, Link, useLocation, useNavigate } from "react-router-dom";
 import {
   UsersThree, Truck, Package, ClipboardText, FileText, Receipt, FileArrowDown,
@@ -79,7 +81,9 @@ function UserMenu() {
         <span className="text-xs font-semibold text-zinc-800">{user.nombre || user.email}</span>
         <span className="text-[10px] text-zinc-400">{ROLE_LABEL[user.role] || user.role}</span>
       </div>
-      <UserCircle size={26} className="text-zinc-400" weight="duotone" />
+      <Link to="/mi-cuenta" data-testid="mi-cuenta-link" title="Mi cuenta" className="text-zinc-400 hover:text-primary transition-colors">
+        <UserCircle size={26} weight="duotone" />
+      </Link>
       <button data-testid="logout-button" onClick={logout} title="Cerrar sesión"
         className="inline-flex items-center gap-1 text-xs text-zinc-500 hover:text-red-500 border border-zinc-200 rounded-md px-2 py-1.5 transition-colors">
         <SignOut size={15} /> <span className="hidden sm:inline">Salir</span>
@@ -92,8 +96,24 @@ function UserMenu() {
 export default function Layout() {
   const { pathname } = useLocation();
   const navigate = useNavigate();
+  const { user } = useAppAuth();
+  const isAdmin = user?.es_admin || user?.role === "admin";
+  const allowed = isAdmin ? MODULES.map((m) => m.id) : (user?.permisos || []);
+  const visibleModules = MODULES.filter((m) => isAdmin || (m.id !== "ajustes" && allowed.includes(m.id)));
+  const homeRoute = visibleModules[0] ? visibleModules[0].items[0].to : "/mi-cuenta";
   const activeModule = MODULES.find((m) => m.items.some((it) => matchItem(pathname, it)));
-  const ribbonModule = activeModule || MODULES[0];
+  const ribbonModule = activeModule || visibleModules[0] || MODULES[0];
+
+  // Control de acceso por permisos: redirige si el usuario abre un módulo no autorizado.
+  useEffect(() => {
+    if (!user || isAdmin) return;
+    if (pathname === "/mi-cuenta") return;
+    if (pathname === "/") { navigate(homeRoute, { replace: true }); return; }
+    let modId;
+    if (pathname.startsWith("/usuarios") || pathname.startsWith("/ajustes")) modId = "ajustes";
+    else modId = MODULES.find((m) => m.items.some((it) => matchItem(pathname, it)))?.id;
+    if (modId && !allowed.includes(modId)) navigate(homeRoute, { replace: true });
+  }, [pathname, user, isAdmin]); // eslint-disable-line
 
   return (
     <div className="min-h-screen bg-background">
@@ -109,7 +129,7 @@ export default function Layout() {
           </Link>
 
           <nav className="flex items-center gap-1 flex-1 overflow-x-auto" data-testid="module-tabs">
-            {MODULES.map((m) => {
+            {visibleModules.map((m) => {
               const Icon = m.icon;
               const isActive = activeModule?.id === m.id;
               const tone = TONES[m.tone] || TONES.indigo;

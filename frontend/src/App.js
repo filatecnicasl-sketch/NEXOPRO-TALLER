@@ -25,6 +25,7 @@ import AdminLogin from "@/pages/AdminLogin";
 import AdminPanel from "@/pages/AdminPanel";
 import Login from "@/pages/Login";
 import Usuarios from "@/pages/Usuarios";
+import MiCuenta from "@/pages/MiCuenta";
 import ForzarCambioPassword from "@/pages/ForzarCambioPassword";
 import { AppAuthProvider, useAppAuth } from "@/lib/appAuth";
 import { ArrowClockwise } from "@phosphor-icons/react";
@@ -103,6 +104,7 @@ function App() {
             <Route path="/facturas-recibidas" element={<FacturasRecibidas />} />
             <Route path="/ajustes" element={<Ajustes />} />
             <Route path="/usuarios" element={<Usuarios />} />
+            <Route path="/mi-cuenta" element={<MiCuenta />} />
 
             {/* Módulo Taller (sectorial) */}
             <Route path="/taller" element={<TallerDashboard />} />
