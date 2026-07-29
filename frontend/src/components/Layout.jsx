@@ -4,7 +4,7 @@ import { NavLink, Outlet, Link, useLocation, useNavigate } from "react-router-do
 import {
   UsersThree, Truck, Package, ClipboardText, FileText, Receipt, FileArrowDown,
   ShieldCheck, Gear, FileDashed, Wrench, Car, MagnifyingGlass, CalendarCheck, Gauge,
-  SignOut, UserCircle,
+  SignOut, UserCircle, Buildings, Stack, BellRinging, Certificate, Printer,
 } from "@phosphor-icons/react";
 import { useAppAuth } from "@/lib/appAuth";
 
@@ -63,7 +63,12 @@ const MODULES = [
   {
     id: "ajustes", label: "Ajustes", icon: Gear, tone: "slate",
     items: [
-      { to: "/ajustes", label: "Ajustes", icon: Gear, tone: "slate", testid: "nav-ajustes" },
+      { to: "/ajustes", label: "Datos de empresa", icon: Buildings, tone: "slate", testid: "nav-ajustes-empresa", end: true },
+      { to: "/ajustes/series", label: "Series", icon: Stack, tone: "indigo", testid: "nav-ajustes-series" },
+      { to: "/ajustes/notificaciones", label: "Notificaciones", icon: BellRinging, tone: "amber", testid: "nav-ajustes-notificaciones" },
+      { to: "/ajustes/certificado", label: "Certificado / FACe", icon: Certificate, tone: "emerald", testid: "nav-ajustes-certificado" },
+      { to: "/ajustes/impresion", label: "Formatos", icon: Printer, tone: "blue", testid: "nav-ajustes-formatos" },
+      { to: "/usuarios", label: "Usuarios", icon: UsersThree, tone: "violet", testid: "nav-ajustes-usuarios" },
     ],
   },
 ];

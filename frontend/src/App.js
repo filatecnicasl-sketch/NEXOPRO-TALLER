@@ -103,6 +103,10 @@ function App() {
             <Route path="/facturas-emitidas" element={<FacturasEmitidas />} />
             <Route path="/facturas-recibidas" element={<FacturasRecibidas />} />
             <Route path="/ajustes" element={<Ajustes />} />
+            <Route path="/ajustes/series" element={<Ajustes />} />
+            <Route path="/ajustes/notificaciones" element={<Ajustes />} />
+            <Route path="/ajustes/certificado" element={<Ajustes />} />
+            <Route path="/ajustes/impresion" element={<Ajustes />} />
             <Route path="/usuarios" element={<Usuarios />} />
             <Route path="/mi-cuenta" element={<MiCuenta />} />
 

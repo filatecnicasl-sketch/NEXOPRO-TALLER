@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { Plus, Trash, FloppyDisk, Buildings, Stack, Star, UploadSimple, Image as ImageIcon, BellRinging, EnvelopeSimple, WhatsappLogo, PaperPlaneTilt, House, Wrench, Printer, CaretRight, Certificate, ShieldCheck } from "@phosphor-icons/react";
 import { toast } from "sonner";
 import { getAjustes, updateAjustes, probarNotificacion, getFormatos, subirCertificadoFacturae, guardarConfigFacturae, eliminarCertificadoFacturae } from "@/lib/api";
@@ -299,17 +299,17 @@ export default function Ajustes() {
   const [formatoHojaEntrada, setFormatoHojaEntrada] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [section, setSection] = useState("empresa");
+  const location = useLocation();
 
   const isAdmin = user?.role === "admin";
-  const SECTIONS = [
-    { id: "empresa", label: "Datos de empresa", icon: Buildings },
-    { id: "series", label: "Series", icon: Stack },
-    { id: "notificaciones", label: "Notificaciones", icon: BellRinging },
-    { id: "facturae", label: "Certificado / FACe", icon: Certificate },
-    { id: "formatos", label: "Formatos", icon: Printer },
-    ...(isAdmin ? [{ id: "usuarios", label: "Usuarios", icon: UsersThree }] : []),
-  ];
+  const SECTION_BY_PATH = {
+    "/ajustes": "empresa",
+    "/ajustes/series": "series",
+    "/ajustes/notificaciones": "notificaciones",
+    "/ajustes/certificado": "facturae",
+    "/ajustes/impresion": "formatos",
+  };
+  const section = SECTION_BY_PATH[location.pathname] || "empresa";
   const savableSections = ["empresa", "series", "notificaciones", "formatos"];
 
   useEffect(() => {
@@ -366,30 +366,9 @@ export default function Ajustes() {
         )}
       </PageHeader>
 
-      <div className="flex flex-col md:flex-row gap-6">
-        {/* Navegación por iconos */}
-        <nav className="md:w-60 shrink-0" data-testid="ajustes-nav">
-          <div className="flex md:flex-col gap-1.5 overflow-x-auto md:overflow-visible bg-white border border-zinc-200 rounded-lg p-2 shadow-sm">
-            {SECTIONS.map((s) => {
-              const Icon = s.icon;
-              const active = section === s.id;
-              return (
-                <button
-                  key={s.id}
-                  data-testid={`ajustes-nav-${s.id}`}
-                  onClick={() => setSection(s.id)}
-                  className={`flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium whitespace-nowrap transition-colors text-left ${active ? "bg-primary text-white shadow-sm" : "text-zinc-600 hover:bg-zinc-100"}`}
-                >
-                  <Icon size={19} weight={active ? "fill" : "duotone"} className={active ? "" : "text-indigo-500"} />
-                  {s.label}
-                </button>
-              );
-            })}
-          </div>
-        </nav>
-
-        {/* Contenido de la sección activa */}
-        <div className="flex-1 min-w-0 space-y-6">
+      <div>
+        {/* Contenido de la sección activa (navegación en la cinta superior) */}
+        <div className="space-y-6" data-testid={`ajustes-section-${section}`}>
           {section === "empresa" && (
             <>
               <div className="bg-white border border-zinc-200 rounded-lg shadow-sm overflow-hidden">
