@@ -3539,6 +3539,22 @@ async def startup_seed():
         })
         logger.info("Usuario admin del taller creado")
 
+    # Restablecimiento controlado de la contraseña del admin del taller.
+    # Se activa SOLO con APP_ADMIN_RESET=true. Restablece la clave a APP_ADMIN_PASSWORD,
+    # desbloquea la cuenta y desactiva el cambio forzado. Quitar la variable tras usarla.
+    if os.environ.get("APP_ADMIN_RESET", "").strip().lower() == "true":
+        reset_email = os.environ.get("APP_ADMIN_EMAIL", "administrador@taller.com").lower()
+        reset_pwd = os.environ.get("APP_ADMIN_PASSWORD", "Taller1234!")
+        res = await db.app_users.update_one({"email": reset_email}, {"$set": {
+            "password_hash": hash_password(reset_pwd),
+            "failed_attempts": 0, "locked_until": None,
+            "must_change_password": False, "activo": True,
+        }})
+        if res.matched_count:
+            logger.info(f"APP_ADMIN_RESET: contraseña restablecida para {reset_email}")
+        else:
+            logger.warning(f"APP_ADMIN_RESET: no se encontró el usuario {reset_email}")
+
     # Contador de referencias de artículo (evita colisión con los existentes)
     if not await db.counters.find_one({"_id": "articulo_ref"}):
         existentes = await db.articulos.count_documents({})
